@@ -1,6 +1,6 @@
 # ADR-003: Scheduler Isolation, Study Queue, and Cram Mode
 
-**Status:** Accepted
+**Status:** Accepted. Queue order refined in M1-11: learning items inside the 20 minute learn-ahead window are a last resort, shown only after reviews and new cards. See the SDE log.
 **Date:** 2026-10-10
 **Feature:** tessera-v1
 **Author:** 10x-Team (Architect + Staff Engineer)

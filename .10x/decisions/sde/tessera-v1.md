@@ -261,3 +261,34 @@ Each entry records what was built, deviations from the plan or ADRs, and tech de
 **Verification:** hand-derived expectations for America/Chicago summer, winter, both DST days, gap and repeated rollover hours, UTC, Asia/Kolkata (half-hour offset), midnight and 23:00 rollovers. An invariant sweep over 2026 and 2027 checks, for Chicago, London, Sydney, and Kolkata at rollover hours 0, 1, 2, and 4, that the day contains the instant, is 22.9 to 25.1 hours long, and chains to the next day exactly. The sweep samples coarsely across the range and densely around each detected DST transition. A meta-test confirms it finds 4 transitions in each DST zone and none in Kolkata. The first version of the sweep took 10 seconds. Sampling around transitions instead cut it to 3 seconds with better coverage.
 
 **Tech debt:** none.
+
+## M1-11 Study queue (2026-10-10)
+
+**Built:** `server/repos/study-queries.ts` (all queue SQL), `server/study/{queue,state,index}.ts` (`selectNext`, `countQueue`, row and `ItemState` mapping), `Rng` and `systemRng` in `server/clock.ts`, `tests/integration/study/queue.test.ts` (61 tests).
+
+**Selection order (refines ADR-003):**
+
+1. Learning and relearning items due now, earliest first.
+2. Review items due before the study day ends, lowest recall probability first (random with interleave on), unless the daily review limit is reached.
+3. New items, deck title then file order, per deck up to its daily limit (random among a window of 50 with interleave on).
+4. **Learn-ahead:** learning items due within the next 20 minutes, only if nothing above is left.
+5. Otherwise empty, with `waitingUntil` set to the next learning item due later today, if any.
+
+**Deviation from ADR-003:** the ADR placed learn-ahead items first. That would show a card due in 19 minutes before reviews that are due now, shrinking the spacing the algorithm just computed. Learn-ahead is now a last resort, which matches standard flashcard behavior. ADR-003 carries a status note.
+
+**Rules worth knowing:**
+
+| Rule | Detail |
+|---|---|
+| Daily new limit | Per deck: the deck's `new_per_day` override, otherwise the global setting. Counted from `review_log` rows with `mode = review` and `pre_phase = 0` since the study day started, so a card counts once on its first review. Cram rows and yesterday's rows do not count. |
+| Daily review limit | Global across decks. Counts only reviews of graduated cards (`pre_phase = 2`). Learning and relearning repeats never count and are never blocked by the limit. |
+| Due today | Reviews due any time before the next rollover are available now, not only those already overdue. |
+| Exclusions | Archived or suspended cards, archived review items, archived decks, and items buried past `now`. |
+| Recall ranking | Uses `createReader()` from `core/scheduler/read.ts` (read-only). Up to 5,000 due reviews are ranked in memory per request. |
+| Randomness | Injected `rng`. Production uses `systemRng` from `clock.ts`. |
+
+**`countQueue`** mirrors the filters and limits so the home screen's numbers always match a session. Learning counts items due now (not learn-ahead), reviews are capped by the remaining allowance, and new items are capped per deck by the remaining deck allowance.
+
+**Verification:** targeted tests for every rule above, plus a drain test: it answers every served item (logging it and moving it into the future) until the queue is empty and asserts the number served equals `learning + review + new` from `countQueue`. That runs on a hand-built scenario and on 25 seeded random scenarios with random limits, per-deck overrides, interleave, exclusions, and prior activity. A guard test confirms at least 20 of those scenarios serve items and the largest serves 10 or more, so the agreement is not vacuous.
+
+**Tech debt:** none. `nextItem` for the API (attaching previews and card content) is M1-12 and M1-18.
