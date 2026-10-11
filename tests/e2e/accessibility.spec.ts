@@ -180,8 +180,16 @@ test.describe('keyboard and focus', () => {
 			});
 
 		// Control: with no preference the interface does animate, so the check below can fail.
+		// The app builds its page in the browser, after the load event. Slow its code down so this test
+		// always meets that situation, as it does on a slow CI machine, and wait for the page to exist
+		// before measuring. Measuring an empty page finds no motion and proves nothing.
+		await page.route('**/_app/**', async (route) => {
+			await new Promise((resolve) => setTimeout(resolve, 400));
+			await route.continue();
+		});
 		await page.emulateMedia({ reducedMotion: 'no-preference' });
 		await page.goto('/import');
+		await expect(page.getByRole('button', { name: 'Preview' })).toBeVisible();
 		expect(await longestMotion(), 'the interface has some motion to remove').toBeGreaterThan(20);
 
 		await page.emulateMedia({ reducedMotion: 'reduce' });
