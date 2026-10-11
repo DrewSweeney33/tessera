@@ -1,7 +1,7 @@
 # Tessera Status
 
-**Last updated:** 2026-10-10
-**Current phase:** Phase 4 Implementation, Milestone 1 complete and awaiting the owner's exit-gate confirmation
+**Last updated:** 2026-10-11
+**Current phase:** Phase 5 Verification (interim, M1 slice) complete. Milestone 1 awaits the owner's exit-gate confirmation.
 **Feature slug:** `tessera-v1`
 
 ## Phase tracker
@@ -13,7 +13,7 @@
 | 2 Design | Complete. 7 ADRs accepted (005 to 007 added during implementation). |
 | 3 Planning | Complete. 67 tasks, 5 milestones, about 224 hours (human-equivalent). |
 | 4 Implementation | M1 done (23 of 23 tasks). Waiting for the owner to confirm the M1 exit gate before M2 starts. |
-| 5 Verification | Interim at M2 exit, final at M5 exit |
+| 5 Verification | **Interim pass on the M1 slice done 2026-10-11.** 2 defects fixed, 0 blocking. Repeat at the M2 exit (with a security review) and final at M5 exit. |
 | 6 Delivery | `v0.1.0` at M2 exit, `v1.0.0` at M5 exit |
 
 ## Key artifacts
@@ -26,6 +26,8 @@
 - Engineering Manager (task list, sequencing, risks): `.10x/decisions/engineering-manager/tessera-v1.md`
 - Senior Engineer (per-task approach): `.10x/decisions/senior-engineer/tessera-v1.md`
 - SDE running log with findings per task: `.10x/decisions/sde/tessera-v1.md`
+- QA: `.10x/decisions/qa/tessera-v1.md`, report `.10x/reviews/2026-10-11-qa-report.md`
+- Security: `.10x/decisions/security/tessera-v1.md`, review `.10x/reviews/2026-10-11-security-review.md`
 - ADRs: `.10x/adrs/001` to `007`
 - Docs: `README.md`, `docs/design.md`, `docs/performance.md`
 
@@ -72,8 +74,23 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 | Docker image build | Not run (no Docker locally). Verified by CI only, and CI has never run. |
 | Contrast, both themes | 36 of 36 pairs pass AA (browser audit) |
 
-### M2 Card types, Markdown, Claude skill (16 tasks, 54 hours)
+### Phase 5 interim results (2026-10-11, commit `bb53e77`)
 
+| Check | Result |
+|---|---|
+| Unit, integration, browser (Chrome) tests | 319, 232, 50 pass |
+| Security probe against the built server | 101 pass, 0 fail, 1 known open gap |
+| Durability and concurrency (SIGKILL, restart, parallel writes, SQLite integrity) | 54 pass |
+| Accessibility (axe WCAG 2.1 A and AA), every screen state, both themes | 0 violations |
+| Coverage | 92.1 percent lines, 85.3 percent branches |
+| Mutation check on core invariants | 14 of 15 caught; the survivor (CSP loosening) is now covered by the probe in CI |
+| Defects fixed | Q-01 no h1 on the study screen, Q-02 oversized chunked body gave 500 |
+| Open security findings | S-01 DNS rebinding (Medium), S-02 token vs UI (Medium), S-05 image never built (Low) |
+| Untested | Firefox, Safari, a real screen reader, the Docker image, CI on GitHub, Linux runs of the new scripts |
+
+### M2 Card types, Markdown, Claude skill (17 tasks, about 56 hours)
+
+- [ ] M2-00 **Host check against DNS rebinding and the startup warning (security finding S-01).** Do this first. Safe default with no configuration, `TESSERA_ALLOWED_HOSTS` to override. The probe check flips from KNOWN to PASS. (S)
 - [ ] M2-01 Cloze core (S). Note: an interim `clozeSides` already exists in `core/cloze.ts` for the study UI.
 - [ ] M2-02 Cloze in import and queue, sibling burying (M). Burying is already in `submitReview`.
 - [ ] M2-03 Typed-answer matcher (S)
@@ -85,9 +102,9 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 - [ ] M2-09 Import preview detail (M)
 - [ ] M2-10 Study UI for cloze, typed, choice (M)
 - [ ] M2-11 Mermaid and Shiki under the CSP (M)
-- [ ] M2-12 API token and allowed hosts (M). **Needs a design decision first, see open decisions.**
+- [ ] M2-12 API token and allowed hosts (M). **Needs the S-02 design decision first, and M2-00 done.** Allowed hosts moves to M2-00.
 - [ ] M2-13 Claude skill, deck-format docs, golden decks (M)
-- [ ] M2-14 e2e for all card types and Markdown (M)
+- [ ] M2-14 e2e for all card types and Markdown (M). Add Firefox and WebKit projects to CI (QA risk R-1).
 - [ ] M2-15 Release pipeline, publication needs owner approval (M)
 - [ ] M2-16 M2 exit gate: QA report, security review, v0.1.0 (S)
 
@@ -116,8 +133,8 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 
 ## Blockers and open decisions for the owner
 
-1. **M1 exit gate.** Confirm M1 so M2 can start, or ask for changes.
-2. **API token versus the browser UI (blocks M2-12).** ADR-005 requires the bearer token on every `/api/*` route except `/healthz` and `/api/schema`, but the browser UI calls those routes without a token, so enabling it would lock the UI out. Options: the token covers only external clients and the reverse proxy protects the UI, or the UI gets a separate same-origin prefix. Recommendation: token for external clients only, documented clearly.
+1. **M1 exit gate.** Confirm M1 so M2 can start, or ask for changes. QA conditions: first green CI run on GitHub (needs item 4), and M2-00 scheduled first.
+2. **API token versus the browser UI (blocks M2-12; security finding S-02).** ADR-005 requires the bearer token on every `/api/*` route except `/healthz` and `/api/schema`, but the browser UI calls those routes without a token, so enabling it would lock the UI out. Recommendation: the token covers only external clients, same-origin browser requests (`Sec-Fetch-Site: same-origin`) are exempt, and this ships only after M2-00 because a DNS-rebound page also looks same-origin. Needs your decision, then an ADR-005 amendment.
 3. **LICENSE file.** Permission to download the AGPL-3.0 text from gnu.org, and `AGPL-3.0-only` or `AGPL-3.0-or-later`.
 4. **GitHub remote.** Where should the repo live and when does it go public? Nothing is pushed or published without approval. CI has never run, so the Docker image and the CI e2e job are unverified until it does.
 5. Docker Desktop is optional on the dev machine. Without it, CI is the only image verification.

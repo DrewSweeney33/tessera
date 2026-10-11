@@ -1,64 +1,63 @@
 # Handoff
 
-**From:** SDE, Phase 4 Implementation, end of Milestone 1
-**To:** The next session. Start M2 only after the owner confirms the M1 exit gate.
-**Date:** 2026-10-10
+## Current handoff
 
-## Where things stand
+**From:** QA Engineer and Security Engineer, Phase 5 Verification (interim, M1 slice)
+**To:** SDE for the start of M2, DevOps for the first CI run, and the owner for three decisions
+**Date:** 2026-10-11
+**Reports:** `.10x/reviews/2026-10-11-qa-report.md`, `.10x/reviews/2026-10-11-security-review.md`
+**Per-feature files:** `.10x/decisions/qa/tessera-v1.md`, `.10x/decisions/security/tessera-v1.md`
 
-All 23 M1 tasks are done and verified in `C:\Dev\tessera` on `main`. Tessera is a working vertical slice: import a deck from Claude, study it with FSRS, run it in Docker.
+### Result
 
-| Area | State |
-|---|---|
-| Deck format | Strict Zod schema, JSON parser with fence, truncation, and located syntax errors, published JSON Schema, golden fixtures |
-| Import | Read-only plan plus atomic commit. Re-import keeps history and writes nothing when unchanged |
-| Scheduler | `ts-fsrs` behind our interface, 92-step conformance fixtures |
-| Study | Queue with daily limits, learn-ahead as a last resort, burying, `submitReview` with idempotent replay, stale check, leech flag |
-| HTTP | Hooks, CSP, content-type guard, routes for health, schema, decks, import, study next, study review |
-| UI | "Tessera Desk" design. Home, import (preview, errors, Copy errors for Claude), keyboard-first study. All four card types render and are self-graded |
-| Security | Two-layer Markdown sanitization, tested separately and together, 20-payload XSS corpus in Chrome |
-| Container and CI | Dockerfile, hardened compose, GitHub Actions workflow with e2e and benchmark steps. **Never run on GitHub** |
+The M1 slice is sound. No blocking findings. Two defects were found and fixed (Q-01 missing h1 on the study screen, Q-02 oversized chunked body gave 500). `main` is at `bb53e77` plus the state commit. Every gate is green: 319 unit, 232 integration, 50 browser, 28 smoke, 101 security probe checks (1 known open gap), 54 durability checks, axe clean, 0 production audit findings, import of 5,000 cards in about 1 s.
 
-Gate results are in `.10x/status.md`. In short: 309 unit, 232 integration, and 20 browser tests pass, smoke passes, the 5,000-card import takes about 1 s against a 10 s budget, 0 audit findings, licenses clean.
+### What to do next, in order
 
-## What M2 starts with
+1. **M2-00: host check against DNS rebinding (security S-01).** Medium. With `TESSERA_ALLOWED_HOSTS` unset, accept `localhost`, loopback and other IP literals, and single-label or `.local`, `.lan`, `.home.arpa`, `.internal` names, and answer 421 for other dotted public names. Add the startup warning ADR-005 promises. Flip the probe check "foreign Host header" from `known(...)` to `check(...)`. Tests: unit for the matcher, probe for the real server, a note in the README.
+2. **Owner decision S-02 (token vs UI), then amend ADR-005,** then M2-12.
+3. **Normal M2 work** (M2-01 onward). Keep the layers: new routes go in the probe, new UI states go in the axe spec.
+4. **DevOps:** create the GitHub remote (owner decision) and read the first CI run. Linux has never run `security-probe`, `durability-check`, the e2e job, or the Docker jobs. Fix what breaks before anything else.
 
-| Task | Notes |
-|---|---|
-| M2-01 Cloze core | `core/cloze.ts` already has `listClozeOrdinals` and an interim `clozeSides(text, ordinal)` used by the study UI. Fold it into the proper module, do not duplicate |
-| M2-02 | Sibling burying already lives in `submitReview`. M2-02 is mostly import and queue coverage |
-| M2-03, M2-04, M2-10 | The study UI renders typed and choice cards but the learner grades them. Matching and auto-grading are new. `ui/card-sides.ts` is where card-type rendering is decided |
-| M2-12 API token | **Blocked on a design decision**, see below |
+### Test tooling now available
 
-## Decisions and corrections made during implementation
+| Command | What it checks | Needs |
+|---|---|---|
+| `npm run verify` | Types, lint, format, schema drift, unit and integration tests | nothing |
+| `npm run build` then `npm run test:e2e` | 50 Chrome tests, including axe, failure paths, hostile layout | Chrome (or `npx playwright install chromium`) |
+| `npm run smoke` | 28 checks on the built server | a build |
+| `npm run security:probe` | 101 adversarial checks on the built server | a build |
+| `npm run durability` | restarts, SIGKILL during import and after a grade, parallel writes, SQLite integrity | a build |
+| `npm run benchmark` | 5,000 card import and study timings against a 10 s budget | a build |
+| `npx vitest run --testTimeout=90000 --coverage.enabled --coverage.provider=v8 --coverage.include="src/lib/**/*.ts"` | coverage (slows the ESLint layer test, hence the timeout) | nothing |
 
-- **ADR-006:** the UI uses JSON `fetch` only, no form actions. adapter-node 6 has no `ORIGIN` and assumes `https`, so form posts fail on plain HTTP.
-- **ADR-007:** `ignore-scripts=true` in `.npmrc`. A clean `npm ci` otherwise tries to compile `better-sqlite3` with `node-gyp`.
-- **ADR-003 refined:** learn-ahead items are a last resort, not first in the queue. In the UI a card in a learning step returns as "Learning" when nothing else is due. This is intended and a browser test pins it.
-- Deck `description` and `tags` omitted from a re-import are kept, not erased.
-- Leech flagging landed in `submitReview` (M1-12), not M3-01.
-- Fonts are static files in `static/fonts/` (the CSP allows only this origin). The saved theme is applied by `static/theme-init.js` before first paint.
-- Counts in the API and UI are review items (a cloze blank is one item), not cards.
-- Full running log with findings per task: `.10x/decisions/sde/tessera-v1.md`.
+### Residual risks (from the QA report)
 
-## Conventions to keep
+Chromium only. No Docker image built. CI never run. No real screen reader pass. No year-long history benchmark. Typed and choice cards are self-graded until M2-03, M2-04, M2-10.
 
-- Imports include the file extension (`#lib/core/result.ts`). `erasableSyntaxOnly` is on. No enums or parameter properties.
-- Write JSON files with the Write tool or Node, never PowerShell `Set-Content -Encoding utf8` (it adds a BOM).
-- Gate every commit on `npm run verify` actually exiting 0. Redirect its output to a file and check `$LASTEXITCODE`. Do not pipe it into `Select-String` and check the pipe's exit code.
-- Run `npm run build` before `npm run test:e2e`, `smoke`, or `benchmark`. They run the built server.
-- Never leave a negative-control edit in place. Copy the file first and restore it.
-- Colours live only in `tokens.css`. Font family names appear only there and in `fonts.css`.
-- Use `resolve()` from `$app/paths` for every internal link (a lint rule enforces it).
+### Lessons to keep applying
 
-## Open items that need the owner
+- Every security or integrity test gets a negative control (break it, watch the test fail). It found two gaps this phase.
+- Test each layer of a two-layer defence alone.
+- The e2e database persists across tests. Each test imports its own deck.
+- The app is client-rendered. Wait for the card before pressing keys.
+- Windows has no SIGTERM. Graceful shutdown is checked on Linux in CI.
+- Use `git commit -F file` for messages containing double quotes in PowerShell 5.1.
+
+### Open items that need the owner
 
 1. **Confirm the M1 exit gate** so M2 can begin.
-2. **API token versus the browser UI.** ADR-005 requires the bearer token on every `/api/*` route except `/healthz` and `/api/schema`. The UI calls those routes with no token, so turning the token on would lock the UI out. Recommendation: the token protects external clients only, the reverse proxy protects the UI, and the README says so. Needs a decision before M2-12, and ADR-005 amended.
-3. **LICENSE file.** The AGPL-3.0 text is not on this machine. Downloading it from gnu.org needs permission. Also decide `AGPL-3.0-only` or `-or-later`.
-4. **GitHub remote** (location, visibility) so CI can run and the Docker image can be verified. Nothing is pushed without approval.
-5. **Docker Desktop** is optional locally. Without it, CI is the only image verification.
+2. **S-02: how should the API token work?** Recommendation in `.10x/status.md`. Needed before M2-12.
+3. **LICENSE file.** Permission to download the AGPL-3.0 text from gnu.org, and `AGPL-3.0-only` or `-or-later`.
+4. **GitHub remote** (location, visibility). Nothing is pushed without approval. This also unblocks the first CI run.
+5. **Docker Desktop** is optional locally.
 
-## Environment
+## Handoff history
 
-Windows 11, Node 24.15.0, no Docker locally, Chrome installed (Playwright uses it), git repo at `C:\Dev\tessera`, branch `main`.
+### 2026-10-10: SDE, end of Milestone 1, to the next session
+
+All 23 M1 tasks done and verified. Backend, UI ("Tessera Desk" design), 20 browser tests, README and docs, benchmark, and CI steps in place. Decisions recorded: ADR-006 (JSON-only UI), ADR-007 (install scripts off), ADR-003 refinement (learn-ahead is a last resort), fonts as static files, `theme-init.js` for no flash, located JSON syntax errors. Open items then: M1 gate confirmation, API token vs UI tension, LICENSE, GitHub remote, Docker Desktop. Full log in `.10x/decisions/sde/tessera-v1.md`.
+
+### 2026-10-10: SDE, mid-Milestone 1, to the next session
+
+16 of 23 tasks done: the whole backend (schema, parser, import, scheduler, queue, submitReview, routes, container, CI). UI tasks, e2e, benchmark, and docs remained.

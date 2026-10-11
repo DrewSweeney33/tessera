@@ -402,3 +402,24 @@ Each entry records what was built, deviations from the plan or ADRs, and tech de
 2. **CI has never run.** There is no GitHub remote. The e2e step in CI (Chromium install) and the Docker jobs are unverified.
 3. **No LICENSE file** yet (owner permission to download the AGPL-3.0 text).
 4. **Latin-only fonts.** Cards in other scripts use system fallbacks.
+
+## Phase 5 verification fixes (2026-10-11)
+
+Done by the QA and security pass, recorded here so the log stays complete. Reports: `.10x/reviews/2026-10-11-qa-report.md` and `2026-10-11-security-review.md`.
+
+**Q-02 / S-03, oversized chunked body returned 500.** Built `server/http/body.ts` (`readBodyText`) and used it in the import and review routes. It enforces the byte cap itself instead of trusting the declared length or the adapter, stops reading at the limit, maps the adapter's `BODY_SIZE_LIMIT` error to 413, maps an interrupted connection to 400, and counts bytes (the review route compared string length). 10 unit tests including an endless stream that must not be consumed.
+
+**Q-01, no h1 on the study screen.** A visually hidden `h1` ("Studying: deck") renders in every state except done, which already has a visible one. Found by axe, not by the earlier keyboard or layout tests.
+
+**New tooling:** `scripts/security-probe.ts` (102 checks), `scripts/durability-check.ts` (54 checks, reads the SQLite file directly for integrity and card counts), `tests/e2e/robustness.spec.ts` (17), `tests/e2e/accessibility.spec.ts` (13), dev dependencies `@axe-core/playwright` 4.13.0 and `@vitest/coverage-v8` 4.1.11 (exact, matching Vitest). CI runs the probe and the durability check after the build.
+
+**Corrections to my own checks while building them:**
+
+- The probe first expected 415 for wrong content types. SvelteKit's built-in CSRF check answers 403 first for cross-origin form-typed requests. Both layers are now tested separately (evil origin for the first, a same-origin request for ours).
+- The durability check first measured the study queue, which is capped by the daily new-card limit, and reported 20 cards for a 300 card deck. It now reads the `cards` table directly.
+- All six initial kill times landed before the commit, so only the rollback branch was seen. Later kill times were added and both outcomes (absent and complete) now occur.
+- `SIGTERM` on Windows terminates the process without running shutdown code, so that one check is skipped there and covered by the Linux container job.
+
+**Mutation check:** 15 deliberate bugs, 14 caught. The CSP `script-src` loosening survived because only the built server shows the CSP. The probe now runs in CI.
+
+**Not changed on purpose:** S-01 (host check) and S-02 (token design) are scheduled as M2-00 and before M2-12. S-02 needs an owner decision.
