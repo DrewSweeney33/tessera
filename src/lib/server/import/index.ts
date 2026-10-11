@@ -6,6 +6,7 @@ export type {
 	CardAction,
 	ImportCounts,
 	ImportPlan,
+	FieldChange,
 	ImportWarning,
 	PlanOptions,
 	PlannedCard

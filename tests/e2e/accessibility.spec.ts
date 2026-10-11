@@ -53,6 +53,32 @@ for (const scheme of ['light', 'dark'] as const) {
 			await scan(page, 'import errors');
 		});
 
+		test('import: a re-import preview with diffs, a retype, and missing cards', async ({
+			page,
+			request
+		}) => {
+			const id = `a11y-reimport-${scheme}`;
+			const cards = basicCards(5, 'r');
+			await importViaApi(request, deckOf(id, 'Re-import check', cards));
+			await page.goto('/import');
+			const revised = [
+				{ ...cards[0]!, back: 'A changed answer' },
+				{ id: 'r-2', type: 'typed' as const, front: 'Question 2', answer: 'x' },
+				cards[2]!
+			];
+			await page
+				.getByLabel('Deck (JSON or Markdown)')
+				.fill(JSON.stringify(deckOf(id, 'Re-import check', revised)));
+			await page.getByRole('button', { name: 'Preview' }).click();
+			await expect(page.getByRole('heading', { name: 'Not in this file (2)' })).toBeVisible();
+			await expect(page.locator('.warning')).toBeVisible();
+			await scan(page, 're-import preview, diffs closed');
+
+			await page.getByText('Show what changes').first().click();
+			await expect(page.getByText('A changed answer')).toBeVisible();
+			await scan(page, 're-import preview, diffs open');
+		});
+
 		test('study: front, answer, and done', async ({ page, request }) => {
 			const id = `a11y-study-${scheme}`;
 			await importViaApi(

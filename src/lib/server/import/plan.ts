@@ -17,6 +17,13 @@ import { fallbackKey, hashCard } from './hash.ts';
 // 'type_changed' resets the card's progress. 'restored' brings an archived card back.
 export type CardAction = 'new' | 'unchanged' | 'updated' | 'type_changed' | 'restored';
 
+// One field of an existing card that the file changes, as text for the preview.
+export interface FieldChange {
+	field: string;
+	before: string | undefined;
+	after: string | undefined;
+}
+
 export interface PlannedCard {
 	// Position in the file, which becomes the card's position.
 	index: number;
@@ -34,6 +41,10 @@ export interface PlannedCard {
 	contentHash: string;
 	// For updated cards: the fields that differ, such as "back" or "tags".
 	changedFields: string[];
+	// The same fields with their old and new values, for the preview. Includes "type" for a type change.
+	changes: FieldChange[];
+	// For a type change: how many of the card's review items have history that will be erased.
+	progressLost: number;
 	// The review items this card should have: one per cloze number, otherwise [0].
 	ordinals: number[];
 	existingPk: number | undefined;
@@ -91,16 +102,30 @@ export interface PlanOptions {
 	archiveMissing: boolean;
 }
 
-function changedFieldsOf(existing: CardRow, card: NormalizedCard): string[] {
+function show(value: unknown): string | undefined {
+	if (value === undefined || value === null) return undefined;
+	if (typeof value === 'string') return value;
+	if (Array.isArray(value)) return value.map((item) => String(item)).join(', ');
+	return JSON.stringify(value);
+}
+
+function changesOf(existing: CardRow, card: NormalizedCard): FieldChange[] {
 	const before = existing.content;
 	const keys = new Set([...Object.keys(before), ...Object.keys(card.content)]);
-	const changed = [...keys].filter(
-		(k) => canonicalJson(before[k]) !== canonicalJson(card.content[k])
-	);
-	if (canonicalJson(existing.tags) !== canonicalJson(card.tags)) changed.push('tags');
-	if ((existing.source ?? undefined) !== card.source) changed.push('source');
-	return changed.sort();
+	const changes: FieldChange[] = [...keys]
+		.filter((k) => canonicalJson(before[k]) !== canonicalJson(card.content[k]))
+		.map((field) => ({ field, before: show(before[field]), after: show(card.content[field]) }));
+	if (canonicalJson(existing.tags) !== canonicalJson(card.tags)) {
+		changes.push({ field: 'tags', before: show(existing.tags), after: show(card.tags) });
+	}
+	if ((existing.source ?? undefined) !== card.source) {
+		changes.push({ field: 'source', before: show(existing.source), after: show(card.source) });
+	}
+	return changes.sort((a, b) => (a.field < b.field ? -1 : a.field > b.field ? 1 : 0));
 }
+
+const changedFieldsOf = (existing: CardRow, card: NormalizedCard): string[] =>
+	changesOf(existing, card).map((change) => change.field);
 
 function groupByCard(states: CardStateRow[]): Map<number, CardStateRow[]> {
 	const grouped = new Map<number, CardStateRow[]>();
@@ -110,6 +135,87 @@ function groupByCard(states: CardStateRow[]): Map<number, CardStateRow[]> {
 		else grouped.set(state.cardPk, [state]);
 	}
 	return grouped;
+}
+
+const list = (keys: string[], shown = 5): string =>
+	keys
+		.slice(0, shown)
+		.map((key) => `"${key}"`)
+		.join(', ') + (keys.length > shown ? `, and ${keys.length - shown} more` : '');
+
+const plural = (n: number, one: string, many: string): string => (n === 1 ? one : many);
+
+// A retype erases the card's progress, so say so before the import, not after.
+function typeChangeWarnings(planned: PlannedCard[]): ImportWarning[] {
+	const retyped = planned.filter((card) => card.action === 'type_changed');
+	if (retyped.length === 0) return [];
+	const lost = retyped.reduce((sum, card) => sum + card.progressLost, 0);
+	const history =
+		lost > 0
+			? ` ${lost} review ${plural(lost, 'item has', 'items have')} history that will be erased.`
+			: ' None of them has been studied yet.';
+	return [
+		{
+			code: 'type_changed',
+			message: `${retyped.length} ${plural(retyped.length, 'card changes', 'cards change')} type (${list(retyped.map((card) => card.key))}), so ${plural(retyped.length, 'its', 'their')} review progress starts over.${history} If that was not meant, ask Claude to keep each card's type.`,
+			paths: retyped.slice(0, 5).map((card) => `cards[${card.index}]`)
+		}
+	];
+}
+
+// Two signs that ids were changed in a revised deck, which would leave the old cards behind with their
+// history and add new ones with none. The preview says so while it can still be fixed.
+function missingCardWarnings(
+	planned: PlannedCard[],
+	existingCards: CardRow[],
+	absent: AbsentCard[],
+	archiveMissing: boolean
+): ImportWarning[] {
+	const activeAbsent = absent.filter((card) => !card.archived);
+	if (activeAbsent.length === 0) return [];
+	const consequence = archiveMissing
+		? ' Because "Archive cards that are not in this file" is on, the old ones would also be archived.'
+		: ' The old cards stay, with their history.';
+
+	// A new card with exactly the content of a missing one is that card under a new id.
+	const hashToAbsent = new Map<string, string[]>();
+	const hashByKey = new Map(existingCards.map((card) => [card.key, card.contentHash]));
+	for (const card of activeAbsent) {
+		const hash = hashByKey.get(card.key);
+		if (hash === undefined) continue;
+		const keys = hashToAbsent.get(hash);
+		if (keys) keys.push(card.key);
+		else hashToAbsent.set(hash, [card.key]);
+	}
+	const renamed: { index: number; key: string; was: string }[] = [];
+	for (const card of planned) {
+		if (card.action !== 'new') continue;
+		const was = hashToAbsent.get(card.contentHash)?.shift();
+		if (was !== undefined) renamed.push({ index: card.index, key: card.key, was });
+	}
+	if (renamed.length > 0) {
+		const first = renamed[0]!;
+		return [
+			{
+				code: 'ids_changed',
+				message: `${renamed.length} new ${plural(renamed.length, 'card has', 'cards have')} exactly the same content as ${plural(renamed.length, 'a card', 'cards')} missing from this file (for example "${first.was}" is now "${first.key}"), so ${plural(renamed.length, 'its id was', 'their ids were')} probably changed. Importing this creates new cards with no history.${consequence} Ask Claude to keep every id, then import again.`,
+				paths: renamed.slice(0, 5).map((card) => `cards[${card.index}]`)
+			}
+		];
+	}
+
+	const activeBefore = existingCards.filter((card) => !card.archived).length;
+	const added = planned.filter((card) => card.action === 'new').length;
+	if (activeBefore >= 3 && added >= 3 && activeAbsent.length * 2 >= activeBefore) {
+		return [
+			{
+				code: 'mostly_replaced',
+				message: `${activeAbsent.length} of the ${activeBefore} cards in this deck are not in this file, and the file adds ${added} new ones. If this is a revised version of the deck, the ids probably changed.${consequence} If it is a different deck, give it a different deck id.`,
+				paths: []
+			}
+		];
+	}
+	return [];
 }
 
 // Pure with respect to the database: it only reads. The same function is re-run inside the
@@ -174,6 +280,8 @@ export function planImport(
 				restored: false,
 				reposition: false,
 				changedFields: [],
+				changes: [],
+				progressLost: 0,
 				existingPk: undefined,
 				resetProgress: false,
 				ordinalsToAdd: ordinals,
@@ -191,6 +299,11 @@ export function planImport(
 				restored: existing.archived,
 				reposition,
 				changedFields: changedFieldsOf(existing, normalized),
+				changes: [
+					{ field: 'type', before: existing.type, after: normalized.type },
+					...changesOf(existing, normalized)
+				],
+				progressLost: (statesByCard.get(existing.pk) ?? []).filter((s) => s.reps > 0).length,
 				existingPk: existing.pk,
 				resetProgress: true,
 				ordinalsToAdd: ordinals,
@@ -218,6 +331,8 @@ export function planImport(
 			restored: existing.archived,
 			reposition,
 			changedFields: action === 'updated' ? changedFieldsOf(existing, normalized) : [],
+			changes: action === 'updated' ? changesOf(existing, normalized) : [],
+			progressLost: 0,
 			existingPk: existing.pk,
 			resetProgress: false,
 			ordinalsToAdd,
@@ -244,6 +359,9 @@ export function planImport(
 			paths: generated.slice(0, 5).map((card) => `cards[${card.index}]`)
 		});
 	}
+
+	warnings.push(...typeChangeWarnings(planned));
+	warnings.push(...missingCardWarnings(planned, existingCards, absent, options.archiveMissing));
 
 	// Only fields the file provides can change an existing deck. Omitted ones are left alone.
 	const deckChanged =

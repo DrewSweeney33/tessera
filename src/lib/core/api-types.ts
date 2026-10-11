@@ -108,6 +108,14 @@ export interface ImportWarningDto {
 	paths: string[];
 }
 
+// One field a re-import changes. Long text is cut, and `cut` says so.
+export interface FieldChangeDto {
+	field: string;
+	before: string | undefined;
+	after: string | undefined;
+	cut: boolean;
+}
+
 export interface ImportPlanSummary {
 	deck: { id: string; title: string; action: 'created' | 'updated'; changed: boolean };
 	counts: ImportCountsDto;
@@ -116,9 +124,14 @@ export interface ImportPlanSummary {
 		index: number;
 		action: 'new' | 'unchanged' | 'updated' | 'type_changed' | 'restored';
 		changedFields: string[];
+		// Old and new values. Only the first 50 changed cards carry them, to keep the reply small.
+		changes: FieldChangeDto[] | undefined;
+		// For a type change: review items whose history is erased.
+		progressLost: number;
 		restored: boolean;
 		generatedKey: boolean;
 	}[];
+	// The first 200 cards the file does not mention. `counts.absent` has the full number.
 	absent: { key: string; archived: boolean }[];
 	archiveMissing: boolean;
 	warnings: ImportWarningDto[];

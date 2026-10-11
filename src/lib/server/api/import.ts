@@ -6,7 +6,8 @@ import { readBodyText } from '../http/body.ts';
 import { mediaType } from '../http/content-type.ts';
 import { errorResponse } from '../http/errors.ts';
 import { jsonResponse } from '../http/response.ts';
-import { commitImport, planImport, type ImportPlan } from '../import/index.ts';
+import type { FieldChangeDto, ImportPlanSummary } from '#lib/core/api-types.ts';
+import { commitImport, planImport, type FieldChange, type ImportPlan } from '../import/index.ts';
 
 // Both readers end in the same validator, so a deck means the same thing whichever way it arrives.
 // A Map, not an object, so a content type such as "constructor" can never match an inherited name.
@@ -26,8 +27,32 @@ function flag(url: URL, name: string): boolean | Response {
 	return errorResponse('bad_request', `Query parameter ${name} must be true or false.`);
 }
 
+// Changed cards beyond this many are listed without their old and new text, and the page shows the same
+// number, so a deck of thousands of edits does not produce a huge reply.
+const PREVIEW_DIFFS = 50;
+const PREVIEW_ABSENT = 200;
+const CUT_AT = 300;
+
+function cut(value: string | undefined): { text: string | undefined; cut: boolean } {
+	if (value === undefined || value.length <= CUT_AT) return { text: value, cut: false };
+	return { text: value.slice(0, CUT_AT), cut: true };
+}
+
+function summarizeChanges(changes: FieldChange[]): FieldChangeDto[] {
+	return changes.map((change) => {
+		const before = cut(change.before);
+		const after = cut(change.after);
+		return {
+			field: change.field,
+			before: before.text,
+			after: after.text,
+			cut: before.cut || after.cut
+		};
+	});
+}
+
 // What the preview needs: counts, and every card that is not simply unchanged.
-function summarizePlan(plan: ImportPlan) {
+function summarizePlan(plan: ImportPlan): ImportPlanSummary {
 	return {
 		deck: {
 			id: plan.deck.id,
@@ -38,15 +63,19 @@ function summarizePlan(plan: ImportPlan) {
 		counts: plan.counts,
 		cards: plan.cards
 			.filter((card) => card.action !== 'unchanged')
-			.map((card) => ({
+			.map((card, position) => ({
 				key: card.key,
 				index: card.index,
 				action: card.action,
 				changedFields: card.changedFields,
+				changes: position < PREVIEW_DIFFS ? summarizeChanges(card.changes) : undefined,
+				progressLost: card.progressLost,
 				restored: card.restored,
 				generatedKey: card.generatedKey
 			})),
-		absent: plan.absent.map((card) => ({ key: card.key, archived: card.archived })),
+		absent: plan.absent
+			.slice(0, PREVIEW_ABSENT)
+			.map((card) => ({ key: card.key, archived: card.archived })),
 		archiveMissing: plan.archiveMissing,
 		warnings: plan.warnings
 	};

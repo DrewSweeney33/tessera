@@ -168,6 +168,8 @@ describe('POST /api/import: dry run', () => {
 				index: 0,
 				action: 'updated',
 				changedFields: ['back'],
+				changes: [{ field: 'back', before: 'A a', after: 'A a, rewritten', cut: false }],
+				progressLost: 0,
 				restored: false,
 				generatedKey: false
 			}

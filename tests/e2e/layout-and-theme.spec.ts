@@ -65,6 +65,27 @@ test.describe('no sideways scroll and no wrapped buttons', () => {
 		});
 	}
 
+	test('a re-import preview with open diffs of very long unbroken text fits at 320px', async ({
+		page,
+		request
+	}) => {
+		await page.setViewportSize({ width: 320, height: 800 });
+		await importViaApi(request, deckOf('fit-diff', 'Fit diff', basicCards(2, 'fd')));
+		await page.goto('/import');
+		const long = 'x'.repeat(400);
+		const revised = [
+			{ id: 'fd-1', type: 'basic' as const, front: long, back: long },
+			{ id: `fd-${long}`.slice(0, 60), type: 'basic' as const, front: 'new', back: 'new' }
+		];
+		await page
+			.getByLabel('Deck (JSON or Markdown)')
+			.fill(JSON.stringify(deckOf('fit-diff', 'Fit diff', revised)));
+		await page.getByRole('button', { name: 'Preview' }).click();
+		await page.getByText('Show what changes').first().click();
+		await expect(page.locator('.diff').first()).toBeVisible();
+		expect(await scrollsHorizontally(page), 'open diffs').toBe(false);
+	});
+
 	test('the import page with a preview and an error list fits at 320px', async ({ page }) => {
 		await page.setViewportSize({ width: 320, height: 800 });
 		await page.goto('/import');
