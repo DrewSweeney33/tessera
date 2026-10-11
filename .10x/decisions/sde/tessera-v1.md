@@ -586,3 +586,24 @@ ADR-009 decided what the token covers. ADR-011 refines how the server recognizes
 **Not done.** No lockout or delay for repeated wrong guesses (tested that 400 wrong guesses change nothing for the right one). The token cannot be sent through a reverse proxy that uses HTTP Basic authentication, because both want the `Authorization` header. Documented. No rotation tooling: change the setting and restart.
 
 **Housekeeping found on the way.** The probe's earlier form-post check is covered by two independent layers (SvelteKit 403 and the token guard), and the tests say which answered. `pkill` does not exist in this shell, so a stray test server kept a port and nearly hid a result, so stray servers are now stopped by process search first.
+
+## M2-13 Claude skill, format reference, workflow guide, golden decks (2026-10-11)
+
+**Delivered.**
+- `claude-skill/tessera-deck/SKILL.md`: self-contained (Claude will not have the repo open), so it carries the whole format, the card-writing rules, the id and revision rules, a table of import error codes and their fixes, the limits, and a checklist. Default output is Markdown (code and quotes need no escaping), wrapped in a four-backtick fence when the deck has code blocks.
+- `docs/deck-format.md`: the reference for both formats.
+- `docs/claude-workflow.md`: how to ask, import, fix, check, and revise, for the person using it.
+- Three golden decks in `examples/`: `ccna-ospf` (11 cards, in JSON and in a generated Markdown twin), `powershell-essentials.md` (16 cards, code blocks), `tcp-ip-fundamentals.json` (15 cards, sequence diagrams, a table). Together they use all four card types, multi-blank cloze, `accept`, explanations, code, tables, and diagrams.
+- README rewritten around the guides and the skill.
+
+**Documents cannot drift from the code.** `tests/unit/docs/docs-and-examples.test.ts` (34 tests): every example deck is parsed by the real parser and survives a trip through the other format; the Markdown twin must equal what the writer produces; every complete deck shown in a document (tagged `tessera-deck`) must import, and the Markdown and JSON examples in the reference must be the same deck; the languages, short names, labels, limits, and quoted error messages in the documents must match the code; the error codes the skill names must exist in the source; relative links must resolve; the skill must have a valid name and description. Negative control: 12 deliberate mistakes in the documents (a changed limit, a removed language, a renamed label, a changed message, a broken link, a missing `[x]`, a skill error code that does not exist, a drifted Markdown twin and others) are all caught. Three of my first patterns did not match because Prettier had re-aligned the tables, so those were redone, and one survivor (README link target) led to a link-existence test for the README.
+
+**Found while writing the golden decks, and fixed.**
+1. **Prettier silently corrupts a Markdown deck.** Running it over `examples/powershell-essentials.md` added blank lines (harmless) and indented the lines after the last choice, which made `Explanation:`, `Source:` and `Tags:` part of that choice. The import would have "worked" and given a wrong deck. Two changes: the parser now refuses an indented line under a choice that looks like a label (`label_in_choice`, with a message that says what to do), and the writer escapes such a line with a backslash so any text still round-trips. Escape rule added to `markdown-syntax.ts`, covered by 9 parser tests, 1 writer test, the property tests (5 seeds at 3,000 runs), and a mutation check (5 of 5 caught). Prettier is told to leave `examples/*.md` alone, and the doc examples are marked `prettier-ignore`. The reference and the skill both warn about it. A one-space indent was already refused (`invalid_choice_line`); four spaces or more is kept as part of the choice.
+2. **"Copy errors for Claude" always asked for JSON back**, even for a Markdown deck. It now asks for the format that was imported, and mentions the four-backtick fence rule.
+
+**Not done / honest limits.**
+- The skill was reviewed against the schema and the parser by tests, but it has not been tried on a real Claude conversation. That is the real test and needs the owner: ask Claude, with the skill, for a deck from some notes, and import it. The skill's advice (default to Markdown, four-backtick fence) is my judgement of what is least error-prone for a model, not a measurement.
+- The decks' facts were checked by me, not by a subject expert (PowerShell execution policy wording, OSPF states and timers, subnet sizes, ports). Anyone using them to study should check them.
+- Skill installation instructions are stated generally (a Claude app's own skill mechanism, or paste the file) because I could not verify any one app's menu.
+- Export is not built, so the workflow guide tells people to keep the file they imported. The weak-spot round trip is M3.

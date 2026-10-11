@@ -2,38 +2,42 @@
 
 ## Current handoff
 
-**From:** SDE, Milestone 2 (M2-12, the API token)
-**To:** The owner (approve the push), then the SDE for M2-13
+**From:** SDE, Milestone 2 (M2-13, the Claude skill, format reference, workflow guide, and golden decks)
+**To:** The owner (approve the push and try the skill), then the SDE for M2-14
 **Date:** 2026-10-11
-**Per-feature files:** `.10x/decisions/sde/tessera-v1.md` (section "M2-12"), `.10x/adrs/011-recognizing-the-web-page-for-the-api-token.md`, `.10x/adrs/009-api-token-for-external-clients-only.md`
+**Per-feature file:** `.10x/decisions/sde/tessera-v1.md` (section "M2-13")
 
 ### Result
 
-`TESSERA_API_TOKEN` is enforced. The web page works without it, on loopback, on a network address over plain HTTP, and over HTTPS. Scripts need `Authorization: Bearer`. Other websites cannot reach the API through a visitor's browser. The deployment guide, README, compose file, and changelog describe it, including what it does not do.
+The skill, `docs/deck-format.md`, `docs/claude-workflow.md`, and three golden decks exist, and tests keep every document in step with the code. All gates pass on a fresh build.
 
 ### State of git
 
-M2-05 to M2-11 are on GitHub. M2-12 is committed locally and **not pushed**.
+M2-05 to M2-12 are on GitHub. M2-13 is committed locally and **not pushed**.
 
 ### Needs the owner
 
 1. **Approve the push.**
-2. **Read the "what it does not do" paragraph** in `docs/deploy.md` ("The API token"). The token does not protect the web page, and a script that copies the browser headers gets in. That is inherent without a login and is what ADR-009 decision 6 said, but ADR-009's wording suggested more. Say if you want the guide to read differently, or if you want a stronger design (it would need a login, which was ruled out).
-3. Try it once on the homelab: set a token, open the page from another device by its address, check `curl` with and without the header.
+2. **Try the skill on a real conversation.** Install `claude-skill/tessera-deck` (or paste `SKILL.md`), give Claude some notes you actually want to study, and import what it writes. Tell me what went wrong. That is the real test of the skill, and nothing automated can stand in for it.
+3. **Skim the three example decks for factual errors** if you plan to study from them (PowerShell, OSPF, TCP/IP). I checked them carefully but I am not a subject expert.
+4. **Read the "Do not run a Markdown formatter" paragraph** in `docs/deck-format.md` and say if the `label_in_choice` rule is acceptable (it makes an indented `Explanation:` under a choice an error instead of silently part of the choice).
 
 ### Next
 
-M2-13 Claude skill, `docs/deck-format.md` (also say which languages are highlighted and which diagram types were checked), golden decks. Then M2-14 (e2e for everything plus Firefox and WebKit), M2-15 release pipeline (publication needs approval), M2-16 gate (QA, security review, image scan, `v0.1.0` only after approval).
+M2-14 (e2e for all card types and Markdown, add Firefox and WebKit to CI, QA risk R-1), M2-15 (release pipeline, publication needs approval), M2-16 (the M2 gate: QA report, security review, image scan, `v0.1.0` only after approval).
 
 ### Things to know
 
-- Testing against a real built server and a real browser found two faults that every unit test passed (the scheme `adapter-node` assumes, and what browsers send on plain HTTP). Keep doing that for anything that depends on headers.
-- A reverse proxy with HTTP Basic authentication cannot pass the token through (same header). Documented.
-- `playwright.config.ts` now starts two servers (ports 4177 and 4178). Stray servers from manual testing can hold the ports.
-- The app has no favicon, so each first page load gets a 404. Harmless.
-- Earlier open items are unchanged (compose wrappers unverified on a real host, registry push unexercised, disk-full and long soak untested, Firefox, Safari and screen readers untested, diagrams and highlighting only run in Chrome).
+- Anything that reformats Markdown (Prettier, editors with format-on-save) can break a Markdown deck. The repo ignores `examples/*.md` for that reason.
+- The skill defaults to Markdown output with a four-backtick outer fence for decks that contain code. If Claude gets that wrong in practice, change the skill, not the parser.
+- Diagrams and highlighting have only been run in Chrome. Firefox and WebKit are M2-14.
+- Earlier open items are unchanged (compose wrappers unverified on a real host, registry push unexercised, disk-full and long soak untested, screen readers untested, no favicon).
 
 ## Handoff history
+
+### 2026-10-11: SDE, M2-12, to the owner
+
+The API token (ADR-009, ADR-011). See the SDE log section "M2-12".
 
 ### 2026-10-11: SDE, M2-11, to the owner
 
