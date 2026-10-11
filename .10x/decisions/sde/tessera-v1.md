@@ -247,3 +247,17 @@ Each entry records what was built, deviations from the plan or ADRs, and tech de
 **Deviations:** `review()` returns the next `ItemState` directly instead of the `{ next, snapshot }` pair in ADR-003. The log needs only the next state and `scheduledDays`, both already on `ItemState`.
 
 **Tech debt:** none.
+
+## M1-10 Study-day helper (2026-10-10)
+
+**Built:** `core/study-day.ts` (`studyDayStart`, `nextRollover`, `studyDayKey`) and `tests/unit/time/study-day.test.ts` (31 tests). It lives in `core` rather than `server/clock.ts` as the plan said, because it is pure (takes `now`, never reads the clock) and the UI will want the same day boundaries.
+
+**Rules:**
+
+- The study day starts at the most recent rollover hour in the configured time zone at or before `now`. Day length is 23 or 25 hours across DST changes.
+- A rollover hour that does not exist (spring-forward gap) resolves to the first valid instant after the gap. One that happens twice (fall back) resolves to the first occurrence, and the repeated hour stays inside the same study day.
+- Uses only `Intl.DateTimeFormat`, so the platform tz database decides offsets. Formatters are cached per zone. An unknown zone or invalid hour throws `RangeError`.
+
+**Verification:** hand-derived expectations for America/Chicago summer, winter, both DST days, gap and repeated rollover hours, UTC, Asia/Kolkata (half-hour offset), midnight and 23:00 rollovers. An invariant sweep over 2026 and 2027 checks, for Chicago, London, Sydney, and Kolkata at rollover hours 0, 1, 2, and 4, that the day contains the instant, is 22.9 to 25.1 hours long, and chains to the next day exactly. The sweep samples coarsely across the range and densely around each detected DST transition. A meta-test confirms it finds 4 transitions in each DST zone and none in Kolkata. The first version of the sweep took 10 seconds. Sampling around transitions instead cut it to 3 seconds with better coverage.
+
+**Tech debt:** none.
