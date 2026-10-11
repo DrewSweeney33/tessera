@@ -292,3 +292,25 @@ Each entry records what was built, deviations from the plan or ADRs, and tech de
 **Verification:** targeted tests for every rule above, plus a drain test: it answers every served item (logging it and moving it into the future) until the queue is empty and asserts the number served equals `learning + review + new` from `countQueue`. That runs on a hand-built scenario and on 25 seeded random scenarios with random limits, per-deck overrides, interleave, exclusions, and prior activity. A guard test confirms at least 20 of those scenarios serve items and the largest serves 10 or more, so the agreement is not vacuous.
 
 **Tech debt:** none. `nextItem` for the API (attaching previews and card content) is M1-12 and M1-18.
+
+## M1-12 submitReview (2026-10-10)
+
+**Built:** `server/study/{schema,submit}.ts` (`submitReview`, `ReviewInputSchema`, `serializeState`) and `tests/integration/study/submit.test.ts` (33 tests).
+
+**Behavior (ADR-003), all inside one transaction:**
+
+1. A repeated `reviewId` returns the stored result with `replayed: true` and changes nothing. This is checked before the stale check, because after the first submit the item's `lastReview` is newer than `servedAt` and a replay would otherwise look stale (tested). An id reused for a different card or item is refused (`review_id_reused`).
+2. An unknown card or review item returns `not_found`.
+3. If `lastReview > servedAt` the submission is `stale_review` (another tab answered first). A submission served at exactly the last review time is accepted.
+4. The scheduler runs with the deck's `target_retention` override, else the global setting. Schedulers are cached per retention value.
+5. The state row is updated and a `review_log` row is written with the full pre-review columns, the post-review state as JSON `result`, `scheduled_days`, `duration_ms`, and `typed_answer`.
+6. **Cloze siblings** are buried (`buried_until`) until the next study day rollover. Archived siblings and single-item cards are untouched.
+7. **Leech flag:** `leech` is set when `lapses >= leechThreshold` and the item is not already flagged, and `becameLeech` is true only on that review. It is not suspended. This landed here instead of M3-01 because it belongs in the same transaction. M3-01 keeps the list queries and UI.
+
+**Input schema:** strict Zod: `reviewId` 8 to 64 characters of letters, digits, and hyphens, `cardPk`, `ordinal` 0 to 99, `grade` 1 to 4, `servedAt` an ISO UTC timestamp, optional `durationMs` (0 to 1 hour) and `typedAnswer` (up to 2,000 characters). Unknown fields are rejected.
+
+**Verification:** trigger-based rollback proof (a failing log insert leaves the schedule and sibling burying unchanged, and the next submit works), per-deck retention changes the interval, the queue and `countQueue` react correctly (a new card uses up the allowance, leaves the queue until due, and returns as learning). 13 schema cases are covered.
+
+**Test correction:** the first version expected the second Good to still be in learning. With the default steps (1m, 10m) it graduates, which matches the conformance fixtures. The test was wrong, the code was right.
+
+**Tech debt:** the result carries only the new state. Previews for the next card and its content are attached by the API layer (M1-18).
