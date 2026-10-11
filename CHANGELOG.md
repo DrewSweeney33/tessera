@@ -23,6 +23,7 @@ First working version, built in milestone 1. Not yet released: the first public 
 - Markdown in cards is rendered safely: raw HTML is shown as text, images and unsafe links are removed, and the result is sanitized again before it reaches the page.
 - Content Security Policy, JSON-only write endpoints, no cross-origin access, request size limits, strict input validation, and logs that never contain card text.
 - The port is published on `127.0.0.1` only by default. See the deployment guide before opening it up. There is no login.
+- Tessera now refuses requests that arrive under a host name it is not meant to answer to, which blocks DNS rebinding attacks from hostile web pages. It answers `localhost`, any IP address, single-word names, and `.local`, `.lan`, `.home.arpa`, `.internal`, and `.localdomain` names by default. **If you reach Tessera by a real domain name, for example through a reverse proxy, set `TESSERA_ALLOWED_HOSTS`.** The refusal message says so.
 
 ### Fixed
 
@@ -36,5 +37,4 @@ First working version, built in milestone 1. Not yet released: the first public 
 ### Known limitations
 
 - Typed-answer checking, Markdown deck import, Mermaid diagrams, leech handling, cram mode, statistics, and the API token are not built yet.
-- Tessera does not yet reject requests that arrive under an unexpected host name. This is the main remaining security item.
-- Only Chrome has been tested. The Docker image and the CI workflows have not yet been run on GitHub.
+- Only Chrome has been tested.

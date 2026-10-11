@@ -445,3 +445,19 @@ Each of these was found by running a failure against the built server, not by re
 **Numbers.** 5,000 cards plus 200,000 review records: 9 to 14 ms per call, 1 s start, 0.4 s online backup. A 3 minute soak at about 140 requests a second: no 5xx, memory flat at 313 MB (earlier docs said 250, corrected).
 
 **Process mistakes worth remembering.** A health fetch with no timeout hung a drill script for three minutes. Review ids shorter than 8 characters are rejected, which made a script report "graded 0". PowerShell here-strings strip backticks from Markdown.
+
+## M2-00 Host check against DNS rebinding (2026-10-11)
+
+Closes security finding S-01. Milestone 2 started on the owner's instruction the same day.
+
+**Built:** `server/http/hosts.ts` (`isHostAllowed`, `displayableHost`), the `hostGuard` hook in `server/http/hooks.ts`, its place in the pipeline in `src/hooks.server.ts`, a startup log line in `server/app.ts`, tests, probe checks, and docs.
+
+**Rules.** A request is answered when its Host is `localhost` or `*.localhost`, any IP address (IPv4 or an IPv6 literal), a single-word name, or a name ending in `.local`, `.lan`, `.home.arpa`, `.internal`, or `.localdomain`. When `TESSERA_ALLOWED_HOSTS` is set, only the listed names are answered (entries: `name`, `name:port`, `*.domain`), and IP addresses and localhost still work, because a rebinding page always arrives under its own domain, never an address. `/healthz` is exempt. Anything else gets HTTP 421 `misdirected_request`, still carrying the security headers and a request id, and a message that names the host and says to set `TESSERA_ALLOWED_HOSTS`. The Host is parsed strictly: userinfo tricks, paths, spaces, empty labels, bad ports, over-long names, and numeric parts over 255 are all refused. The refusal is logged with the host name only.
+
+**The owner's own setup needs the setting.** A real domain name behind a reverse proxy (the planned `tessera.sweentech.com` behind Nginx Proxy Manager) is refused by default, on purpose, since that is the name an attacker would also use. The deployment guide, the compose file, the changelog, the troubleshooting table, and the handoff all say so.
+
+**Verification.** 64 matcher cases (including `127.0.0.1.nip.io`, `7f000001.c0a80001.rbndr.us`, `localhost.evil.com`, `tessera.lan.evil.com`), 9 hook tests, a test that reads the real `src/hooks.server.ts` and checks the pipeline order, and 40 new probe checks against the real build, including a second server started with the setting. The probe's `KNOWN` entry is gone: 140 checks, none open.
+
+**Mutation check.** 13 injected bugs, 12 caught. The survivor changed nothing: `host.name.length > domain.length` in the wildcard matcher was dead code, because the domain already starts with a dot. Removed instead of tested.
+
+**Why the pipeline test exists.** `src/hooks.server.ts` cannot be imported in a test, so deleting the guard would have passed every other unit test and shown up only in the probe, the same hole the CSP mutation exposed in Phase 5.

@@ -68,6 +68,14 @@ export function initApp(): AppContext {
 			'BODY_SIZE_LIMIT is not set. adapter-node then rejects request bodies over 512 KB, below the 5 MB import limit. Set BODY_SIZE_LIMIT=5M.'
 		);
 	}
+	// ADR-005 section 1: say which host names are answered, so a 421 later is no surprise.
+	const hosts = current.config.allowedHosts;
+	current.log.info(
+		hosts
+			? 'host check: answering only the listed host names, plus localhost and IP addresses'
+			: 'host check: using the default rules. Answering localhost, IP addresses, single-word names, and names ending in .local, .lan, .home.arpa, .internal, or .localdomain. If you reach Tessera by any other name, for example through a reverse proxy, set TESSERA_ALLOWED_HOSTS.',
+		hosts ? { hosts: [...hosts] } : {}
+	);
 	return current;
 }
 

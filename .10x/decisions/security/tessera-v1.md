@@ -15,7 +15,7 @@ Everything ADR-005 promises that exists today was tested against the built serve
 
 | ID | Severity | Finding | Status |
 |---|---|---|---|
-| S-01 | Medium | DNS rebinding not blocked by default. `TESSERA_ALLOWED_HOSTS` is parsed but not enforced, and the promised startup warning is missing. | **Open.** Do first in M2. Safe default: reject dotted public host names, allow loopback, IPs, and single-label or `.local`, `.lan`, `.home.arpa`, `.internal` names. |
+| S-01 | Medium | DNS rebinding not blocked by default. `TESSERA_ALLOWED_HOSTS` was parsed but not enforced, and the promised startup log line was missing. | **Fixed 2026-10-11 (M2-00).** Default rules answer localhost, IP addresses, single-word names, and `.local`, `.lan`, `.home.arpa`, `.internal`, `.localdomain`. The setting replaces the name rules (IP addresses and localhost always work) and accepts `*.domain` and `name:port`. Refusal is 421 with the fix in the message. `/healthz` exempt. Startup log states the rules. 140 probe checks, none open. |
 | S-02 | Medium | The API token as specified in ADR-005 would lock the UI out, since the UI calls the same routes. Not enforced yet. | **Decided 2026-10-11 by the owner: ADR-009.** Token for external clients only, same-origin browser requests exempt, and only after S-01 ships. Builds in M2-12. |
 | S-03 | Low | Oversized chunked body gave 500 | **Fixed** (`readBodyText`) |
 | S-04 | Low | 4 moderate advisories in dev tooling via `drizzle-kit` and old `esbuild` | **Accepted**, dev only, not in the image |

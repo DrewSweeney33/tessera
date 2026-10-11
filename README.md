@@ -61,14 +61,14 @@ Limits: 5 MB and 5,000 cards per import.
 
 ## Configuration
 
-| Variable                | Default                         | Meaning                                                                                      |
-| ----------------------- | ------------------------------- | -------------------------------------------------------------------------------------------- |
-| `PORT`                  | `3000`                          | Port to listen on                                                                            |
-| `DATA_DIR`              | `./data` (`/data` in the image) | Where the SQLite database lives                                                              |
-| `TZ`                    | `UTC`                           | Time zone that decides when a study day rolls over                                           |
-| `LOG_LEVEL`             | `info`                          | `debug`, `info`, `warn`, or `error`                                                          |
-| `TESSERA_API_TOKEN`     | unset                           | Reserved. Token protection for the API is planned for milestone 2 and is **not active yet**. |
-| `TESSERA_ALLOWED_HOSTS` | unset                           | Reserved. Host header allow-list, planned for milestone 2.                                   |
+| Variable                | Default                         | Meaning                                                                                                                                        |
+| ----------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`                  | `3000`                          | Port to listen on                                                                                                                              |
+| `DATA_DIR`              | `./data` (`/data` in the image) | Where the SQLite database lives                                                                                                                |
+| `TZ`                    | `UTC`                           | Time zone that decides when a study day rolls over                                                                                             |
+| `LOG_LEVEL`             | `info`                          | `debug`, `info`, `warn`, or `error`                                                                                                            |
+| `TESSERA_API_TOKEN`     | unset                           | Reserved. Token protection for the API is planned for milestone 2 and is **not active yet**.                                                   |
+| `TESSERA_ALLOWED_HOSTS` | unset                           | Host names Tessera answers to, comma separated (`*.example.com` allowed). Needed for a real domain name, see [docs/deploy.md](docs/deploy.md). |
 
 ## Development
 

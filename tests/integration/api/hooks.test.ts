@@ -3,7 +3,12 @@ import type { RequestEvent } from '@sveltejs/kit';
 import { AppError } from '#lib/server/http/errors.ts';
 import { route } from '#lib/server/http/route.ts';
 import { closeApp, getApp, initApp } from '#lib/server/app.ts';
-import { contentTypeGuard, requestLogging, securityHeaders } from '#lib/server/http/hooks.ts';
+import {
+	contentTypeGuard,
+	hostGuard,
+	requestLogging,
+	securityHeaders
+} from '#lib/server/http/hooks.ts';
 import { makeTempDir, type TempDir } from '../../helpers/temp-dir.ts';
 
 // The hooks use the global app, so this file initializes it once from a temp data directory.
@@ -14,7 +19,7 @@ type Next = (event: RequestEvent) => Promise<Response>;
 type Hook = (input: { event: RequestEvent; resolve: Next }) => Promise<Response>;
 
 // The same order as hooks.server.ts. Kit's sequence() needs its request store, so it is composed by hand.
-const hooks = [requestLogging, securityHeaders, contentTypeGuard] as unknown as Hook[];
+const hooks = [requestLogging, securityHeaders, hostGuard, contentTypeGuard] as unknown as Hook[];
 
 function handle({ event, resolve }: { event: RequestEvent; resolve: Next }): Promise<Response> {
 	const next = (index: number, current: RequestEvent): Promise<Response> =>
@@ -169,5 +174,92 @@ describe('route wrapper', () => {
 
 	it('uses the initialized app', () => {
 		expect(getApp().version).toEqual(expect.any(String));
+	});
+});
+
+describe('hostGuard (DNS rebinding)', () => {
+	const at = (
+		host: string,
+		path = '/api/decks',
+		method = 'GET',
+		headers: Record<string, string> = {}
+	) => new Request(`http://${host}${path}`, { method, headers });
+
+	it('refuses a request for a name the server is not meant to answer to', async () => {
+		const { response, resolve } = run(at('attacker.example:3000'));
+		const result = await response;
+		expect(result.status).toBe(421);
+		expect(resolve).not.toHaveBeenCalled();
+		const body = (await result.json()) as { error: { code: string; message: string } };
+		expect(body.error.code).toBe('misdirected_request');
+		expect(body.error.message).toContain('"attacker.example:3000"');
+		expect(body.error.message).toContain('TESSERA_ALLOWED_HOSTS');
+		expect(body.error.message).toContain('docs/deploy.md');
+	});
+
+	it('still sends the security headers and the request id on a refusal', async () => {
+		const result = await run(at('attacker.example'), undefined).response;
+		expect(result.headers.get('x-content-type-options')).toBe('nosniff');
+		expect(result.headers.get('referrer-policy')).toBe('no-referrer');
+		expect(result.headers.get('x-request-id')).toMatch(/^[A-Za-z0-9._-]+$/);
+	});
+
+	it('refuses writes too, even with a correct JSON content type', async () => {
+		const { response, resolve } = run(
+			at('127.0.0.1.nip.io', '/api/import', 'POST', { 'content-type': 'application/json' })
+		);
+		expect((await response).status).toBe(421);
+		expect(resolve).not.toHaveBeenCalled();
+	});
+
+	it('refuses the names a rebinding attack uses, whatever the path', async () => {
+		for (const host of [
+			'7f000001.c0a80001.rbndr.us',
+			'localhost.evil.com',
+			'tessera.lan.evil.com'
+		]) {
+			for (const path of ['/', '/api/decks', '/api/schema', '/import']) {
+				const result = await run(at(host, path)).response;
+				expect(result.status, `${host}${path}`).toBe(421);
+			}
+		}
+	});
+
+	it('answers the names it is meant for', async () => {
+		for (const host of [
+			'localhost',
+			'localhost:3000',
+			'127.0.0.1:3000',
+			'192.168.30.99:3000',
+			'[::1]:3000',
+			'tessera',
+			'tessera.lan',
+			'nas.home.arpa:3000'
+		]) {
+			const { response, resolve } = run(at(host));
+			expect((await response).status, host).toBe(200);
+			expect(resolve, host).toHaveBeenCalledOnce();
+		}
+	});
+
+	it('lets /healthz answer under any name, so monitors and the Docker health check work', async () => {
+		const { response, resolve } = run(at('monitor.example.com', '/healthz'));
+		expect((await response).status).toBe(200);
+		expect(resolve).toHaveBeenCalledOnce();
+	});
+
+	it('does not exempt other paths that merely start like /healthz', async () => {
+		expect((await run(at('attacker.example', '/healthz/../api/decks')).response).status).toBe(421);
+		expect((await run(at('attacker.example', '/healthzz')).response).status).toBe(421);
+	});
+
+	it('logs the refusal without anything but the host name', async () => {
+		logged.length = 0;
+		await run(at('attacker.example')).response;
+		const line = logged
+			.map((l) => JSON.parse(l) as Record<string, unknown>)
+			.find((l) => l['msg'] === 'request refused, host name not allowed')!;
+		expect(line).toMatchObject({ level: 'warn', host: 'attacker.example' });
+		expect(Object.keys(line).sort()).toEqual(['host', 'level', 'msg', 'requestId', 'time']);
 	});
 });

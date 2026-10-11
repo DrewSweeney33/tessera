@@ -1,7 +1,7 @@
 # Tessera Status
 
 **Last updated:** 2026-10-11
-**Current phase:** Phase 6 Delivery (readiness of the M1 slice) complete, and the repository is live on GitHub (public) with CI green on Linux and a passing release rehearsal. Milestone 1 awaits the owner's exit-gate confirmation. No release exists; `v0.1.0` is the M2 exit.
+**Current phase:** Phase 4 Implementation, Milestone 2 in progress (started 2026-10-11). The repository is live on GitHub (public) with CI green on Linux. M2-00 is done and committed locally. No release exists; `v0.1.0` is the M2 exit.
 **Feature slug:** `tessera-v1`
 
 ## Phase tracker
@@ -12,7 +12,7 @@
 | 1 Strategy | Complete. Verdict: build, with a checkpoint after M2. |
 | 2 Design | Complete. 7 ADRs accepted (005 to 007 added during implementation). |
 | 3 Planning | Complete. 67 tasks, 5 milestones, about 224 hours (human-equivalent). |
-| 4 Implementation | M1 done (23 of 23 tasks). Waiting for the owner to confirm the M1 exit gate before M2 starts. |
+| 4 Implementation | M1 done (23 of 23 tasks), exit gate accepted by the owner 2026-10-11 ("start Milestone 2"). M2 in progress: M2-00 done, M2-01 next. |
 | 5 Verification | **Interim pass on the M1 slice done 2026-10-11.** 2 defects fixed, 0 blocking. Repeat at the M2 exit (with a security review) and final at M5 exit. |
 | 6 Delivery | **Delivery package for the M1 slice done 2026-10-11:** deploy, operations, and release docs, tag-driven release workflow, ops check script, four reliability fixes (ADR-008). Conditional sign-off: ready for the owner's own use on loopback or a VPN with backups. Public `v0.1.0` at M2 exit, `v1.0.0` at M5 exit. |
 
@@ -87,7 +87,7 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 | Coverage | 92.1 percent lines, 85.3 percent branches |
 | Mutation check on core invariants | 14 of 15 caught; the survivor (CSP loosening) is now covered by the probe in CI |
 | Defects fixed | Q-01 no h1 on the study screen, Q-02 oversized chunked body gave 500 |
-| Open security findings | S-01 DNS rebinding (Medium, task M2-00), S-02 token vs UI (Medium, **decided 2026-10-11, ADR-009, builds in M2-12**), S-05 image never built (Low, now built and tested in CI, image scan still to add) |
+| Open security findings | S-02 token vs UI (Medium, **decided 2026-10-11, ADR-009, builds in M2-12**), S-05 image scan (Low, image is built and tested in CI, a vulnerability scan is still to add). S-01 DNS rebinding was **closed by M2-00** (2026-10-11). |
 | Untested | Firefox, Safari, a real screen reader, the Docker image, CI on GitHub, Linux runs of the new scripts |
 
 ### Phase 6 delivery results (2026-10-11)
@@ -115,7 +115,7 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 
 ### M2 Card types, Markdown, Claude skill (17 tasks, about 56 hours)
 
-- [ ] M2-00 **Host check against DNS rebinding and the startup warning (security finding S-01).** Do this first. Safe default with no configuration, `TESSERA_ALLOWED_HOSTS` to override. The probe check flips from KNOWN to PASS. (S)
+- [x] M2-00 **Host check against DNS rebinding and the startup log line (security finding S-01).** Done 2026-10-11. Safe default with no configuration (localhost, IP addresses, single-word names, `.local`, `.lan`, `.home.arpa`, `.internal`, `.localdomain`). `TESSERA_ALLOWED_HOSTS` replaces the name rules and accepts `*.domain` and `name:port`. Refusal is HTTP 421 with a message that says how to fix it. `/healthz` is exempt. 87 new unit and integration tests, 40 new probe checks, 12 of 13 injected bugs caught (the 13th was a redundant condition, removed). **A real domain name, such as a reverse proxy address, now needs the setting.**
 - [ ] M2-01 Cloze core (S). Note: an interim `clozeSides` already exists in `core/cloze.ts` for the study UI.
 - [ ] M2-02 Cloze in import and queue, sibling burying (M). Burying is already in `submitReview`.
 - [ ] M2-03 Typed-answer matcher (S)
@@ -158,7 +158,7 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 
 ## Blockers and open decisions for the owner
 
-1. **M1 exit gate.** Confirm M1 so M2 can start, or ask for changes. The QA condition of a first green CI run on GitHub is met. M2-00 goes first in M2.
+1. ~~M1 exit gate.~~ Accepted by the owner on 2026-10-11 when they asked to start Milestone 2.
 2. **Merge Dependabot pull request #2** (`setup-node` 7.1.0). Verified safe, awaiting the owner's click.
 3. **Try the guides on your own host.** The `docker compose` commands in `docs/operations.md` and `docs/deploy.md` could not be run here. Installing Docker Desktop on the dev machine would let me run them, or run the backup and restore once on the homelab and tell me anything that differs.
 4. **Before the first real tag:** the repository's default workflow permission is "read repository contents and packages", which is fine because the release job asks for `packages: write` and `contents: write` itself. This can only be proven by a real tag.

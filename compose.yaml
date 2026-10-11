@@ -13,8 +13,11 @@ services:
       TZ: UTC
       # Optional. Protects /api/* (except /healthz and /api/schema) with a bearer token. 24+ characters.
       # TESSERA_API_TOKEN: change-me-to-a-long-random-value
-      # Optional. Only answer requests whose Host header is listed (defends against DNS rebinding).
-      # TESSERA_ALLOWED_HOSTS: localhost:3000,tessera.lan
+      # Host names Tessera answers to (defends against DNS rebinding). Without this line it answers localhost,
+      # any IP address, single-word names, and names ending in .local, .lan, .home.arpa, .internal, or
+      # .localdomain. Set it if you reach Tessera by another name, for example through a reverse proxy.
+      # Comma separated. "*.example.com" allows every name under a domain. localhost and IP addresses always work.
+      # TESSERA_ALLOWED_HOSTS: tessera.example.com,*.homelab.example
       # Behind a TLS-terminating reverse proxy, uncomment so SvelteKit sees the real protocol and host.
       # PROTOCOL_HEADER: x-forwarded-proto
       # HOST_HEADER: x-forwarded-host

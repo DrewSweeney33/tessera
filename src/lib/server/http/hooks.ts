@@ -1,7 +1,9 @@
 import type { Handle } from '@sveltejs/kit/hooks';
 import { getApp } from '../app.ts';
 import { checkContentType } from './content-type.ts';
+import { errorResponse } from './errors.ts';
 import { withHeaders } from './headers.ts';
+import { displayableHost, isHostAllowed } from './hosts.ts';
 import { resolveRequestId } from './request-id.ts';
 
 // The individual request hooks. hooks.server.ts composes them with sequence(), and tests call them
@@ -36,6 +38,30 @@ export const securityHeaders: Handle = async ({ event, resolve }) => {
 		headers['cache-control'] = 'no-store';
 	}
 	return withHeaders(response, headers);
+};
+
+// ADR-005 section 1: refuses requests for a host name the server is not meant to answer to, which is how a
+// hostile web page reaches a service on the visitor's own network (DNS rebinding). /healthz is exempt so a
+// monitor or the Docker health check works whatever name it uses. It reveals nothing but the version.
+export const hostGuard: Handle = async ({ event, resolve }) => {
+	if (event.url.pathname === '/healthz') return resolve(event);
+	const app = getApp();
+	if (isHostAllowed(event.url.host, app.config.allowedHosts)) return resolve(event);
+
+	const shown = displayableHost(event.url.host);
+	app.log.warn('request refused, host name not allowed', {
+		requestId: event.locals.requestId,
+		host: shown ?? '(not a valid host name)'
+	});
+	const fix = shown
+		? ` If this is your own address, set TESSERA_ALLOWED_HOSTS to include ${shown.replace(/:\d+$/, '')} and restart. See docs/deploy.md.`
+		: '';
+	return errorResponse(
+		'misdirected_request',
+		`This server does not answer to the host name ${shown ? `"${shown}"` : 'in the request'}.${fix}`,
+		undefined,
+		event.locals.requestId
+	);
 };
 
 // Mutating API calls must send a JSON (or, for import, Markdown) content type. See ADR-005.

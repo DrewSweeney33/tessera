@@ -74,7 +74,28 @@ Change the mapping to `'3000:3000'`. Everyone on the network, including a guest'
 
 **Never expose it to the internet without a proxy that requires authentication.**
 
-A known gap until a planned update: Tessera does not yet reject requests that arrive under an unexpected host name, which is how a malicious web page can attack a service on `localhost` ("DNS rebinding"). It needs a hostile page open in your browser at the same moment and cannot run code, but it could read or alter study data. Options 1 and 2 above avoid it. See the security review in `.10x/reviews/` for the details.
+### Host names (protection against DNS rebinding)
+
+A hostile web page can make your browser attack a service on your own network by pointing a domain it controls at your server's address. To the browser that looks like the page talking to itself, so the usual cross-site protections do not apply. What the page cannot fake is the host name it arrived under, which is always its own domain. So Tessera only answers to names it is meant to be reached by, and refuses the rest with a `421` reply that says how to fix it.
+
+Without any setting, Tessera answers:
+
+- `localhost` and any name ending in `.localhost`
+- any IP address (`192.168.30.99`, `[::1]`)
+- single-word names such as `tessera` or `nas`
+- names ending in `.local`, `.lan`, `.home.arpa`, `.internal`, or `.localdomain`
+
+Those names cannot exist on the public internet, so an attacker cannot point one at you.
+
+**If you reach Tessera by a real domain name, you must list it.** That includes a reverse proxy name like `tessera.example.com`, even when the name only resolves inside your home network, because a rebinding page can use a real domain too. In `compose.yaml`, under `environment`:
+
+```yaml
+TESSERA_ALLOWED_HOSTS: tessera.example.com
+```
+
+You can list several names separated by commas, add a port (`box.example.com:8443`), or allow everything under a domain with `*.example.com`. When the setting is present, only the listed names are answered, plus `localhost` and IP addresses. The startup log says which rules are in force. If a page shows `This server does not answer to the host name "…"`, this setting is what it means.
+
+This does not decide who may connect. Anyone who can reach the port can still use Tessera, so options 1 and 2 above still apply. `/healthz` always answers, under any name, so monitors and the Docker health check keep working.
 
 ## Settings you may want to change
 
@@ -85,9 +106,10 @@ Edit `compose.yaml`, then run `docker compose up -d`.
 | `TZ`                              | **Set this.** It decides when a study day rolls over (04:00 local time). The default is UTC, which makes the day change at odd hours elsewhere. Use a name like `America/Chicago`. |
 | The left side of the port mapping | If port 3000 is taken, use for example `127.0.0.1:3100:3000`.                                                                                                                      |
 | `LOG_LEVEL`                       | `debug`, `info` (default), `warn`, or `error`.                                                                                                                                     |
+| `TESSERA_ALLOWED_HOSTS`           | **Set this if you use a real domain name**, for example a reverse proxy address. See "Host names" above.                                                                           |
 | `mem_limit: 512m`                 | Optional cap, under the service. Tessera uses about 60 percent of this at its busiest.                                                                                             |
 
-`TESSERA_API_TOKEN` and `TESSERA_ALLOWED_HOSTS` appear in the file as comments. They are reserved for a later release and do nothing yet.
+`TESSERA_ALLOWED_HOSTS` is described above. `TESSERA_API_TOKEN` appears in the file as a comment and is reserved for a later release. It does nothing yet.
 
 ## Where the data lives
 

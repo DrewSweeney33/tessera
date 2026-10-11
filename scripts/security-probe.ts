@@ -1,8 +1,9 @@
 // Adversarial checks against a real running Tessera server, mapped to ADR-005.
 //   node scripts/security-probe.ts            starts build/index.js on a free port with a temp data dir
 //   node scripts/security-probe.ts --base http://127.0.0.1:3000
-// PASS means a control works. KNOWN means a documented gap that is expected to be open (it must be
-// listed in the security review). FAIL means a control is broken. Exits 1 on any FAIL.
+// PASS means a control works. FAIL means a control is broken. Exits 1 on any FAIL.
+// A control that is specified but not built yet is reported as KNOWN (and listed in the security review),
+// never as PASS. None are open at the moment.
 // Run `npm run build` first. This writes decks named "probe-*" into the target, so never aim it at real data.
 import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -19,10 +20,6 @@ function check(name: string, ok: boolean, detail = ''): void {
 	console.log(`${ok ? 'PASS ' : 'FAIL '} ${name}${ok || !detail ? '' : `  (${detail})`}`);
 	if (!ok) failures++;
 }
-function known(name: string, stillOpen: boolean, detail: string): void {
-	console.log(`${stillOpen ? 'KNOWN' : 'PASS '} ${name}  (${detail})`);
-}
-
 interface Reply {
 	status: number;
 	headers: http.IncomingHttpHeaders;
@@ -89,6 +86,54 @@ function freePort(): Promise<number> {
 		});
 		server.on('error', reject);
 	});
+}
+
+// Starts one more server with extra environment, for checks that need a different configuration.
+async function startSecondServer(extraEnv: Record<string, string>) {
+	const port = await freePort();
+	const folder = mkdtempSync(join(tmpdir(), 'tessera-probe2-'));
+	const proc = spawn(process.execPath, ['build/index.js'], {
+		env: {
+			...process.env,
+			NODE_ENV: 'production',
+			PORT: String(port),
+			HOST: '127.0.0.1',
+			DATA_DIR: folder,
+			BODY_SIZE_LIMIT: '5M',
+			LOG_LEVEL: 'debug',
+			...extraEnv
+		},
+		stdio: ['ignore', 'pipe', 'pipe']
+	});
+	const chunks: string[] = [];
+	proc.stdout?.on('data', (d) => chunks.push(String(d)));
+	proc.stderr?.on('data', (d) => chunks.push(String(d)));
+	const secondOrigin = new URL(`http://127.0.0.1:${port}`);
+	const saved = origin;
+	origin = secondOrigin;
+	try {
+		for (let i = 0; i < 100; i++) {
+			try {
+				if ((await send({ path: '/healthz' })).status === 200) break;
+			} catch {
+				// not up yet
+			}
+			await new Promise((r) => setTimeout(r, 200));
+		}
+	} finally {
+		origin = saved;
+	}
+	return {
+		origin: secondOrigin,
+		output: () => chunks.join(''),
+		stop: () => {
+			proc.kill();
+			setTimeout(
+				() => rmSync(folder, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }),
+				600
+			);
+		}
+	};
 }
 
 let child: ChildProcess | undefined;
@@ -263,12 +308,116 @@ try {
 
 	// ---- 3. Host header and DNS rebinding (section 1)
 	console.log('\n# DNS rebinding');
-	const rebound = await send({ path: '/api/decks', headers: { host: 'attacker.example:3000' } });
-	known(
-		'a request with a foreign Host header is answered (TESSERA_ALLOWED_HOSTS is not implemented yet)',
-		rebound.status === 200,
-		`status ${rebound.status}, planned for M2-12`
+	// Names a rebinding page uses are refused in every configuration, with no data in the reply.
+	for (const host of [
+		'attacker.example:3000',
+		'127.0.0.1.nip.io',
+		'7f000001.c0a80001.rbndr.us',
+		'localhost.evil.com',
+		'tessera.lan.evil.com'
+	]) {
+		const r = await send({ path: '/api/decks', headers: { host } });
+		check(
+			`a request for the name ${host} is refused with 421`,
+			r.status === 421,
+			`got ${r.status}`
+		);
+		check(`and the refusal contains no deck data (${host})`, !r.text.includes('"decks"'));
+	}
+	const refusedWrite = await send({
+		method: 'POST',
+		path: '/api/import',
+		headers: { ...JSON_HEADERS, host: 'attacker.example' },
+		body: goodDeck
+	});
+	check(
+		'a write under a foreign name is refused too',
+		refusedWrite.status === 421,
+		`got ${refusedWrite.status}`
 	);
+	const hostPage = await send({ path: '/', headers: { host: 'attacker.example' } });
+	check('so is the app page itself', hostPage.status === 421, `got ${hostPage.status}`);
+	check(
+		'the refusal says how to fix it',
+		refusedWrite.text.includes('TESSERA_ALLOWED_HOSTS') &&
+			refusedWrite.text.includes('attacker.example')
+	);
+	check(
+		'the refusal still carries the security headers and a request id',
+		refusedWrite.headers['x-content-type-options'] === 'nosniff' &&
+			refusedWrite.headers['referrer-policy'] === 'no-referrer' &&
+			Boolean(refusedWrite.headers['x-request-id'])
+	);
+	const health = await send({ path: '/healthz', headers: { host: 'monitor.example.com' } });
+	check(
+		'/healthz answers under any name, for monitors and the Docker health check',
+		health.status === 200,
+		`got ${health.status}`
+	);
+
+	if (child) {
+		for (const host of [
+			'localhost:3000',
+			'127.0.0.1',
+			'[::1]:3000',
+			'192.168.30.99:3000',
+			'tessera',
+			'tessera.lan',
+			'nas.home.arpa:3000',
+			'box.local'
+		]) {
+			const r = await send({ path: '/api/decks', headers: { host } });
+			check(`the default rules answer ${host}`, r.status === 200, `got ${r.status}`);
+		}
+		const own = await send({ path: '/api/decks', headers: { host: 'tessera.sweentech.com' } });
+		check(
+			'a real domain name needs the setting (a rebinding page could use one)',
+			own.status === 421,
+			`got ${own.status}`
+		);
+		check(
+			'the startup log states the host rules',
+			serverOutput.join('').includes('host check: using the default rules')
+		);
+
+		// With TESSERA_ALLOWED_HOSTS set, only the listed names are answered.
+		const listed = await startSecondServer({
+			TESSERA_ALLOWED_HOSTS: 'tessera.example.test, *.lab.example.test, box.example.test:8443'
+		});
+		const saved = origin;
+		origin = listed.origin;
+		try {
+			for (const [host, expected] of [
+				['tessera.example.test', 200],
+				['TESSERA.EXAMPLE.TEST:443', 200],
+				['x.lab.example.test', 200],
+				['box.example.test:8443', 200],
+				['box.example.test:80', 421],
+				['lab.example.test', 421],
+				['eviltessera.example.test', 421],
+				['tessera.example.test.evil.com', 421],
+				['tessera.lan', 421],
+				['nas', 421],
+				['attacker.example', 421],
+				['127.0.0.1', 200],
+				['localhost:3000', 200]
+			] as const) {
+				const r = await send({ path: '/api/decks', headers: { host } });
+				check(
+					`with the setting, ${host} gets ${expected}`,
+					r.status === expected,
+					`got ${r.status}`
+				);
+			}
+			check(
+				'the startup log lists the configured names',
+				listed.output().includes('answering only the listed host names')
+			);
+		} finally {
+			origin = saved;
+			listed.stop();
+		}
+	}
 
 	// ---- 4. Input hardening (section 6)
 	console.log('\n# Input hardening');

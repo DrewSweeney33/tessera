@@ -33,7 +33,7 @@ Four reliability bugs were found by running failures against the real server and
 ### What to do next, in order
 
 1. ~~GitHub setup~~ **Done 2026-10-11.** The repository `DrewSweeney33/tessera` is public, CI is green on Linux including both container jobs, the license is AGPL-3.0-only, private vulnerability reporting is on, and the release workflow was rehearsed successfully. Details in `.10x/status.md` under "GitHub setup results". The first CI run found two bugs in my own tests (a race and a measure-before-the-page-exists), both fixed. CI retries are off on purpose.
-2. **M2-00 (SDE):** the host check against DNS rebinding (security S-01), with a safe default. Flip the probe check from KNOWN to PASS.
+2. ~~M2-00, the host check against DNS rebinding~~ **Done 2026-10-11** (see `src/lib/server/http/hosts.ts`, the `hostGuard` hook, and the "DNS rebinding" section of `scripts/security-probe.ts`). **When deploying behind a reverse proxy with a real domain name, set `TESSERA_ALLOWED_HOSTS`**, or the proxy's name gets a 421.
 3. **M2-12 (after M2-00):** the API token, as decided in ADR-009. It covers external clients only. Same-origin browser requests are exempt (`Sec-Fetch-Site: same-origin`, or a matching `Origin` when that header is missing). Everything else needs the bearer token. Test plan is in the ADR.
 4. Continue M2 from M2-01.
 5. **At the M2 exit:** repeat QA and security review, add the image scan, run disk-full and a 12 to 24 hour soak on the homelab (SRE gaps G3, G4), bump the version, move the changelog, tag `v0.1.0`.
