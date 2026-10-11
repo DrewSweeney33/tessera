@@ -25,3 +25,17 @@ Each entry records what was built, deviations from the plan or ADRs, and tech de
 | Cram lint rule | The rule forbidding cram modules from importing `scheduler.review` is deferred to M4-01, when the scheduler's module split (read-only versus review) exists. |
 
 **Tech debt:** none yet.
+
+## M1-02 Foundations (2026-10-10)
+
+**Built:** `core/result.ts` (Result, ok, err), `server/clock.ts` (Clock, systemClock), `server/log.ts` (JSON line logger with level filter, child loggers, key-based redaction of card content, typed answers, and credentials), `server/config.ts` (Zod env parse, blank means unset, frozen, `parseConfig` pure and `getConfig` memoized), `server/http/errors.ts` (one error shape, status map, `AppError`, `toErrorResponse` that hides internals), `tests/helpers/fake-clock.ts`. 21 new tests, 29 total.
+
+**Conventions set (apply to all later tasks):**
+
+| Convention | Detail |
+|---|---|
+| Import specifiers | Always include the file extension: `#lib/core/result.ts`, `./clock.ts`. In Kit 3, extensionless `#lib/...` imports fail type checking (verified). `.ts` works and also lets Node 24 run scripts against app code natively. |
+| `erasableSyntaxOnly` | On in tsconfig. No enums, namespaces, or constructor parameter properties anywhere. This keeps `core` runnable by Node's built-in type stripping for scripts such as the schema emitter. |
+| Test helpers | Shared helpers live in `tests/helpers/`. `fakeClock()` is the standard clock for tests. |
+
+**Deviations:** none. **Tech debt:** none.
