@@ -31,3 +31,7 @@ test-results
 *.db-shm
 *.db-journal
 
+
+# End-to-end test data
+/.e2e-data
+/playwright-report

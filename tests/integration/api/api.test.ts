@@ -263,7 +263,10 @@ describe('POST /api/import: problems', () => {
 
 describe('GET /api/decks', () => {
 	it('starts empty', async () => {
-		expect(await handleListDecks(app).json()).toEqual({ decks: [] });
+		expect(await handleListDecks(app).json()).toEqual({
+			decks: [],
+			totals: { learning: 0, review: 0, new: 0 }
+		});
 	});
 
 	it('lists decks with their active card counts', async () => {
@@ -273,7 +276,7 @@ describe('GET /api/decks', () => {
 		);
 		await importDeck(deck([twoCards()[0]!]), '?archive_missing=true');
 
-		const { decks } = await handleListDecks(app).json();
+		const { decks, totals } = await handleListDecks(app).json();
 		expect(decks).toEqual([
 			{
 				id: 'ccna',
@@ -282,9 +285,25 @@ describe('GET /api/decks', () => {
 				tags: ['net'],
 				cardCount: 1,
 				createdAt: '2026-10-10T12:00:00.000Z',
-				updatedAt: expect.any(String)
+				updatedAt: expect.any(String),
+				counts: { learning: 0, review: 0, new: 1 }
 			},
-			expect.objectContaining({ id: 'other', cardCount: 1, description: null, tags: [] })
+			expect.objectContaining({
+				id: 'other',
+				cardCount: 1,
+				description: null,
+				tags: [],
+				counts: { learning: 0, review: 0, new: 1 }
+			})
 		]);
+		// Totals are what one session across every deck would serve.
+		expect(totals).toEqual({ learning: 0, review: 0, new: 2 });
+	});
+
+	it('reports the cloze blanks as separate items in the counts', async () => {
+		await importDeck(deck([twoCards()[1]!])); // one cloze card with two blanks
+		const { decks } = await handleListDecks(app).json();
+		expect(decks[0].cardCount).toBe(1);
+		expect(decks[0].counts.new).toBe(2);
 	});
 });

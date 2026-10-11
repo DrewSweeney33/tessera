@@ -1,0 +1,100 @@
+/* Hallmark · scope: app shell (no page macrostructure) · genre: editorial reading surface
+ * theme: custom "Tessera Desk" · tone: utilitarian, quiet study desk
+ * anchor hue: 80 (warm oat paper) · accent: verdigris, hue 185
+ * display: Newsreader · body: Geist · outlier: JetBrains Mono (code and key hints only)
+ * axes: paper light and dark (both ship) / reading serif / cool accent
+ * Every colour and font in the app is referenced through these tokens. Nothing else defines one.
+ */
+:root {
+	color-scheme: light dark;
+
+	/* Families. Fallbacks are real system faces, never the only stack. */
+	--font-display: 'Newsreader', 'Iowan Old Style', 'Palatino Linotype', ui-serif, Georgia, serif;
+	--font-body: 'Geist', ui-sans-serif, 'Segoe UI', system-ui, sans-serif;
+	--font-code: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+
+	/* Surfaces. Higher surfaces are lighter in dark mode, not shadowed. */
+	--color-paper: light-dark(oklch(97.5% 0.01 80), oklch(18% 0.012 80));
+	--color-surface: light-dark(oklch(99% 0.006 80), oklch(23% 0.013 80));
+	--color-sunken: light-dark(oklch(94.5% 0.013 80), oklch(15% 0.011 80));
+
+	/* Lines. rule is decorative. rule-strong draws control edges and meets 3:1. */
+	--color-rule: light-dark(oklch(88% 0.012 80), oklch(31% 0.012 80));
+	--color-rule-strong: light-dark(oklch(60% 0.014 80), oklch(56% 0.014 80));
+
+	/* Text. */
+	--color-ink: light-dark(oklch(21% 0.015 80), oklch(93% 0.008 80));
+	--color-muted: light-dark(oklch(43% 0.012 80), oklch(74% 0.01 80));
+
+	/* The one accent: verdigris. Focus, primary action, active nav, "Good". */
+	--color-accent: light-dark(oklch(46% 0.1 185), oklch(77% 0.1 182));
+	--color-accent-ink: light-dark(oklch(98% 0.01 185), oklch(17% 0.03 185));
+	--color-accent-soft: light-dark(oklch(93.5% 0.035 185), oklch(28% 0.045 185));
+	--color-focus: light-dark(oklch(45% 0.13 185), oklch(80% 0.11 182));
+
+	/* Grades. Always shown with a name and an interval, never as colour alone. */
+	--color-again: light-dark(oklch(50% 0.17 28), oklch(72% 0.15 28));
+	--color-hard: light-dark(oklch(52% 0.12 75), oklch(78% 0.12 80));
+	--color-good: var(--color-accent);
+	--color-easy: light-dark(oklch(48% 0.13 255), oklch(74% 0.11 255));
+
+	/* Status. */
+	--color-error: var(--color-again);
+	--color-error-soft: light-dark(oklch(95% 0.03 28), oklch(27% 0.05 28));
+	--color-success: var(--color-accent);
+
+	/* Type scale: major third (1.25). Body is 1rem. */
+	--text-sm: 0.875rem;
+	--text-base: 1rem;
+	--text-md: 1.25rem;
+	--text-lg: 1.5625rem;
+	--text-xl: 1.9531rem;
+	--text-2xl: 2.4414rem;
+	--text-card: clamp(1.25rem, 1rem + 1.1vw, 1.625rem);
+	--weight-body: 400;
+	--leading-body: 1.6;
+	--leading-tight: 1.15;
+
+	/* 4pt spacing. */
+	--space-1: 0.25rem;
+	--space-2: 0.5rem;
+	--space-3: 0.75rem;
+	--space-4: 1rem;
+	--space-5: 1.5rem;
+	--space-6: 2rem;
+	--space-7: 3rem;
+	--space-8: 4rem;
+	--gutter: clamp(1rem, 4vw, 2rem);
+
+	/* Shape. Squared tiles, a nod to the name. */
+	--radius-sm: 4px;
+	--radius: 6px;
+	--measure: 65ch;
+	--page-width: 64rem;
+	--hit: 2.75rem;
+
+	/* Motion: transform and opacity only, three easings' worth of discipline. */
+	--ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+	--dur-fast: 120ms;
+	--dur: 180ms;
+}
+
+/* A manual choice overrides the system preference. */
+:root[data-theme='light'] {
+	color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+	color-scheme: dark;
+}
+
+/* Light text on dark looks heavier, so body weight drops slightly. */
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']) {
+		--weight-body: 370;
+	}
+}
+
+:root[data-theme='dark'] {
+	--weight-body: 370;
+}

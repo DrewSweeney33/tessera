@@ -1,35 +1,15 @@
+import type { NextResponse, StudyItemDto } from '#lib/core/api-types.ts';
 import type { Grade } from '#lib/core/scheduler/types.ts';
 import { GRADES } from '#lib/core/scheduler/types.ts';
-import type { CardType } from '#lib/core/schema/card.ts';
 import type { Rng } from '../clock.ts';
 import type { Executor } from '../db/client.ts';
 import { getDeck, getSettings, type QueueScope } from '../repos/index.ts';
-import { countQueue, selectNext, type QueueCategory, type QueueCounts } from './queue.ts';
+import { countQueue, selectNext } from './queue.ts';
 import { toItemState } from './state.ts';
-import { schedulerFor, serializeState, type SerializedState } from './submit.ts';
+import { schedulerFor, serializeState } from './submit.ts';
 
-// What the browser receives for one study item.
-export interface StudyItemDto {
-	category: QueueCategory;
-	cardPk: number;
-	ordinal: number;
-	deckId: string;
-	deckTitle: string;
-	key: string;
-	type: CardType;
-	// Authored fields, as Markdown text. The browser renders and sanitizes them (ADR-005).
-	content: Record<string, unknown>;
-	tags: string[];
-	state: SerializedState;
-	// The label for each grade button, such as "10m" or "4d".
-	previews: Record<Grade, { label: string }>;
-	// Echoed back on submit so a stale answer can be detected.
-	servedAt: string;
-}
-
-export type NextResponse =
-	| { done: false; item: StudyItemDto; counts: QueueCounts }
-	| { done: true; waitingUntil: string | null; counts: QueueCounts };
+// The response shapes live in core/api-types.ts so the browser shares them.
+export type { NextResponse, StudyItemDto };
 
 export interface NextContext {
 	scope: QueueScope;

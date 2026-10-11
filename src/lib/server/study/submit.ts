@@ -1,3 +1,4 @@
+import type { ReviewResultDto, SerializedState } from '#lib/core/api-types.ts';
 import { err, ok, type Result } from '#lib/core/result.ts';
 import {
 	createScheduler,
@@ -29,30 +30,10 @@ export interface ReviewFailure {
 }
 
 // An ItemState with dates as ISO strings, as stored in review_log.result and sent to the client.
-export interface SerializedState {
-	due: string;
-	stability: number;
-	difficulty: number;
-	elapsedDays: number;
-	scheduledDays: number;
-	learningSteps: number;
-	reps: number;
-	lapses: number;
-	phase: number;
-	lastReview: string | null;
-}
-
-export interface ReviewResult {
-	reviewId: string;
-	// True when this id was already recorded and the stored result is being returned.
-	replayed: boolean;
-	cardPk: number;
-	ordinal: number;
-	grade: Grade;
-	next: SerializedState;
-	// True only on the review that pushes the item over the leech threshold.
-	becameLeech: boolean;
-}
+// Defined in core/api-types.ts so the browser shares it. replayed is true when the id was already
+// recorded, and becameLeech is true only on the review that crosses the leech threshold.
+export type { SerializedState };
+export type ReviewResult = ReviewResultDto;
 
 export interface SubmitContext {
 	clock: Clock;

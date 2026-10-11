@@ -1,0 +1,309 @@
+/* Base styles. Colours and fonts come from tokens.css only. */
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+/* clip, not hidden: hidden would make the root a scroll container and break sticky and anchors. */
+html,
+body {
+	overflow-x: clip;
+}
+
+html {
+	-webkit-text-size-adjust: 100%;
+	text-size-adjust: 100%;
+}
+
+body {
+	margin: 0;
+	min-height: 100dvh;
+	background: var(--color-paper);
+	color: var(--color-ink);
+	font-family: var(--font-body);
+	font-size: var(--text-base);
+	font-weight: var(--weight-body);
+	line-height: var(--leading-body);
+	font-variant-numeric: tabular-nums;
+	-webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+	margin: 0;
+	font-family: var(--font-display);
+	font-weight: 600;
+	font-style: normal;
+	line-height: var(--leading-tight);
+	letter-spacing: -0.012em;
+	text-wrap: balance;
+	overflow-wrap: anywhere;
+}
+
+h1 {
+	font-size: var(--text-xl);
+}
+
+h2 {
+	font-size: var(--text-lg);
+}
+
+h3 {
+	font-size: var(--text-md);
+}
+
+p {
+	margin: 0;
+	text-wrap: pretty;
+}
+
+a {
+	color: var(--color-ink);
+	text-decoration-color: var(--color-accent);
+	text-decoration-thickness: 2px;
+	text-underline-offset: 0.2em;
+}
+
+a:hover {
+	color: var(--color-accent);
+}
+
+:focus-visible {
+	outline: 2px solid var(--color-focus);
+	outline-offset: 2px;
+}
+
+::selection {
+	background: var(--color-accent-soft);
+	color: var(--color-ink);
+}
+
+kbd {
+	display: inline-block;
+	min-width: 1.5em;
+	padding: 0 0.4em;
+	border: 1px solid var(--color-rule-strong);
+	border-radius: var(--radius-sm);
+	background: var(--color-sunken);
+	color: var(--color-ink);
+	font-family: var(--font-code);
+	font-size: 0.8125rem;
+	line-height: 1.55;
+	text-align: center;
+}
+
+code,
+pre {
+	font-family: var(--font-code);
+	font-size: 0.9em;
+}
+
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+	border: 0;
+}
+
+.skip-link {
+	position: absolute;
+	inset-block-start: var(--space-2);
+	inset-inline-start: var(--space-2);
+	z-index: 10;
+	padding: var(--space-2) var(--space-4);
+	background: var(--color-accent);
+	color: var(--color-accent-ink);
+	border-radius: var(--radius);
+	text-decoration: none;
+	transform: translateY(-200%);
+}
+
+.skip-link:focus-visible {
+	transform: none;
+}
+
+.page {
+	width: min(100% - 2 * var(--gutter), var(--page-width));
+	margin-inline: auto;
+	padding-block: var(--space-6) var(--space-8);
+}
+
+.stack > * + * {
+	margin-block-start: var(--space-4);
+}
+
+.muted {
+	color: var(--color-muted);
+}
+
+/* Buttons. All eight states: default, hover, focus-visible, active, disabled, loading, error, success. */
+.btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--space-2);
+	min-height: var(--hit);
+	padding: 0 var(--space-4);
+	border: 1px solid var(--color-rule-strong);
+	border-radius: var(--radius);
+	background: var(--color-surface);
+	color: var(--color-ink);
+	font-family: var(--font-body);
+	font-size: var(--text-base);
+	font-weight: 500;
+	line-height: 1;
+	white-space: nowrap;
+	text-decoration: none;
+	cursor: pointer;
+	transition:
+		background-color var(--dur-fast) var(--ease-out),
+		transform var(--dur-fast) var(--ease-out);
+}
+
+.btn:hover,
+.btn.is-hover {
+	background: var(--color-sunken);
+	color: var(--color-ink);
+}
+
+.btn:focus-visible,
+.btn.is-focus {
+	outline: 2px solid var(--color-focus);
+	outline-offset: 2px;
+	transition: none;
+}
+
+.btn:active,
+.btn.is-active {
+	transform: translateY(1px);
+}
+
+.btn:disabled,
+.btn[aria-disabled='true'] {
+	opacity: 0.55;
+	cursor: not-allowed;
+	transform: none;
+}
+
+.btn[data-state='loading'] {
+	cursor: progress;
+}
+
+.btn[data-state='loading']::before {
+	content: '';
+	width: 1em;
+	height: 1em;
+	border: 2px solid currentColor;
+	border-inline-end-color: transparent;
+	border-radius: 50%;
+	animation: spin 0.8s linear infinite;
+}
+
+.btn[data-state='error'] {
+	border-color: var(--color-error);
+	color: var(--color-error);
+}
+
+.btn[data-state='success'] {
+	border-color: var(--color-success);
+	color: var(--color-success);
+}
+
+.btn--primary {
+	background: var(--color-accent);
+	border-color: var(--color-accent);
+	color: var(--color-accent-ink);
+}
+
+.btn--primary:hover,
+.btn--primary.is-hover {
+	background: color-mix(in oklch, var(--color-accent), var(--color-ink) 14%);
+	color: var(--color-accent-ink);
+}
+
+.btn--quiet {
+	border-color: transparent;
+	background: transparent;
+}
+
+@keyframes spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+/* Forms. */
+label,
+.label {
+	display: block;
+	font-weight: 500;
+}
+
+.field {
+	display: block;
+	width: 100%;
+	padding: var(--space-3) var(--space-4);
+	border: 1px solid var(--color-rule-strong);
+	border-radius: var(--radius);
+	background: var(--color-surface);
+	color: var(--color-ink);
+	font-family: var(--font-code);
+	font-size: 0.875rem;
+	line-height: 1.5;
+}
+
+.field::placeholder {
+	color: var(--color-muted);
+}
+
+.field:focus-visible {
+	outline: 2px solid var(--color-focus);
+	outline-offset: 1px;
+}
+
+input[type='checkbox'] {
+	width: 1.25rem;
+	height: 1.25rem;
+	margin: 0;
+	accent-color: var(--color-accent);
+}
+
+/* Messages. */
+.callout {
+	padding: var(--space-4) var(--space-5);
+	border: 1px solid var(--color-rule-strong);
+	border-radius: var(--radius);
+	background: var(--color-surface);
+}
+
+.callout--error {
+	border-color: var(--color-error);
+	background: var(--color-error-soft);
+}
+
+.callout--ok {
+	border-color: var(--color-success);
+	background: var(--color-accent-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		transition-duration: 0.01ms !important;
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+	}
+
+	.btn[data-state='loading']::before {
+		animation: none;
+		border-inline-end-color: currentColor;
+	}
+}

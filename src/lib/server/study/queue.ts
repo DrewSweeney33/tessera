@@ -1,3 +1,4 @@
+import type { QueueCategory, QueueCounts } from '#lib/core/api-types.ts';
 import { createReader } from '#lib/core/scheduler/read.ts';
 import { nextRollover, studyDayStart } from '#lib/core/study-day.ts';
 import type { Rng } from '../clock.ts';
@@ -25,7 +26,8 @@ export const LEARN_AHEAD_MS = 20 * 60_000;
 const REVIEW_CANDIDATE_LIMIT = 5000;
 const NEW_INTERLEAVE_WINDOW = 50;
 
-export type QueueCategory = 'learning' | 'review' | 'new';
+// Shared with the browser through core/api-types.ts.
+export type { QueueCategory, QueueCounts };
 
 export interface QueueItem {
 	category: QueueCategory;
@@ -43,12 +45,6 @@ export interface QueueOptions {
 	now: Date;
 	timeZone: string;
 	rng: Rng;
-}
-
-export interface QueueCounts {
-	learning: number;
-	review: number;
-	new: number;
 }
 
 const reader = createReader();
