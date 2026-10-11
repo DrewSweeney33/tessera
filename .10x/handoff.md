@@ -1,39 +1,62 @@
 # Handoff
 
-**From:** Engineering Manager and Senior Engineer (Phase 3 Planning)
-**To:** SDE, with Senior Engineer review and DBA input (Phase 4 Implementation)
+**From:** SDE, Phase 4 Implementation, mid-Milestone 1
+**To:** The next session continuing M1 (UI, end-to-end test, docs), then the M1 exit gate
 **Date:** 2026-10-10
 
-## What was planned
+## Where things stand
 
-67 tasks across five milestones, about 224 human-equivalent hours. M1 (23 tasks) and M2 (16 tasks) are fully specified with files, first tests, and watch-outs in `.10x/decisions/senior-engineer/tessera-v1.md`. M3 to M5 are outlined and get re-planned at each milestone gate. The checklist is in `.10x/status.md`. Sequencing and risks are in `.10x/decisions/engineering-manager/tessera-v1.md`.
+16 of 23 M1 tasks are done and committed on `main` in `C:\Dev\tessera`. The whole backend exists and is verified:
 
-## Start here
+| Area | State |
+|---|---|
+| Deck format | Strict Zod schema, JSON parser with fence and truncation handling, published JSON Schema, golden fixtures |
+| Import | Read-only plan plus atomic commit. Re-import keeps history and writes nothing when unchanged |
+| Scheduler | `ts-fsrs` behind our interface, 92-step conformance fixtures, read-only reader for cram |
+| Study | Queue with daily limits, learn-ahead, burying, interleave. `submitReview` with idempotent replay, stale check, leech flag |
+| HTTP | Hooks, CSP, content-type guard, routes for health, schema, decks, import, study next, study review |
+| Container and CI | Dockerfile, hardened compose, GitHub Actions workflow (not yet run), license and audit checks |
 
-1. Verify an ADR exists for the work (ADRs 001 to 005 do). Do not write code without them.
-2. Begin with **M1-01**: scaffold SvelteKit 3 in `C:\Dev\tessera` with the official `sv` CLI. Check the generated versions against ADR-001 (Kit 3.0.1, Svelte 5.57, Vite 8, TypeScript 6.0.x, adapter-node 6). If the scaffold is blocked, fall back to Kit 2.x and write a superseding ADR.
-3. Recommended M1 order: 01, 02, 03, 04, 05, 06, 07, 08, 13, 20, 21, then 09, 10, 11, 12, 18, then 14, 15, 16, 17, 19, then 22, 23.
-4. After each task: `npm run verify`, commit (Conventional Commit plus the co-author line), tick the task in `.10x/status.md`.
+`npm run verify` is green: 233 unit and 231 integration tests, strict types, lint, schema drift check. `npm run smoke` passes 28 checks against the real production server.
 
-## Rules to keep in mind
+## Remaining M1 tasks (see `.10x/status.md`)
 
-- Layers: `core` (pure) then `server` then `ui` and `routes`. Only `core/scheduler` imports `ts-fsrs`. Cram never calls `scheduler.review`.
-- Inject the clock and rng. No `Date.now()` or `Math.random()` in logic.
-- SQL only in repositories. Synchronous transactions, no `await` inside.
-- `{@html}` only inside `Markdown.svelte`. Sanitization tests run in a real browser.
-- Never log card content, typed answers, or tokens.
-- Do not add a dependency without a one-line justification and a license check.
+| Task | Notes |
+|---|---|
+| M1-14 Visual direction, tokens, app shell | **Needs the owner's approval of a direction** (screenshot via the built-in browser). Use the `impeccable` or `hallmark` skills. Keep it to half a day. |
+| M1-15 `Markdown.svelte` plus XSS corpus | Sanitization tests must run in a real browser, which needs Playwright's Chromium (a download, needs permission) or the built-in browser pane |
+| M1-16 Import UI | Paste, file drop, preview counts, error list, "Copy errors for Claude". Uses `fetch` JSON only (ADR-006) |
+| M1-17 Home deck list | Counts are review items, not cards (a cloze blank is one item). Use `countQueue` so numbers match sessions |
+| M1-19 Study UI for basic cards | Keyboard only: Space reveals, 1 to 4 grade. Interval labels come from `previews` |
+| M1-22 e2e plus benchmark | Needs Playwright browsers. 5,000-card import benchmark against the budget (under 10 s) |
+| M1-23 README quickstart and example deck | `examples/ccna-ospf.json` can reuse `tests/fixtures/decks/valid/ccna-ospf.json` |
 
-## DBA notes for M1-05
+Then the M1 exit gate: write the milestone summary into `.10x/decisions/*`, update this file, and stop for the owner's confirmation.
 
-Tables, deltas, and indexes are in the architect file sections 5. Key points: `cards.position`, `card_state.archived`, review snapshot as columns, settings seeded at first boot, `VACUUM INTO` for backups, WAL with `foreign_keys=ON`.
+## Decisions and corrections made during implementation
 
-## Decisions needed from the owner (not blocking M1-01 to M1-12)
+- **ADR-006:** the UI uses JSON `fetch` only, no form actions. adapter-node 6 has no `ORIGIN` and assumes `https`, so form posts fail on plain HTTP.
+- **ADR-007:** `ignore-scripts=true` in `.npmrc`. A clean `npm ci` otherwise tries to compile `better-sqlite3` with `node-gyp`.
+- **ADR-003 refined:** learn-ahead items are a last resort, not first in the queue.
+- Deck `description` and `tags` omitted from a re-import are kept, not erased.
+- Leech flagging landed in `submitReview` (M1-12), not M3-01.
+- Full running log with findings per task: `.10x/decisions/sde/tessera-v1.md`.
 
-- GitHub remote location and visibility (blocks M1-21 running on GitHub, M2-15 publishing).
-- Approval cadence for implementation.
-- Visual direction input before M1-14.
+## Conventions to keep
+
+- Imports include the file extension (`#lib/core/result.ts`). `erasableSyntaxOnly` is on. No enums or parameter properties.
+- Write JSON files with the Write tool or Node, never PowerShell `Set-Content -Encoding utf8` (it adds a BOM).
+- Gate every commit on `npm run verify` actually exiting 0. Do not pipe it into `Select-String` and check the pipe's exit code.
+- Counts in the API and UI are review items.
+
+## Open items that need the owner
+
+1. **Visual direction** for the UI (reference apps, dark or light first, or let the design skill propose one).
+2. **LICENSE file.** The AGPL-3.0 text is not on this machine. Downloading it from gnu.org needs permission. Also decide `AGPL-3.0-only` or `-or-later`.
+3. **Playwright browser download** (Chromium, roughly 150 MB) for the end-to-end and XSS tests.
+4. **GitHub remote** (location, visibility) so CI can run and the Docker image can be verified. Nothing is pushed without approval.
+5. **Docker Desktop** is optional locally. Without it, CI is the only image verification.
 
 ## Environment
 
-Windows 11, Node 24.15.0, Python 3.12, no Docker locally, git repo at `C:\Dev\tessera`, branch `main`, 3 commits so far (all in `.10x/`). No application code exists yet.
+Windows 11, Node 24.15.0, no Docker locally, git repo at `C:\Dev\tessera`, branch `main`, about 30 commits.
