@@ -2,67 +2,36 @@
 
 ## Current handoff
 
-**From:** DevOps Engineer and SRE, Phase 6 Delivery (readiness of the M1 slice)
-**To:** The owner (decisions and approvals), then the SDE for M2
+**From:** SDE, Milestone 2 (M2-05 to M2-08, the Markdown deck format)
+**To:** The owner (approve the push), then the SDE for M2-09
 **Date:** 2026-10-11
-**Per-feature files:** `.10x/decisions/devops/tessera-v1.md`, `.10x/decisions/sre/tessera-v1.md`, `.10x/adrs/008-forward-only-migrations-and-write-locking.md`
+**Per-feature file:** `.10x/decisions/sde/tessera-v1.md` (section "M2-05 to M2-08")
 
 ### Result
 
-A tested delivery package exists. **Nothing has been released, tagged, pushed, or published.** `v0.1.0` stays at the M2 exit, as planned. The sign-off is conditional: the M1 slice is ready for the owner's own use behind loopback or a VPN, with a daily snapshot copied off the host. It is not ready for a public release.
+Decks can be written and imported in Markdown as well as JSON, through the same validator. Reader, writer, format detection, the `text/markdown` import route, and the import page are done. Property tests prove both formats round trip and agree; a mutation check (66 injected bugs) caught everything except one equivalent mutant after tests were added for the 19 gaps it found. The probe gained 16 Markdown hostile-input checks. Gates on a fresh build: verify (658 unit, 269 integration), 61 e2e, smoke, probe, durability, ops, licenses, audit all pass.
 
-Four reliability bugs were found by running failures against the real server and fixed (ADR-008): two copies on one data folder failed 47 of 60 writes, an older version silently opened a newer database, a damaged database gave no guidance, and a backwards clock step could make a card unanswerable.
+### State of git
 
-### What exists now
+M2-05 to M2-08 are committed locally and **not pushed**; they need the owner's approval (outside the CI-fix standing approval). `bf2bf7c` and earlier are on GitHub.
 
-| Item | Where |
-|---|---|
-| Deploy guide (access options, settings, data, safety) | `docs/deploy.md` |
-| Operations guide (health, logs, backup, restore, upgrade, rollback, every startup message and its fix) | `docs/operations.md` |
-| Release process and first-release checklist | `docs/releasing.md` |
-| Changelog (the `[Unreleased]` section describes the M1 slice) | `CHANGELOG.md` |
-| Vulnerability reporting policy | `SECURITY.md` |
-| Tag-driven release workflow (runs CI first, multi-arch, provenance and SBOM, release notes from the changelog) | `.github/workflows/release.yml` |
-| Script that runs the operations guide's backup command as written and checks every documented message | `npm run ops:check` |
-| Capacity and soak numbers | `docs/performance.md` |
+### Next
 
-### Tools
+1. Owner: approve pushing the M2-05 to M2-08 commits.
+2. M2-09 import preview detail, M2-10 study UI for cloze, typed, choice (uses `typed-match`, `choice`, `clozeSides`), M2-11 Mermaid and Shiki under the CSP, M2-12 API token (ADR-009), M2-13 Claude skill, `docs/deck-format.md`, golden decks (the author-facing documentation of the Markdown format belongs here), M2-14 e2e for all card types plus Firefox and WebKit, M2-16 gate (QA, security review, `v0.1.0` only after approval).
 
-`npm run verify`, `npm run build` then `test:e2e`, `smoke`, `security:probe`, `durability`, `ops:check`, `benchmark`. CI runs all of them. The soak and process experiments used for the SRE numbers were scratch scripts and are not in the repo.
+### Things to know
 
-### What to do next, in order
-
-1. ~~GitHub setup~~ **Done 2026-10-11.** The repository `DrewSweeney33/tessera` is public, CI is green on Linux including both container jobs, the license is AGPL-3.0-only, private vulnerability reporting is on, and the release workflow was rehearsed successfully. Details in `.10x/status.md` under "GitHub setup results". The first CI run found two bugs in my own tests (a race and a measure-before-the-page-exists), both fixed. CI retries are off on purpose.
-2. ~~M2-00, the host check against DNS rebinding~~ **Done 2026-10-11** (see `src/lib/server/http/hosts.ts`, the `hostGuard` hook, and the "DNS rebinding" section of `scripts/security-probe.ts`). **When deploying behind a reverse proxy with a real domain name, set `TESSERA_ALLOWED_HOSTS`**, or the proxy's name gets a 421.
-3. **M2-12 (after M2-00):** the API token, as decided in ADR-009. It covers external clients only. Same-origin browser requests are exempt (`Sec-Fetch-Site: same-origin`, or a matching `Origin` when that header is missing). Everything else needs the bearer token. Test plan is in the ADR.
-4. Continue M2 from M2-01.
-5. **At the M2 exit:** repeat QA and security review, add the image scan, run disk-full and a 12 to 24 hour soak on the homelab (SRE gaps G3, G4), bump the version, move the changelog, tag `v0.1.0`.
-
-### Residual risks
-
-The registry push and GitHub Release creation have never run (only a real tag does them). The `docker compose` wrappers in the guides were not executed on a real host. Disk-full not triggered. Deep mid-file corruption would not turn `/healthz` red (backups should be integrity-checked; planned with `GET /api/backup`). Chrome only. No real screen reader pass. Nothing alerts on a stale backup.
-
-### Lessons to keep applying
-
-- Run the failure before writing the runbook. Four of the five most important findings in this phase (overlap, downgrade, damaged file, clock step) were invisible until triggered.
-- Windows Git-bash mangles backslashes in arguments. Write shell steps without backslash escapes so they behave the same everywhere.
-- PowerShell double-quoted here-strings eat backticks. Write Markdown with the Write tool.
-- A mutation that removes one of two redundant conditions proves nothing. Make the mutation decisive.
-- Do not copy a live SQLite file. Use the snapshot command.
-
-### Open items that need the owner
-
-1. **Confirm the M1 exit gate** so M2 can begin.
-2. **Merge Dependabot pull request #2** (`setup-node` 7.1.0). Verified safe: the pinned SHA is the `v7.1.0` tag and the full CI passed.
-3. ~~S-02, how the API token should work.~~ **Decided 2026-10-11** (ADR-009).
-4. **Try the guides once on your own host**, or install Docker Desktop here so the compose commands can be run.
-5. Before the first real tag: check that Settings, Actions, General, Workflow permissions does not block the release job's `packages: write`.
-
-Resolved on 2026-10-11: GitHub remote (public), LICENSE (AGPL-3.0-only), private vulnerability reporting, the release rehearsal, and the five Dependabot pull requests (four closed, one pending the owner's merge).
-
-**Standing approval:** the owner allowed pushing CI fixes to `main` of this repository without asking each time. Everything else, including documentation, dependency and license changes, still needs approval first.
+- `detect.ts` is for the import page only. The server never guesses the format.
+- Markdown cannot hold every JSON deck (text starting with spaces, unclosed code fences, a blank line inside a choice). `serializeMarkdown` says why instead of writing a lossy file.
+- Property tests are seeded (`FC_SEED`, `FC_RUNS` environment variables) so a failure reproduces.
+- Open items from before are unchanged (compose wrappers unverified on a real host, registry push unexercised, disk-full and long soak untested, Firefox and Safari untested).
 
 ## Handoff history
+
+### 2026-10-11: DevOps Engineer and SRE, Phase 6 Delivery (readiness of the M1 slice), to the owner and the SDE for M2
+
+Delivery package for M1 (deploy, operations, release docs, release workflow, ops check) and four reliability fixes (ADR-008). Conditional sign-off for the owner's own use. GitHub setup, M2-00 (host check), ADR-009 (API token) decided and done after this handoff. Details in `.10x/decisions/devops/tessera-v1.md` and `.10x/decisions/sre/tessera-v1.md`.
 
 ### 2026-10-11: QA Engineer and Security Engineer, Phase 5 interim verification, to SDE, DevOps, and the owner
 

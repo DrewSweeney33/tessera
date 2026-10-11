@@ -9,6 +9,7 @@ First working version, built in milestone 1. Not yet released: the first public 
 ### Added
 
 - Import a deck by pasting JSON from Claude, choosing a file, or dropping one. A preview shows exactly what will change before anything is saved. Errors name the field and give line and column for syntax mistakes, and "Copy errors for Claude" produces a message that gets the deck fixed in one round trip.
+- Decks can also be written in Markdown: a block of deck details at the top, then `## card-id` headings with `Q:`, `A:`, `Cloze:`, `Answer:`, and `Choices:` lines. The import page and the `/api/import` endpoint (`Content-Type: text/markdown`) take either format, the page works out which one you pasted, and the same deck gives the same import in both. Errors in a Markdown deck give the line number.
 - Re-importing a revised deck keeps your progress. Cards are matched by `id`. Importing an unchanged file changes nothing.
 - Study with FSRS spaced repetition. Keyboard first: Space shows the answer, 1 to 4 grade it, H shows a hint. Interval labels on the buttons, daily new and review limits, cloze blanks scheduled separately and buried for the day.
 - Four card types in the deck format: basic, cloze, typed answer, and multiple choice. For now you grade typed and choice cards yourself.
@@ -36,5 +37,5 @@ First working version, built in milestone 1. Not yet released: the first public 
 
 ### Known limitations
 
-- Typed-answer checking, Markdown deck import, Mermaid diagrams, leech handling, cram mode, statistics, and the API token are not built yet.
+- Typed-answer checking, Mermaid diagrams, leech handling, cram mode, statistics, and the API token are not built yet.
 - Only Chrome has been tested.

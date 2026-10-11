@@ -1,7 +1,7 @@
 # Tessera Status
 
 **Last updated:** 2026-10-11
-**Current phase:** Phase 4 Implementation, Milestone 2 in progress (started 2026-10-11). The repository is live on GitHub (public) with CI green on Linux. M2-00 is done and committed locally. No release exists; `v0.1.0` is the M2 exit.
+**Current phase:** Phase 4 Implementation, Milestone 2 in progress (started 2026-10-11). The repository is live on GitHub (public) with CI green on Linux. M2-00 to M2-08 are done. No release exists; `v0.1.0` is the M2 exit.
 **Feature slug:** `tessera-v1`
 
 ## Phase tracker
@@ -12,7 +12,7 @@
 | 1 Strategy | Complete. Verdict: build, with a checkpoint after M2. |
 | 2 Design | Complete. 7 ADRs accepted (005 to 007 added during implementation). |
 | 3 Planning | Complete. 67 tasks, 5 milestones, about 224 hours (human-equivalent). |
-| 4 Implementation | M1 done (23 of 23 tasks), exit gate accepted by the owner 2026-10-11 ("start Milestone 2"). M2 in progress: M2-00 to M2-04 done (commits local, not pushed), M2-05 next. |
+| 4 Implementation | M1 done (23 of 23 tasks), exit gate accepted by the owner 2026-10-11 ("start Milestone 2"). M2 in progress: M2-00 to M2-08 done (M2-00 to M2-04 pushed; M2-05 to M2-08 committed locally, awaiting the owner's approval to push), M2-09 next. |
 | 5 Verification | **Interim pass on the M1 slice done 2026-10-11.** 2 defects fixed, 0 blocking. Repeat at the M2 exit (with a security review) and final at M5 exit. |
 | 6 Delivery | **Delivery package for the M1 slice done 2026-10-11:** deploy, operations, and release docs, tag-driven release workflow, ops check script, four reliability fixes (ADR-008). Conditional sign-off: ready for the owner's own use on loopback or a VPN with backups. Public `v0.1.0` at M2 exit, `v1.0.0` at M5 exit. |
 
@@ -120,10 +120,10 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 - [x] M2-02 Cloze in import and queue, sibling burying (M). Done 2026-10-11. Add, archive, restore, and burying were already built and tested in M1. Added tests for nested blanks through the real import path (outer and inner number each get an item, progress survives nesting an existing blank), the API refusal of an unclosed blank with nothing written, and the study API serving nested items as siblings.
 - [x] M2-03 Typed-answer matcher (S). Done 2026-10-11. `core/typed-match.ts`: NFKC, case fold, whitespace collapse, trailing punctuation only. `10.0.0.1` never equals `10001`. Accepted list supported. Suggests Good or Again.
 - [x] M2-04 Choice validation and grading (S). Done 2026-10-11. `core/choice.ts`: grading by the author's index, and a seeded shuffle (the seed includes the review count, so a refresh keeps the order and the next review reshuffles). Schema edge cases covered. Error wording for a fractional number fixed.
-- [ ] M2-05 Markdown parser core (M)
-- [ ] M2-06 Markdown parser fields and inference (M)
-- [ ] M2-07 Serializers and equivalence properties (M)
-- [ ] M2-08 Markdown import API and UI (S)
+- [x] M2-05 Markdown parser core (M). Done 2026-10-11. `core/parse/markdown.ts` and `markdown-syntax.ts` (line rules shared with the serializer). Front matter read with `yaml` (core schema, unique keys, alias limit 10, unknown tags refused). Cards by `## id` headings, fields by line-start labels, code fences opaque, one-backslash escape, whole-deck wrapping fence, BOM and CRLF handled. Every error has a line number.
+- [x] M2-06 Markdown parser fields and inference (M). Done 2026-10-11. Type inferred from labels (Cloze, Q+Choices, Q+Answer, Q+A), `Type:` overrides, `[x]` choice marker, comma lists with `\,` escape, validator errors mapped back to lines through a source map, error list capped at 50.
+- [x] M2-07 Serializers and equivalence properties (M). Done 2026-10-11. `serializeJson`, `serializeMarkdown` (reports what the Markdown format cannot hold instead of writing a lossy file). Property tests (fast-check, seeded) prove: JSON round trip exact, Markdown round trip equal after normalization, both formats parse to the same deck, writing is a fixpoint. Run with 7 other seeds at 3,000 runs each: no counterexample.
+- [x] M2-08 Markdown import API and UI (S). Done 2026-10-11. `/api/import` takes `text/markdown` (client states the format, server never guesses), history records `markdown`. `core/parse/detect.ts` picks the format on the import page from the text (file name only breaks a tie). Same deck as JSON and Markdown gives identical plans and is unchanged when imported after the other. Probe gained 16 Markdown checks (alias bomb, deep nesting, tags, `__proto__`, flood, size).
 - [ ] M2-09 Import preview detail (M)
 - [ ] M2-10 Study UI for cloze, typed, choice (M)
 - [ ] M2-11 Mermaid and Shiki under the CSP (M)

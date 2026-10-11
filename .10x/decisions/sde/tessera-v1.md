@@ -483,3 +483,25 @@ One visible effect: a card whose only marker is `{{c0::x}}` used to get just "ne
 **Mutation check.** 17 deliberate bugs in the new code, 17 caught.
 
 **Tests added:** cloze 70 or so (parsing, rendering, nesting, issues, pathological input, random garbage, deck level), typed 47, choice 32, plus 5 integration. The unit suite is 532.
+
+## M2-05 to M2-08 Markdown deck format (2026-10-11)
+
+The Markdown format of spec section 6.2, read into the same plain object a JSON deck gives and handed to the one validator, so the two formats cannot disagree about what is valid.
+
+**Parser (`core/parse/markdown.ts`, `markdown-syntax.ts`).** Front matter is YAML (`yaml` 2.9.1, core schema, unique keys, alias limit 10, so unknown tags and alias bombs become `invalid_frontmatter` errors). Unknown front matter keys go into `deck.*`, so the validator's "allowed fields" message applies. Cards start at `## id`; fields start at a label at the start of a line (Type, Q, A, Answer, Accept, Cloze, Choices, Explanation, Extra, Hint, Tags, Source, case-insensitive). Code fences are opaque. The one escape is a leading backslash, removed exactly once, so any text can be stored. Anything outside a card or field is an error rather than silently dropped. The reader and writer share their line rules in `markdown-syntax.ts`, so they cannot drift apart.
+
+**Serializers (`core/parse/serialize.ts`).** `serializeJson` writes keys in a fixed order. `serializeMarkdown` returns the reasons a deck cannot be written (`leading_space`, `unclosed_fence`, `list_item`, `blank_line_in_choice`, `empty_choice`) instead of producing a file that would read back differently. The deck is still fine as JSON.
+
+**Properties (fast-check 4.10.2, dev dependency, seeded so failures reproduce).** JSON round trip exact; Markdown round trip equal after `normalizeCard` (tags and accept as sets, text trimmed, NFC); both formats parse to the same deck; write, read, write is a fixpoint; and for any text at all, a deck either round trips or says exactly why not. Generators put awkward lines (labels, headings, fences, backslashes) into every text field. Run at 3,000 cases for each of 7 further seeds: no counterexample.
+
+**Flaws the properties found (fixed):** a code fence that opens on the first line of a choice (after the bullet) paired the wrong fences. Fence state is now tracked on the choice text, not on the bullet and indent, in both reader and writer. Inner whitespace of choices was being trimmed; now only the end of the whole choice is.
+
+**Import (M2-08).** `handleImport` maps the content type to a reader with a `Map` (so `constructor` or `__proto__` as a content type cannot match an inherited name). The server never guesses the format; the client says. `core/parse/detect.ts` is used by the import page only: first line `{` or `[` is JSON, first line `---` is Markdown, then a `tessera:` or `"tessera":` marker anywhere (an introduction from Claude may come first), then the file extension, then JSON by default. The page shows "Reading this as Markdown/JSON." and imports `detect.ts` directly so the browser bundle does not carry `yaml` or the validator.
+
+**Mutation check.** 66 deliberate bugs across reader, shared rules, and writer: 47 caught first time, 19 survived. Each survivor was either a missing test (added: Type case, choice trailing space, fence indent rules, wrapper fence mismatch, size boundary, error order, blank line under a heading, `...` end marker, strict `---` start, list split on line breaks, long title folding, CR handling, empty choice) or an equivalent mutant. After the new tests 18 of those 19 are caught; the last one (`correct: marked[0]` when several choices are marked) is equivalent, because the multiple-correct error is returned before the value is read. A control run with no change survived, as it should.
+
+**Security.** New attack surface is the YAML parser on a network boundary. Probe now sends a 6 MB body, a YAML alias bomb, 100,000 nested brackets, unknown and custom YAML tags, `__proto__` and `constructor` keys, 200,000 empty cards (error list capped at 50), a 2 MB line, SQL metacharacters in ids, and `text/plain`. All refused cleanly and quickly.
+
+**Tests added:** parse-markdown 90, serialize 24, detect 12, 14 API integration tests, 9 browser tests (`tests/e2e/import-markdown.spec.ts`). Totals: 658 unit, 269 integration, 61 e2e, probe 156 checks, smoke, durability, ops, licenses and `npm audit` clean.
+
+**Not done here:** documentation of the format for authors is M2-13 (`docs/deck-format.md` and the Claude skill). Export is not exposed in the UI yet; the serializers exist for it.
