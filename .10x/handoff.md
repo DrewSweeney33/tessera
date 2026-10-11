@@ -1,43 +1,39 @@
 # Handoff
 
-**From:** Principal Architect and Staff Engineer (Phase 2 Design)
-**To:** Engineering Manager and Senior Engineer (Phase 3 Planning)
+**From:** Engineering Manager and Senior Engineer (Phase 3 Planning)
+**To:** SDE, with Senior Engineer review and DBA input (Phase 4 Implementation)
 **Date:** 2026-10-10
 
-## What was decided
+## What was planned
 
-Five accepted ADRs in `.10x/adrs/`:
+67 tasks across five milestones, about 224 human-equivalent hours. M1 (23 tasks) and M2 (16 tasks) are fully specified with files, first tests, and watch-outs in `.10x/decisions/senior-engineer/tessera-v1.md`. M3 to M5 are outlined and get re-planned at each milestone gate. The checklist is in `.10x/status.md`. Sequencing and risks are in `.10x/decisions/engineering-manager/tessera-v1.md`.
 
-1. **001 Stack and storage:** SvelteKit 3 and Svelte 5, TypeScript 6, `better-sqlite3` 13, Drizzle 0.45, Zod 4. Everything in one container and one SQLite file.
-2. **002 Deck format and import:** JSON canonical, Markdown converts to it, one validator. Cards identified by `(deck_id, key)`. Re-import updates and keeps history, never deletes. Plan is recomputed inside the commit transaction.
-3. **003 Scheduler:** `ts-fsrs` 5.x behind our own interface in `core/scheduler`. Server-authoritative queue, one item at a time. Cram writes only `review_log` and never touches `card_state`.
-4. **004 Container:** `node:24-trixie-slim`, multi-stage, non-root, multi-arch to GHCR, compose publishes on loopback, compressed size target under 150 MB.
-5. **005 Security:** no login, optional API token on all `/api/*` except `/healthz` and `/api/schema`, strict content types, sanitized client-side Markdown, CSP, `ssr = false`.
+## Start here
 
-Architecture, module boundaries, interfaces, data flows, schema deltas, failure modes, and performance budgets are in `.10x/decisions/architect/tessera-v1.md`. Conventions, tooling, test standards, and CI are in `.10x/decisions/staff-engineer/tessera-v1.md`. The spec's section 19 lists amendments.
+1. Verify an ADR exists for the work (ADRs 001 to 005 do). Do not write code without them.
+2. Begin with **M1-01**: scaffold SvelteKit 3 in `C:\Dev\tessera` with the official `sv` CLI. Check the generated versions against ADR-001 (Kit 3.0.1, Svelte 5.57, Vite 8, TypeScript 6.0.x, adapter-node 6). If the scaffold is blocked, fall back to Kit 2.x and write a superseding ADR.
+3. Recommended M1 order: 01, 02, 03, 04, 05, 06, 07, 08, 13, 20, 21, then 09, 10, 11, 12, 18, then 14, 15, 16, 17, 19, then 22, 23.
+4. After each task: `npm run verify`, commit (Conventional Commit plus the co-author line), tick the task in `.10x/status.md`.
 
-## For the Engineering Manager
+## Rules to keep in mind
 
-- Break the five milestones in spec section 15 into tasks of half a day or less, sequenced by dependency. The dependency spine is: scaffold, schema, parsers, database and repos, import plan and commit, scheduler wrapper, queue and review submission, study UI, card types, Markdown format, leeches and report, cram, stats, PWA and polish, CI and release.
-- Put CI and the Dockerfile early (M1), since Docker is not installable locally and CI is the only place the image is verified.
-- Decide whether Mermaid lands in M1 or M2. The CSP verification item rides with it.
-- Reserve a visual direction task before UI work starts, using the design skills (`impeccable` or `hallmark`).
-- Keep the checkpoint after M2 explicit in the plan.
-- M1 must produce a usable vertical slice: import a JSON deck, study basic cards with FSRS, run in Docker.
+- Layers: `core` (pure) then `server` then `ui` and `routes`. Only `core/scheduler` imports `ts-fsrs`. Cram never calls `scheduler.review`.
+- Inject the clock and rng. No `Date.now()` or `Math.random()` in logic.
+- SQL only in repositories. Synchronous transactions, no `await` inside.
+- `{@html}` only inside `Markdown.svelte`. Sanitization tests run in a real browser.
+- Never log card content, typed answers, or tokens.
+- Do not add a dependency without a one-line justification and a license check.
 
-## For the Senior Engineer
+## DBA notes for M1-05
 
-- Spell out per-task file lists and the test to write first.
-- Flag tricky parts: the Markdown state machine (fences and labels), study-day boundaries across DST, the transaction that recomputes the import plan, and the `servedAt` stale check.
-- First task of M1 is scaffolding with SvelteKit 3.x. If it blocks, fall back to Kit 2.x and write a superseding ADR.
+Tables, deltas, and indexes are in the architect file sections 5. Key points: `cards.position`, `card_state.archived`, review snapshot as columns, settings seeded at first boot, `VACUUM INTO` for backups, WAL with `foreign_keys=ON`.
 
-## Open items
+## Decisions needed from the owner (not blocking M1-01 to M1-12)
 
-- Mermaid and Shiki under the CSP: verify in M2.
-- 5,000-card import benchmark: M1.
-- Visual design direction: before UI work.
-- Choice-card auto distractors: v1.1.
+- GitHub remote location and visibility (blocks M1-21 running on GitHub, M2-15 publishing).
+- Approval cadence for implementation.
+- Visual direction input before M1-14.
 
 ## Environment
 
-Windows 11, Node 24.15.0, Python 3.12, no Docker locally, git repo at `C:\Dev\tessera`, branch `main`. Probe scripts used during Phase 2 were run in a scratch folder and are not part of the repo.
+Windows 11, Node 24.15.0, Python 3.12, no Docker locally, git repo at `C:\Dev\tessera`, branch `main`, 3 commits so far (all in `.10x/`). No application code exists yet.

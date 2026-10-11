@@ -328,3 +328,16 @@ These refine the approved spec. Details and reasoning are in ADRs 001 to 005 and
 7. **Frontmatter parsing (section 6.2):** uses the `yaml` package with the core schema. `gray-matter` is rejected because it can execute JavaScript frontmatter.
 8. **Review submission (section 9):** server-authoritative queue, one item at a time, with an idempotency key and a stale-review check.
 9. **Retype of a card (section 7):** changing a card's type on re-import resets that card's progress and is flagged in the preview.
+
+## 20. Amendments from Phase 3 (2026-10-10)
+
+Milestone changes from `.10x/decisions/engineering-manager/tessera-v1.md`:
+
+1. **Claude skill moves from M3 to M2.** The checkpoint needs the owner to study a Claude-generated deck, so the skill and three golden decks ship with M2. M3 extends the skill with the weak-spot round trip.
+2. **Mermaid and Shiki land in M2**, together with the CSP verification.
+3. **CSP, request ids, and content-type enforcement land in M1.** API token and allowed-hosts enforcement land in M2.
+4. **First release is `v0.1.0` at the end of M2**, deployed to the homelab to start the study checkpoint. `v1.0.0` follows M5.
+5. **Settings UI and the interleave option land in M3.** M1 and M2 run on seeded defaults.
+6. **Charts are hand-rolled SVG**, no chart library.
+7. **PWA scope** is an installable app shell with no offline study, because the study queue is server-authoritative.
+8. **Plan size:** 67 tasks across five milestones, about 224 human-equivalent hours.

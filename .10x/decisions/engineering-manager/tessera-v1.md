@@ -1,0 +1,208 @@
+# Engineering Manager Decisions: tessera-v1
+
+**Date:** 2026-10-10
+**Phase:** 3 Planning
+**Inputs:** spec (with section 19 amendments), ADRs 001 to 005, architect and staff-engineer decisions
+
+## 1. Planning approach
+
+- **Rolling wave.** M1 and M2 are broken into fully specified tasks now. M3, M4, and M5 are outlined at task level and get re-planned at the start of each milestone using what M1 and M2 taught us.
+- **Task size.** No task exceeds half a day of human-equivalent effort. `S` is up to 2 hours, `M` is up to 4 hours. Anything that turns out larger is split before starting.
+- **Estimates** are human-equivalent ideal hours and carry roughly plus or minus 30 percent. Calendar time with Claude executing tasks will differ and is not estimated here.
+- **Vertical slice first.** M1 ends with a working loop: import a deck, study it with FSRS, run it in a container built by CI.
+
+## 2. How milestones map onto the 10x phases
+
+The 10x flow has Phase 4 (implementation), Phase 5 (verification), and Phase 6 (delivery). The project ships in five milestones, so each milestone is a small build, verify, and ship cycle.
+
+| Milestone | Exit gate | Formal Phase 5 and 6 work |
+|---|---|---|
+| M1 Vertical slice | Acceptance checklist, `npm run verify` green, CI green including Docker smoke test | None. State files updated. |
+| M2 Card types, Markdown, Claude skill | Checklist plus QA report and security review (token, CSP, XSS corpus, host check) | **Interim Phase 5.** Release `v0.1.0` to GHCR and run on the homelab (Phase 6 slice). Starts the owner's study checkpoint. |
+| M3 Leeches, weak-spot report, export, settings | Checklist, `verify` green | State files only. |
+| M4 Cram and stats | Checklist, performance budgets met | State files only. |
+| M5 PWA, polish, docs, release | Checklist, accessibility audit | **Final Phase 5** (QA report, security audit) and **Phase 6** (release `v1.0.0`, SRE runbook). |
+
+Each exit gate updates `.10x/status.md`, `.10x/handoff.md`, and the relevant `decisions/*/tessera-v1.md` files before the next milestone begins.
+
+## 3. Planning decisions
+
+| Decision | Choice | Reason |
+|---|---|---|
+| Mermaid timing | Lands in **M2**, not M1 | M1 cards are basic text and code. Mermaid also carries the CSP verification item. |
+| Claude skill timing | Drafted in **M2** (spec had M3) | The checkpoint requires the owner to study a Claude-generated deck. Without the skill, deck quality is luck. M3 refines it with the weak-spot round trip. |
+| Security split | CSP, content-type enforcement, request ids in **M1**. API token and host check in **M2**. | Everything is built under the CSP from day one. Token and host check matter once the app is exposed beyond loopback. |
+| First release | `v0.1.0` at end of **M2** | Lets the owner deploy to the homelab and begin the 5-day study checkpoint. |
+| Settings UI | **M3** | M1 and M2 run on seeded defaults. |
+| Interleave setting | **M3** | Not needed for the vertical slice. |
+| Charts | Hand-rolled SVG components, **no chart dependency** | Few chart types, avoids a dependency and CSP surprises. |
+| PWA scope | Installable app shell only. No offline study. | Queue is server-authoritative (ADR-003), so offline study would need a different design. |
+| Visual direction | A bounded task (M1-14) before UI work, then a polish pass in M5 | Keeps design from blocking logic, avoids ugly-by-default. |
+| Branching | Commit per task to `main` with `verify` green until a GitHub remote exists, then short-lived branches and PRs | Single maintainer, no remote yet. |
+
+## 4. Milestone 1: Vertical slice (23 tasks, 80 hours)
+
+| ID | Task | Size | Depends on | Done when |
+|---|---|---|---|---|
+| M1-01 | Scaffold SvelteKit 3 app, TypeScript strict, ESLint, Prettier, Vitest, npm scripts, `.npmrc`, `LICENSE` (AGPL-3.0), layered import rules, `.gitignore` | M | none | `npm run verify` passes on the empty app. Layer lint rule demonstrably fails on a forbidden import. |
+| M1-02 | Foundations: `Result` type, config (Zod env), logger, clock, HTTP error shape | S | 01 | Unit tests pass. Invalid env exits with a readable message. |
+| M1-03 | Deck schema (Zod, four card types), `ImportError` mapping, JSON Schema emit script, CI schema diff check | M | 01, 02 | Valid and invalid examples behave per spec section 6. Emitted schema committed. |
+| M1-04 | `parseJson`, size and count limits, golden fixture decks (valid and malformed with expected errors) | S | 03 | Every malformed fixture yields its expected path-level errors. |
+| M1-05 | Database layer: client with pragmas, Drizzle tables with architect deltas, migration 0001, migrate on boot with pre-migration backup, `withTx`, settings seed | M | 02 | Fresh start creates the database. A second start with a changed migration copies a backup first. |
+| M1-06 | Repositories: decks, cards, card_state, review_log, settings, import_history | M | 05 | Integration tests per repo on a temp SQLite file. |
+| M1-07 | Normalization, content hash, `planImport` (new, unchanged, updated, type change, archive missing) | M | 03, 06 | Plan counts match every reconciliation row in ADR-002. |
+| M1-08 | `commitImport` in one transaction, `import_history`, rollback test, re-import idempotence test | M | 07 | A forced failure mid-commit leaves the database unchanged. Re-import of an unchanged deck writes nothing. |
+| M1-09 | Scheduler wrapper (our types, config, interval labels) and conformance fixtures from `ts-fsrs` | M | 02 | Fixture sequences match the reference library. Nothing else imports `ts-fsrs` (lint). |
+| M1-10 | Study-day helper (rollover hour, TZ) with DST tests | S | 02 | Boundaries correct across both DST transitions. |
+| M1-11 | `nextItem`: learning, review, new, learn-ahead, daily limits, exclusions | M | 06, 09, 10 | Ordering and limits proven with a fake clock. |
+| M1-12 | `submitReview`: idempotency by `reviewId`, stale check, snapshot log, state update in one transaction | M | 11 | Double submit returns the same result. Stale submit returns 409. |
+| M1-13 | `hooks.server.ts` and routes: `/healthz`, `/api/schema`, `/api/import` (JSON, `dry_run`), `/api/decks`, CSP, request id, 415 enforcement, error mapping | M | 04, 08 | Integration tests for every route and header. |
+| M1-14 | Visual direction, design tokens, app shell, theme toggle (uses the design skills) | M | 01 | Shell renders in light and dark. Direction recorded in `docs/design.md`. |
+| M1-15 | `Markdown.svelte` (marked, DOMPurify, link policy, no raw HTML) and XSS payload corpus tests | M | 01 | Entire corpus neutralized. Only place `{@html}` is allowed. |
+| M1-16 | Import UI: paste, file drop, preview counts, error list, "Copy errors for Claude" | M | 13, 14 | Fixture deck imports from the UI. A malformed one shows path-level errors. |
+| M1-17 | Home screen: deck list with due and new counts | S | 13, 14 | Counts match the database. Empty state has a clear next action. |
+| M1-18 | Study API routes: next item and submit review (JSON, strict content type) | S | 12, 13 | Integration tests including stale and duplicate cases. |
+| M1-19 | Study UI for basic cards: reveal, keys 1 to 4 with interval labels, focus management, session summary | M | 14, 15, 18 | A full session runs with the keyboard only. |
+| M1-20 | `Dockerfile`, `.dockerignore`, `compose.yaml` (loopback, read-only root, dropped caps), writability check, graceful shutdown | M | 13 | Image definition complete. Verified in CI (task 21), since Docker is not installed locally. |
+| M1-21 | CI workflow: verify, audit, license check, schema diff, Docker build, container smoke test | M | 01, 20 | Green run on GitHub, or the workflow validated locally if no remote exists yet. |
+| M1-22 | Playwright happy path (import, study, grade) and a 5,000-card import benchmark script | M | 16, 19 | e2e passes. Benchmark numbers recorded against the budgets. |
+| M1-23 | README quickstart and one example deck | S | 22 | A newcomer can follow it to a running instance. |
+
+**M1 exit checklist:**
+
+1. A JSON deck imports through both the UI and the API, and re-import is idempotent.
+2. A study session completes with the keyboard only, and FSRS intervals show on the grade buttons.
+3. `npm run verify` is green. XSS corpus passes. Benchmarks recorded.
+4. CI builds the image and the smoke test passes (or the workflow is ready and awaiting the GitHub remote, with that stated plainly).
+5. State files updated.
+
+## 5. Milestone 2: Card types, Markdown, Claude skill (16 tasks, 54 hours)
+
+| ID | Task | Size | Depends on | Done when |
+|---|---|---|---|---|
+| M2-01 | `core/cloze`: marker parsing, reveal rendering, ordinals | S | M1 | Handles nested braces, repeated numbers, missing close markers with clear errors. |
+| M2-02 | Cloze in import and queue: `card_state` per ordinal, add and remove reconciliation, sibling burying | M | 01 | Ordinal changes follow ADR-002. Siblings buried until the next rollover. |
+| M2-03 | Typed-answer matcher and suggested grade | S | M1 | Case, whitespace, and accept-list cases covered. |
+| M2-04 | Choice card validation (exactly one correct) and grading | S | M1 | Invalid choice cards produce path-level errors. |
+| M2-05 | Markdown parser core: `yaml` frontmatter, `##` card sections, field labels, fences, CRLF, line-numbered errors | M | M1 | Labels inside code fences are never parsed. |
+| M2-06 | Markdown parser: type inference, `Choices:` lists, cloze and typed fields, tags and accept | M | 05 | Every spec section 6.2 example parses. |
+| M2-07 | `serializeJson` and `serializeMarkdown`, equivalence and round-trip property tests | M | 06 | JSON and Markdown forms of generated decks validate identically. |
+| M2-08 | Import route and UI: `text/markdown`, `.md` file drop, format autodetect | S | 06 | Both formats import from the UI and the API. |
+| M2-09 | Import preview detail: updated-card diffs, type-change reset warnings, mass id-change heuristic, missing cards, `archive_missing` checkbox | M | M1 | Preview matches the plan exactly. |
+| M2-10 | Study UI for cloze, typed, and choice, with the render-failure fallback badge | M | 02, 03, 04 | All four card types study end to end. |
+| M2-11 | Mermaid and Shiki lazy loading under the CSP, with a documented fallback | M | M1 | Works under the policy or the narrowest relaxation is recorded in an ADR addendum. |
+| M2-12 | Security hardening: `TESSERA_API_TOKEN` enforcement, `TESSERA_ALLOWED_HOSTS`, boot warnings | M | M1 | Tests for missing, wrong, and right tokens and for host mismatch. |
+| M2-13 | Claude skill `tessera-deck`, `docs/deck-format.md`, `docs/claude-workflow.md`, three realistic golden decks (including a CCNA sample) | M | 07 | Golden decks import cleanly. Skill reviewed against the schema. |
+| M2-14 | Playwright coverage for all card types and Markdown import, keyboard-only run | M | 10, 08 | Passes in CI. |
+| M2-15 | `release.yml`: multi-arch build, GHCR push, schema and skill attached as release assets. **Publishing needs the owner's approval.** | M | M1 | Workflow validated. Publication happens only after approval. |
+| M2-16 | M2 exit gate: QA report, security review, `v0.1.0` | S | all | Reports written, tag created after approval. |
+
+**M2 exit checklist:** all four card types study correctly, both formats import with identical results, Mermaid and Shiki run (or the documented relaxation is in place), token and host protections are tested, the skill and three golden decks exist, a QA report and security review are written, and `v0.1.0` is ready to deploy.
+
+## 6. Milestone 3 outline: Leeches, weak spots, export, settings (11 tasks, 32 hours)
+
+| ID | Task | Size |
+|---|---|---|
+| M3-01 | Leech flag in `submitReview`, leech repo queries, threshold setting | S |
+| M3-02 | Leech list UI with suspend, reset, copy rewrite request | M |
+| M3-03 | Weak-tag computation (retention and lapse rate per tag) | S |
+| M3-04 | `weakSpotReport` Markdown and JSON, recent wrong typed answers, caps | M |
+| M3-05 | `/api/report/weak-spots` and UI button with copy | S |
+| M3-06 | `exportDeck` in both formats, `/api/decks/:id/export`, round-trip test | M |
+| M3-07 | `/api/backup` with `VACUUM INTO`, UI link, restore documentation, test | S |
+| M3-08 | Skill update for the round trip, example report and revised deck fixture, e2e of the full loop | M |
+| M3-09 | Settings UI: limits, target retention, rollover hour, leech threshold, TZ display | M |
+| M3-10 | Interleave option in the queue | S |
+| M3-11 | Competitor re-check (Brainy status, Anki changes) and update of the CTO file | S |
+
+## 7. Milestone 4 outline: Cram and stats (8 tasks, 22 hours)
+
+| ID | Task | Size |
+|---|---|---|
+| M4-01 | `core/cram` selection (all, tag, weakest) with injected rng | S |
+| M4-02 | `submitCram` and the invariance test (card state unchanged) | S |
+| M4-03 | Cram UI: setup with exam date, session, summary | M |
+| M4-04 | Stats queries: today, true retention, 30-day forecast, streak and heatmap, per-tag, state counts | M |
+| M4-05 | Stats indexes and 100,000-row benchmark | S |
+| M4-06 | Dashboard UI with hand-rolled SVG charts | M |
+| M4-07 | Deck exam date: setting, countdown, cram suggestion | S |
+| M4-08 | e2e for cram and stats | S |
+
+## 8. Milestone 5 outline: PWA, polish, docs, release (9 tasks, 36 hours)
+
+| ID | Task | Size |
+|---|---|---|
+| M5-01 | PWA manifest, icons, app-shell service worker | M |
+| M5-02 | Visual polish pass, part 1 (design audit and fixes) | M |
+| M5-03 | Visual polish pass, part 2 (motion, empty states, error states) | M |
+| M5-04 | Accessibility audit: axe in Playwright, keyboard-only run, contrast, zoom | M |
+| M5-05 | Responsive and phone pass | M |
+| M5-06 | Docs part 1: README, quickstart, deck format, Claude workflow | M |
+| M5-07 | Docs part 2: security, backup, API, CONTRIBUTING, troubleshooting | M |
+| M5-08 | Final QA report and security audit (Phase 5) | M |
+| M5-09 | Delivery: SRE runbook, `v1.0.0` release, image size record (Phase 6) | M |
+
+## 9. Sequencing
+
+Dependency spine for M1, with three branches that can proceed in any order once their root is done:
+
+```
+01 scaffold
+ +-- 02 foundations
+ |    +-- 03 schema -- 04 parseJson ----------------------+
+ |    +-- 05 database -- 06 repos -- 07 plan -- 08 commit -+-- 13 routes -- 16 import UI
+ |    +-- 09 scheduler --+                                      |        \-- 17 home
+ |    +-- 10 study day --+-- 11 queue -- 12 submit -- 18 study routes -- 19 study UI
+ +-- 14 visual direction ----------------------------------------------^
+ +-- 15 Markdown component --------------------------------------------^
+ 13 -- 20 Dockerfile -- 21 CI;   16 + 19 -- 22 e2e + benchmark -- 23 docs
+```
+
+**Recommended execution order for a single executor:**
+
+01, 02, 03, 04, 05, 06, 07, 08, 13, 20, 21 (backend, container, and CI first, so the image is verified early), then 09, 10, 11, 12, 18, then 14, 15, 16, 17, 19, then 22 and 23.
+
+Rationale: CI and the Dockerfile are early because Docker cannot be tested locally and the pipeline is the only verifier. The visual direction task is late enough that the study logic exists and early enough that no UI is built without it.
+
+## 10. Estimates
+
+| Milestone | Tasks | Hours | Human-equivalent days |
+|---|---|---|---|
+| M1 | 23 | 80 | 10 |
+| M2 | 16 | 54 | 7 |
+| M3 | 11 | 32 | 4 |
+| M4 | 8 | 22 | 3 |
+| M5 | 9 | 36 | 4.5 |
+| **Total** | **67** | **224** | **28.5** |
+
+Hours are computed from the task sizes (S = 2 hours, M = 4 hours).
+
+Confidence plus or minus 30 percent. M1 is the riskiest estimate because it includes the SvelteKit 3.x scaffold, the Docker pipeline, and the first use of every library.
+
+## 11. Risks and contingency
+
+| Risk | Likelihood | Impact | Mitigation or contingency |
+|---|---|---|---|
+| SvelteKit 3.x scaffold blocked or unstable | Medium | High | M1-01 is first. Fall back to Kit 2.x with a superseding ADR, one day of slack. |
+| Docker image fails only in CI | Medium | Medium | CI is built in M1. The owner can also test on a homelab host. Fix cycles are fast with the smoke test. |
+| Markdown parser edge cases | Medium | Medium | Property tests (M2-07), golden fixtures, line-numbered errors, and a rule that JSON is the fallback format. |
+| Mermaid or Shiki incompatible with the CSP | Medium | Low | M2-11 timeboxed to one half day, then relax narrowly and document. |
+| `ts-fsrs` mapping bug | Low | High | Conformance fixtures in M1-09 and the review snapshot in the log. |
+| Scope creep (accounts, media, auto distractors) | Medium | High | Non-goals list in the spec. New work waits for a milestone re-plan. |
+| UI polish absorbs the schedule | Medium | Medium | Interaction model first, polish bounded to M5-02 and M5-03. |
+| Checkpoint fails (owner does not study with it) | Unknown | Strategic | Planned decision point after M2, not a surprise. |
+
+## 12. Decisions that need the owner
+
+1. **GitHub remote.** Where should the repository live (account or organization, public from day one or private until M2)? Publishing code and images is outward-facing, so nothing is pushed without approval.
+2. **Docker locally.** Optional: installing Docker Desktop would let local builds be tested before CI. Without it, CI is the only image verification.
+3. **Approval cadence during implementation.** Confirm after every task, after every milestone, or only at milestone exit gates? Recommendation: confirm at milestone exit gates, with a short report per task.
+4. **Visual direction input.** Any existing tastes (a reference app, a color preference, dark-first or light-first)? Otherwise the design task picks a direction and shows it for approval.
+
+## 13. Working agreements
+
+- **Definition of Ready:** task has a done-when line, listed dependencies are complete, and the first test is known.
+- **Definition of Done:** `npm run verify` passes, new behavior has tests, docs updated for user-visible changes, commit made with a Conventional Commit message ending with the co-author line, and `.10x/status.md` updated at milestone gates.
+- **Splitting rule:** a task that exceeds its size is split before continuing, not stretched.
+- **State discipline:** the milestone exit gate writes decisions, status, and handoff files before the next milestone starts.
+- **Going back is allowed:** a design flaw found during a task returns to the Architect role, with an ADR addendum or a superseding ADR.
