@@ -124,3 +124,23 @@ Each entry records what was built, deviations from the plan or ADRs, and tech de
 - Queue and stats queries are not here yet. They arrive with M1-11 and M4-04, so they can be shaped by their real callers.
 
 **Tech debt:** none.
+
+## M1-07 Normalization, hashing, planImport (2026-10-10)
+
+**Built:** `core/schema/normalize.ts` (`normalizeCard`, `canonicalJson`, `primaryText`, `reviewOrdinals`), `core/cloze.ts` (minimal `listClozeOrdinals`), `server/import/hash.ts` (`hashCard`, `fallbackKey`, `sha256Hex`), `server/import/plan.ts` (`planImport`), test helpers `makeDeck`, `basic`, `cloze`, `seedDeck`, and 86 new tests (176 total across unit and integration).
+
+**How the plan works:** `planImport(x, deck, { archiveMissing })` reads the deck's existing cards and states and returns `Result<ImportPlan, ImportError[]>` without writing. Each card is `new`, `unchanged`, `updated` (with `changedFields`), `type_changed` (progress reset), or `restored` (an archived card returned). It also plans cloze ordinals to add, restore, or archive, lists cards absent from the file, and lists which to archive when `archiveMissing` is set.
+
+**Deviations and decisions:**
+
+| Item | Detail |
+|---|---|
+| Fallback key includes the type | `h-` plus 12 hex of SHA-256 over type, newline, and primary text. ADR-002 said primary text only. Without the type, a basic and a typed card with the same question would collide. |
+| Position-only change | File reordering does not count as an update. The plan flags `reposition` and the commit applies it silently, so reordering never shows up as noise in the preview. |
+| `restored` action | An archived card that returns unchanged is its own action. If it also changed, it is `updated` with `restored: true`. |
+| Duplicate keys | Two cards resolving to the same key (identical untitled cards) return a `duplicate_id` error from the plan, because `validateDeck` can only see explicit ids. |
+| Early cloze work | `listClozeOrdinals` and ordinal reconciliation landed here instead of M2-01 and M2-02 because the plan needs ordinals for every card type. M2-01 still owns the full scanner, rendering, and nesting. M2-02 still owns burying and queue behavior. |
+| Normalization | NFC, line endings to `\n`, leading blank lines dropped, trailing whitespace trimmed per field. Leading indentation of the first content line is kept so indented code survives. Tags and accepted answers are sets (sorted, de-duplicated, empty means absent). Choice order is preserved because `correct` indexes it. |
+| Hash scope | Type, content, tags, and source. The id is excluded because it is identity. |
+
+**Tech debt:** none. **Next:** M1-08 commit applies a plan inside one transaction and recomputes the plan inside it.
