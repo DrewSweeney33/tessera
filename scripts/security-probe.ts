@@ -488,6 +488,93 @@ try {
 	const afterDry = await send({ path: '/api/decks' });
 	check('the previewed deck does not exist', !afterDry.text.includes('probe-dry'));
 
+	// ---- Markdown decks (text/markdown), whose front matter is read by a YAML parser
+	console.log('\n# Markdown input hardening');
+	const MD_HEADERS = { 'content-type': 'text/markdown' };
+	const markdown = (body: string | Buffer, query = '') =>
+		send({ method: 'POST', path: `/api/import${query}`, headers: MD_HEADERS, body });
+	const mdHead = '---\ntessera: 1\nid: probe-md\ntitle: Probe\n---\n\n';
+
+	const mdBig = await markdown(Buffer.alloc(6 * 1024 * 1024, 0x20));
+	check('a 6 MB Markdown body is rejected', mdBig.status === 413, `got ${mdBig.status}`);
+
+	// "Billion laughs": each alias expands to the one before it.
+	const bomb = [
+		'a: &a [x,x,x,x,x,x,x,x,x]',
+		...'bcdefghij'.split('').map((n, i) => `${n}: &${n} [${`*${'abcdefghi'[i]},`.repeat(9)}]`)
+	].join('\n');
+	const bombStart = Date.now();
+	const bombReply = await markdown(`---\ntessera: 1\nid: probe-md\ntitle: Probe\n${bomb}\n---\n`);
+	check(
+		'a YAML alias bomb gets a clean client error, quickly',
+		bombReply.status === 422 && Date.now() - bombStart < 3000,
+		`got ${bombReply.status} in ${Date.now() - bombStart} ms`
+	);
+
+	const nestedStart = Date.now();
+	const nested = await markdown(
+		`---\ntessera: 1\nid: probe-md\ntitle: ${'['.repeat(100_000)}\n---\n`
+	);
+	check(
+		'100,000 nested YAML brackets give a clean client error, quickly',
+		nested.status >= 400 && nested.status < 500 && Date.now() - nestedStart < 3000,
+		`got ${nested.status} in ${Date.now() - nestedStart} ms`
+	);
+
+	for (const [name, front] of [
+		['an unknown YAML tag', 'title: !!js/function "function(){}"'],
+		['a custom YAML tag', 'title: !!python/object/apply:os.system ["id"]'],
+		['a __proto__ key', '__proto__: {polluted: true}'],
+		['a constructor key', 'constructor: {prototype: {polluted: true}}']
+	] as const) {
+		const reply = await markdown(
+			`---\ntessera: 1\nid: probe-md\ntitle: Probe\n${front}\n---\n\n## a\nQ: q\nA: a\n`
+		);
+		check(`${name} in the front matter is refused`, reply.status === 422, `got ${reply.status}`);
+	}
+	check(
+		'nothing was polluted by Markdown front matter',
+		({} as Record<string, unknown>)['polluted'] === undefined
+	);
+
+	const flood = await markdown(`${mdHead}${'## \n'.repeat(200_000)}`);
+	check(
+		'200,000 empty cards give a capped error list',
+		flood.status === 422 && flood.text.length < 100_000,
+		`got ${flood.status}, ${flood.text.length} bytes`
+	);
+	const longLine = await markdown(`${mdHead}## a\nQ: ${'x'.repeat(2_000_000)}\nA: a\n`);
+	check(
+		'a 2 MB line is refused by the schema limit, not crashed on',
+		longLine.status === 422,
+		`got ${longLine.status}`
+	);
+
+	const mdDry = await markdown(`${mdHead}## a\nQ: q\nA: a\n`, '?dry_run=true');
+	check('a Markdown dry run previews', mdDry.status === 200, `got ${mdDry.status}`);
+	check('and saves nothing', !(await send({ path: '/api/decks' })).text.includes('probe-md'));
+	const mdSql = await markdown(
+		`---\ntessera: 1\nid: probe-md-sql\ntitle: Probe\n---\n\n## x'; DROP TABLE cards; --\nQ: '; DROP TABLE decks; --\nA: a" OR "1"="1\n`
+	);
+	check(
+		'SQL metacharacters in a Markdown deck are refused or stored inert',
+		mdSql.status === 200 || mdSql.status === 422,
+		`got ${mdSql.status}`
+	);
+	check('the tables are still there', (await send({ path: '/api/decks' })).status === 200);
+	const mdPlain = await post('/api/import', `${mdHead}## a\nQ: q\nA: a\n`, {
+		'content-type': 'text/plain'
+	});
+	check(
+		'text/plain, what a cross-site form can send, is still refused',
+		mdPlain.status === 415 || mdPlain.status === 403,
+		`got ${mdPlain.status}`
+	);
+	check(
+		'the server is still up after the Markdown probes',
+		(await send({ path: '/healthz' })).status === 200
+	);
+
 	// SQL injection and odd identifiers
 	const evilId = `x'; DROP TABLE cards; --`;
 	const evilImport = await post(

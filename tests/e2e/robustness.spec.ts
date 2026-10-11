@@ -336,9 +336,9 @@ test.describe('import files', () => {
 		);
 		await page.goto('/import');
 		const text = JSON.stringify(deckOf('err-deck', 'Err', basicCards(1)));
-		await page.getByLabel('Deck (JSON)').fill(text);
+		await page.getByLabel('Deck (JSON or Markdown)').fill(text);
 		await page.getByRole('button', { name: 'Preview' }).click();
 		await expect(page.getByRole('alert')).toContainText('Something went wrong');
-		await expect(page.getByLabel('Deck (JSON)')).toHaveValue(text);
+		await expect(page.getByLabel('Deck (JSON or Markdown)')).toHaveValue(text);
 	});
 });

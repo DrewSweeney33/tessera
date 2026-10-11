@@ -38,7 +38,7 @@ for (const scheme of ['light', 'dark'] as const) {
 			await scan(page, 'import empty');
 
 			const deck = JSON.stringify(deckOf(`a11y-import-${scheme}`, 'Import check', basicCards(3)));
-			await page.getByLabel('Deck (JSON)').fill(deck);
+			await page.getByLabel('Deck (JSON or Markdown)').fill(deck);
 			await page.getByRole('button', { name: 'Preview' }).click();
 			await expect(page.getByRole('heading', { name: /New deck/ })).toBeVisible();
 			await scan(page, 'import preview');
@@ -47,7 +47,7 @@ for (const scheme of ['light', 'dark'] as const) {
 			await expect(page.getByRole('heading', { name: 'Imported' })).toBeVisible();
 			await scan(page, 'import success');
 
-			await page.getByLabel('Deck (JSON)').fill('{ "tessera": 1, "cards": [ , ] }');
+			await page.getByLabel('Deck (JSON or Markdown)').fill('{ "tessera": 1, "cards": [ , ] }');
 			await page.getByRole('button', { name: 'Preview' }).click();
 			await expect(page.getByRole('heading', { name: /problems? to fix/ })).toBeVisible();
 			await scan(page, 'import errors');

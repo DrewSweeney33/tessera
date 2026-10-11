@@ -7,6 +7,8 @@ import type {
 	ReviewRequest,
 	ReviewResponse
 } from '#lib/core/api-types.ts';
+// Straight from the file, so the browser bundle does not pull in the Markdown and schema readers.
+import { CONTENT_TYPES, type DeckFormat } from '#lib/core/parse/detect.ts';
 
 // The browser talks to the server with JSON fetch calls only (ADR-006).
 export class ApiError extends Error {
@@ -67,6 +69,8 @@ export interface ImportOptions {
 	dryRun: boolean;
 	archiveMissing: boolean;
 	filename?: string | undefined;
+	// The format of the text. The page works it out with detectFormat. JSON when not given.
+	format?: DeckFormat | undefined;
 }
 
 export const api = {
@@ -90,7 +94,7 @@ export const api = {
 		const suffix = query.size > 0 ? `?${query}` : '';
 		return call<ImportResponse>(`/api/import${suffix}`, {
 			method: 'POST',
-			headers: JSON_HEADERS,
+			headers: { 'content-type': CONTENT_TYPES[options.format ?? 'json'] },
 			body: text
 		});
 	}

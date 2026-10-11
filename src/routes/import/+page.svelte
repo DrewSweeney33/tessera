@@ -7,6 +7,7 @@
 		ImportPlanSummary
 	} from '#lib/core/api-types.ts';
 	import { buildFixRequest } from '#lib/core/fix-request.ts';
+	import { detectFormat } from '#lib/core/parse/detect.ts';
 	import { ApiError, api } from '#lib/ui/api.ts';
 	import { copyText } from '#lib/ui/clipboard.ts';
 
@@ -30,6 +31,8 @@
 	const canPreview = $derived(text.trim().length > 0 && !tooLarge && busy === undefined);
 	const canImport = $derived(plan !== undefined && !stale && busy === undefined && !result);
 	const fixRequest = $derived(buildFixRequest(errors, location.origin));
+	// JSON or Markdown, worked out from the text, so nobody has to say which they pasted.
+	const format = $derived(detectFormat(text, filename));
 
 	function clearOutcome() {
 		plan = undefined;
@@ -45,7 +48,7 @@
 		failure = undefined;
 		copyState = 'idle';
 		try {
-			const response = await api.importDeck(text, { dryRun, archiveMissing, filename });
+			const response = await api.importDeck(text, { dryRun, archiveMissing, filename, format });
 			if (response.dryRun) {
 				plan = response.plan;
 				result = undefined;
@@ -115,7 +118,7 @@
 		</header>
 
 		<div class="stack">
-			<label for="deck-text">Deck (JSON)</label>
+			<label for="deck-text">Deck (JSON or Markdown)</label>
 			<textarea
 				id="deck-text"
 				class="field"
@@ -138,6 +141,9 @@
 			{#if filename}
 				<p class="muted small">From file <code>{filename}</code></p>
 			{/if}
+			{#if text.trim().length > 0}
+				<p class="muted small">Reading this as {format === 'markdown' ? 'Markdown' : 'JSON'}.</p>
+			{/if}
 		</div>
 
 		<div class="options">
@@ -152,7 +158,7 @@
 				<input
 					type="file"
 					class="sr-only"
-					accept=".json,application/json,.txt"
+					accept=".json,.md,.markdown,.txt,application/json,text/markdown"
 					onchange={(event) => readFile(event.currentTarget.files?.[0])}
 				/>
 				Choose a file
@@ -310,7 +316,7 @@
 			<aside class="hint muted">
 				<h2>How it works</h2>
 				<ol>
-					<li>Ask Claude for a deck in the Tessera format.</li>
+					<li>Ask Claude for a deck in the Tessera format, as JSON or Markdown.</li>
 					<li>Paste it here and press Preview to see exactly what will change.</li>
 					<li>Press Import. Importing the same deck again never loses your progress.</li>
 				</ol>

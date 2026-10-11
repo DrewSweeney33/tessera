@@ -69,14 +69,14 @@ test.describe('no sideways scroll and no wrapped buttons', () => {
 		await page.setViewportSize({ width: 320, height: 800 });
 		await page.goto('/import');
 		await page
-			.getByLabel('Deck (JSON)')
+			.getByLabel('Deck (JSON or Markdown)')
 			.fill(JSON.stringify(deckOf('fit', 'Fit', basicCards(60, 'fit'))));
 		await page.getByRole('button', { name: 'Preview' }).click();
 		await expect(page.locator('.changes')).toBeVisible();
 		expect(await scrollsHorizontally(page), 'preview').toBe(false);
 
 		await page
-			.getByLabel('Deck (JSON)')
+			.getByLabel('Deck (JSON or Markdown)')
 			.fill('{ "tessera": 1, "deck": { "id": "x", "title": "X" }, "cards": [{}] }');
 		await page.getByRole('button', { name: 'Preview' }).click();
 		await expect(page.locator('.problems')).toBeVisible();

@@ -16,7 +16,7 @@ test('import a deck and study it using only the keyboard', async ({ page }) => {
 	await expect(preview).toBeDisabled();
 	await expect(importButton).toBeDisabled();
 
-	await page.getByLabel('Deck (JSON)').fill(deck);
+	await page.getByLabel('Deck (JSON or Markdown)').fill(deck);
 	await preview.focus();
 	await page.keyboard.press('Enter');
 	await expect(page.getByRole('heading', { name: 'New deck: Keyboard flow' })).toBeVisible();
@@ -24,7 +24,7 @@ test('import a deck and study it using only the keyboard', async ({ page }) => {
 	await expect(importButton).toBeEnabled();
 
 	// Changing the text after a preview makes the preview stale, and import must wait for a new one.
-	await page.getByLabel('Deck (JSON)').fill(deck + '\n');
+	await page.getByLabel('Deck (JSON or Markdown)').fill(deck + '\n');
 	await expect(page.getByRole('heading', { name: 'New deck: Keyboard flow' })).toBeHidden();
 	await expect(importButton).toBeDisabled();
 
@@ -76,7 +76,7 @@ test('importing the same deck twice reports that nothing changed', async ({ page
 	await importViaApi(request, deck);
 
 	await page.goto('/import');
-	await page.getByLabel('Deck (JSON)').fill(JSON.stringify(deck));
+	await page.getByLabel('Deck (JSON or Markdown)').fill(JSON.stringify(deck));
 	await page.getByRole('button', { name: 'Preview' }).click();
 	await expect(page.getByRole('heading', { name: 'Updating deck: Twice' })).toBeVisible();
 	await page.getByRole('button', { name: 'Import', exact: true }).click();
@@ -90,7 +90,7 @@ test('a broken deck lists what to fix and offers a message for Claude', async ({
 }) => {
 	await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 	await page.goto('/import');
-	await page.getByLabel('Deck (JSON)').fill(BAD_DECK);
+	await page.getByLabel('Deck (JSON or Markdown)').fill(BAD_DECK);
 	await page.getByRole('button', { name: 'Preview' }).click();
 
 	await expect(page.getByRole('heading', { name: /problems? to fix/ })).toBeVisible();
@@ -111,7 +111,7 @@ test('when copying is blocked the message is shown for manual copy', async ({ pa
 		document.execCommand = () => false;
 	});
 	await page.goto('/import');
-	await page.getByLabel('Deck (JSON)').fill(BAD_DECK);
+	await page.getByLabel('Deck (JSON or Markdown)').fill(BAD_DECK);
 	await page.getByRole('button', { name: 'Preview' }).click();
 	await page.getByRole('button', { name: 'Copy errors for Claude' }).click();
 
@@ -123,7 +123,7 @@ test('when copying is blocked the message is shown for manual copy', async ({ pa
 test('invalid JSON points at the line and column', async ({ page }) => {
 	await page.goto('/import');
 	await page
-		.getByLabel('Deck (JSON)')
+		.getByLabel('Deck (JSON or Markdown)')
 		.fill('{\n  "tessera": 1,\n  "deck": { "id": "x", "title": "X" },\n  "cards": [ ,\n}');
 	await page.getByRole('button', { name: 'Preview' }).click();
 	await expect(page.locator('.problems .where').first()).toContainText(/line \d+/);

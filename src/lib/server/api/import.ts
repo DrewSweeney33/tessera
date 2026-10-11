@@ -1,11 +1,22 @@
-import { parseJson } from '#lib/core/parse/index.ts';
-import { LIMITS } from '#lib/core/schema/index.ts';
+import { parseJson, parseMarkdown } from '#lib/core/parse/index.ts';
+import { LIMITS, type Deck, type ImportError } from '#lib/core/schema/index.ts';
+import type { Result } from '#lib/core/result.ts';
 import type { AppContext } from '../app.ts';
 import { readBodyText } from '../http/body.ts';
 import { mediaType } from '../http/content-type.ts';
 import { errorResponse } from '../http/errors.ts';
 import { jsonResponse } from '../http/response.ts';
 import { commitImport, planImport, type ImportPlan } from '../import/index.ts';
+
+// Both readers end in the same validator, so a deck means the same thing whichever way it arrives.
+// A Map, not an object, so a content type such as "constructor" can never match an inherited name.
+const READERS = new Map<
+	string,
+	{ format: 'json' | 'markdown'; parse: (text: string) => Result<Deck, ImportError[]> }
+>([
+	['application/json', { format: 'json', parse: parseJson }],
+	['text/markdown', { format: 'markdown', parse: parseMarkdown }]
+]);
 
 function flag(url: URL, name: string): boolean | Response {
 	const value = url.searchParams.get(name);
@@ -42,7 +53,8 @@ function summarizePlan(plan: ImportPlan) {
 }
 
 // POST /api/import?dry_run=true&archive_missing=true&filename=deck.json
-// The body is a deck in the Tessera JSON format. Content type is checked by the hook before this runs.
+// The body is a deck in the Tessera JSON format (application/json) or Markdown format (text/markdown).
+// The hook has already refused any other content type; the check here keeps this safe on its own.
 export async function handleImport(
 	app: AppContext,
 	request: Request,
@@ -55,12 +67,13 @@ export async function handleImport(
 	if (archiveMissing instanceof Response) return archiveMissing;
 	const filename = url.searchParams.get('filename')?.slice(0, 255) || undefined;
 
-	const type = mediaType(request.headers.get('content-type'));
-	if (type !== 'application/json') {
+	// The client states the format. The server does not guess from the body.
+	const reader = READERS.get(mediaType(request.headers.get('content-type')));
+	if (!reader) {
 		return errorResponse(
 			'unsupported_media_type',
-			'Only JSON decks can be imported right now. Send Content-Type: application/json.',
-			{ accepted: ['application/json'] },
+			'Send the deck with Content-Type: application/json or text/markdown.',
+			{ accepted: [...READERS.keys()] },
 			requestId
 		);
 	}
@@ -73,7 +86,7 @@ export async function handleImport(
 	);
 	if (body instanceof Response) return body;
 
-	const parsed = parseJson(body);
+	const parsed = reader.parse(body);
 	if (!parsed.ok) {
 		const tooLarge = parsed.error[0]?.code === 'payload_too_large';
 		return errorResponse(
@@ -102,7 +115,7 @@ export async function handleImport(
 	const committed = commitImport(
 		app.db,
 		parsed.value,
-		{ archiveMissing, format: 'json', filename },
+		{ archiveMissing, format: reader.format, filename },
 		app.clock
 	);
 	if (!committed.ok) {

@@ -264,17 +264,188 @@ describe('POST /api/import: problems', () => {
 		expect(body.error.code).toBe('payload_too_large');
 	});
 
-	it('does not accept Markdown yet', async () => {
-		const response = await handleImport(
+	it.each([
+		'text/plain',
+		'application/x-www-form-urlencoded',
+		'',
+		'constructor',
+		'__proto__',
+		'toString'
+	])(
+		'refuses the content type %j with 415 and a message naming the two it accepts',
+		async (type) => {
+			const response = await handleImport(
+				app,
+				new Request('http://localhost/api/import', {
+					method: 'POST',
+					headers: type === '' ? {} : { 'content-type': type },
+					body: JSON.stringify(deck(twoCards()))
+				}),
+				'req-1'
+			);
+			expect(response.status).toBe(415);
+			const body = await response.json();
+			expect(body.error.details.accepted).toEqual(['application/json', 'text/markdown']);
+			expect(deckCount()).toBe(0);
+		}
+	);
+});
+
+const MARKDOWN_DECK = `---
+tessera: 1
+id: ccna
+title: CCNA
+---
+
+## a
+Q: Q a
+A: A a
+
+## b
+Cloze: The {{c1::DR}} and {{c2::BDR}}
+`;
+
+function postMarkdown(body: string, query = '', type = 'text/markdown'): Request {
+	return new Request(`http://localhost/api/import${query}`, {
+		method: 'POST',
+		headers: { 'content-type': type },
+		body
+	});
+}
+
+async function importMarkdown(body: string, query = '', type = 'text/markdown') {
+	const response = await handleImport(app, postMarkdown(body, query, type), 'req-1');
+	return { response, body: await response.json() };
+}
+
+describe('POST /api/import: Markdown', () => {
+	it('imports a Markdown deck and reports counts', async () => {
+		const { response, body } = await importMarkdown(MARKDOWN_DECK);
+		expect(response.status).toBe(200);
+		expect(body).toMatchObject({
+			dryRun: false,
+			result: { deckId: 'ccna', changed: true, counts: { new: 2, unchanged: 0 } }
+		});
+		expect(deckCount()).toBe(1);
+	});
+
+	it('records the format and filename in the import history', async () => {
+		await importMarkdown(MARKDOWN_DECK, '?filename=ccna.md');
+		expect(listImportHistory(app.db)[0]).toMatchObject({ filename: 'ccna.md', format: 'markdown' });
+	});
+
+	it('accepts a charset on the content type', async () => {
+		const { response } = await importMarkdown(MARKDOWN_DECK, '', 'text/markdown; charset=utf-8');
+		expect(response.status).toBe(200);
+		const upper = await importMarkdown(MARKDOWN_DECK, '', 'TEXT/Markdown');
+		expect(upper.response.status).toBe(200);
+	});
+
+	it('accepts a byte order mark, Windows line endings, and a wrapping code fence', async () => {
+		const bom = String.fromCharCode(0xfeff);
+		const wrapped = `${bom}\`\`\`markdown\n${MARKDOWN_DECK}\`\`\`\n`.replaceAll('\n', '\r\n');
+		const { response, body } = await importMarkdown(wrapped);
+		expect(response.status).toBe(200);
+		expect(body.result.counts.new).toBe(2);
+	});
+
+	it('gives the same plan for the same deck as JSON and as Markdown', async () => {
+		const asJson = await importDeck(deck(twoCards()), '?dry_run=true');
+		const asMarkdown = await importMarkdown(MARKDOWN_DECK, '?dry_run=true');
+		expect(asMarkdown.body).toEqual(asJson.body);
+		expect(deckCount()).toBe(0);
+	});
+
+	it('treats the two formats as one deck: each import is unchanged after the other', async () => {
+		await importDeck(deck(twoCards()));
+		const again = await importMarkdown(MARKDOWN_DECK);
+		expect(again.body.result).toMatchObject({ changed: false, counts: { unchanged: 2, new: 0 } });
+		expect(listImportHistory(app.db)).toHaveLength(1);
+
+		const reverse = await importDeck(deck(twoCards()));
+		expect(reverse.body.result).toMatchObject({ changed: false, counts: { unchanged: 2 } });
+	});
+
+	it('reports an edited card as updated, with the field that changed', async () => {
+		await importMarkdown(MARKDOWN_DECK);
+		const edited = MARKDOWN_DECK.replace('A: A a', 'A: A a, revised');
+		const { body } = await importMarkdown(edited, '?dry_run=true');
+		expect(body.plan.counts).toMatchObject({ updated: 1, unchanged: 1, new: 0 });
+		expect(body.plan.cards).toEqual([
+			expect.objectContaining({ key: 'a', action: 'updated', changedFields: ['back'] })
+		]);
+	});
+
+	it('writes nothing on a dry run', async () => {
+		const { body } = await importMarkdown(MARKDOWN_DECK, '?dry_run=true');
+		expect(body).toMatchObject({ dryRun: true, plan: { counts: { new: 2 } } });
+		expect(deckCount()).toBe(0);
+		expect(listImportHistory(app.db)).toHaveLength(0);
+	});
+
+	it('honours archive_missing for Markdown too', async () => {
+		await importMarkdown(MARKDOWN_DECK);
+		const onlyA = MARKDOWN_DECK.slice(0, MARKDOWN_DECK.indexOf('## b'));
+		const { body } = await importMarkdown(onlyA, '?archive_missing=true');
+		expect(body.result.counts).toMatchObject({ archivedMissing: 1 });
+	});
+
+	it('returns 422 with line numbers for a bad Markdown deck, and writes nothing', async () => {
+		const bad = MARKDOWN_DECK.replace('## a', 'Stray words here\n\n## a');
+		const { response, body } = await importMarkdown(bad);
+		expect(response.status).toBe(422);
+		expect(response.headers.get('x-request-id')).toBe('req-1');
+		expect(body.error.code).toBe('validation_failed');
+		expect(body.error.details.errors[0]).toMatchObject({
+			code: 'text_before_first_card',
+			line: 7
+		});
+		expect(deckCount()).toBe(0);
+	});
+
+	it('puts validator errors on the line of the field that caused them', async () => {
+		const bad = MARKDOWN_DECK.replace('Cloze: The {{c1::DR}}', 'Cloze: The {{c1::DR');
+		const { response, body } = await importMarkdown(bad);
+		expect(response.status).toBe(422);
+		expect(body.error.details.errors[0]).toMatchObject({
+			path: 'cards[1].text',
+			code: 'unclosed_cloze',
+			line: 12
+		});
+	});
+
+	it('says so when a JSON deck is sent as Markdown, and the other way round', async () => {
+		const jsonAsMarkdown = await importMarkdown(JSON.stringify(deck(twoCards())));
+		expect(jsonAsMarkdown.response.status).toBe(422);
+		expect(jsonAsMarkdown.body.error.details.errors[0].code).toBe('not_markdown_is_json');
+
+		const markdownAsJson = await importDeck(MARKDOWN_DECK);
+		expect(markdownAsJson.response.status).toBe(422);
+		expect(markdownAsJson.body.error.details.errors[0].code).toBe('not_json_is_markdown');
+		expect(deckCount()).toBe(0);
+	});
+
+	it('refuses an over-limit Markdown body, declared or not', async () => {
+		const declared = await handleImport(
 			app,
 			new Request('http://localhost/api/import', {
 				method: 'POST',
-				headers: { 'content-type': 'text/markdown' },
-				body: '---\ntessera: 1\n---'
+				headers: { 'content-type': 'text/markdown', 'content-length': String(5 * 1024 * 1024 + 1) },
+				body: MARKDOWN_DECK
 			}),
 			'req-1'
 		);
-		expect(response.status).toBe(415);
+		expect(declared.status).toBe(413);
+
+		const { response, body } = await importMarkdown(' '.repeat(5 * 1024 * 1024 + 1));
+		expect(response.status).toBe(413);
+		expect(body.error.code).toBe('payload_too_large');
+	});
+
+	it('never lets Markdown content reach the log', async () => {
+		await importMarkdown(MARKDOWN_DECK.replace('A: A a', 'A: SECRET BACK'));
+		expect(logged.find((l) => l['msg'] === 'import committed')).toMatchObject({ deckId: 'ccna' });
+		expect(JSON.stringify(logged)).not.toContain('SECRET');
 	});
 });
 
