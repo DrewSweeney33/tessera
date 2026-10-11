@@ -1,4 +1,5 @@
 import { defineConfig } from '@playwright/test';
+import { tokenPort, tokenValue } from './tests/e2e/token-server.ts';
 
 const port = 4177;
 const baseURL = `http://127.0.0.1:${port}`;
@@ -19,19 +20,39 @@ export default defineConfig({
 		...(process.env['CI'] ? {} : { channel: 'chrome' }),
 		trace: 'retain-on-failure'
 	},
-	webServer: {
-		command: 'node scripts/e2e-server.ts',
-		url: `${baseURL}/healthz`,
-		reuseExistingServer: false,
-		timeout: 30_000,
-		env: {
-			NODE_ENV: 'production',
-			PORT: String(port),
-			HOST: '127.0.0.1',
-			DATA_DIR: '.e2e-data',
-			BODY_SIZE_LIMIT: '5M',
-			TZ: 'America/Chicago',
-			LOG_LEVEL: 'warn'
+	webServer: [
+		{
+			command: 'node scripts/e2e-server.ts',
+			url: `${baseURL}/healthz`,
+			reuseExistingServer: false,
+			timeout: 30_000,
+			env: {
+				NODE_ENV: 'production',
+				PORT: String(port),
+				HOST: '127.0.0.1',
+				DATA_DIR: '.e2e-data',
+				BODY_SIZE_LIMIT: '5M',
+				TZ: 'America/Chicago',
+				LOG_LEVEL: 'warn'
+			}
+		},
+		// A second server with an API token set, listening on every address so a test can reach it by the machine's
+		// LAN address over plain HTTP, as a homelab user would (ADR-011).
+		{
+			command: 'node scripts/e2e-server.ts',
+			url: `http://127.0.0.1:${tokenPort}/healthz`,
+			reuseExistingServer: false,
+			timeout: 30_000,
+			env: {
+				NODE_ENV: 'production',
+				PORT: String(tokenPort),
+				HOST: '0.0.0.0',
+				DATA_DIR: '.e2e-data-token',
+				BODY_SIZE_LIMIT: '5M',
+				TZ: 'America/Chicago',
+				LOG_LEVEL: 'warn',
+				TESSERA_API_TOKEN: tokenValue
+			}
 		}
-	}
+	]
 });

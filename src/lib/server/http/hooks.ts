@@ -1,5 +1,6 @@
 import type { Handle } from '@sveltejs/kit/hooks';
 import { getApp } from '../app.ts';
+import { bearerToken, isWebPageRequest, requiresToken, tokenMatches } from './auth.ts';
 import { checkContentType } from './content-type.ts';
 import { errorResponse } from './errors.ts';
 import { withHeaders } from './headers.ts';
@@ -61,6 +62,34 @@ export const hostGuard: Handle = async ({ event, resolve }) => {
 		`This server does not answer to the host name ${shown ? `"${shown}"` : 'in the request'}.${fix}`,
 		undefined,
 		event.locals.requestId
+	);
+};
+
+// ADR-009 and ADR-011: with TESSERA_API_TOKEN set, the API needs the token unless the Tessera web page itself
+// sent the request. The page is not protected by the token (see auth.ts). The token is never logged.
+export const apiTokenGuard: Handle = async ({ event, resolve }) => {
+	const app = getApp();
+	const expected = app.config.apiToken;
+	if (expected === undefined || !requiresToken(event.url.pathname)) return resolve(event);
+
+	const headers = event.request.headers;
+	if (tokenMatches(bearerToken(headers.get('authorization')), expected)) return resolve(event);
+	if (isWebPageRequest(headers, event.url.host)) return resolve(event);
+
+	app.log.warn('request refused, API token missing or wrong', {
+		requestId: event.locals.requestId,
+		method: event.request.method,
+		path: event.url.pathname,
+		sentToken: headers.has('authorization')
+	});
+	return withHeaders(
+		errorResponse(
+			'unauthorized',
+			'This API needs a token. Send the header "Authorization: Bearer <your TESSERA_API_TOKEN>". The Tessera web page itself does not need one.',
+			undefined,
+			event.locals.requestId
+		),
+		{ 'www-authenticate': 'Bearer realm="tessera"' }
 	);
 };
 

@@ -14,11 +14,13 @@ const handlers = sequence
 describe('the request pipeline in src/hooks.server.ts', () => {
 	it('runs the guards in this order', () => {
 		// Logging wraps everything. Security headers cover even refused requests. The host check comes before
-		// anything that reads the request. The content type guard last.
+		// anything that reads the request. The token check is before the content type is judged, so a caller
+		// without the token learns nothing about the API. The content type guard last.
 		expect(handlers).toEqual([
 			'requestLogging',
 			'securityHeaders',
 			'hostGuard',
+			'apiTokenGuard',
 			'contentTypeGuard'
 		]);
 	});

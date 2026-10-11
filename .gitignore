@@ -34,4 +34,5 @@ test-results
 
 # End-to-end test data
 /.e2e-data
+/.e2e-data-token
 /playwright-report

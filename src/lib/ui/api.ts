@@ -8,6 +8,7 @@ import type {
 	ReviewResponse
 } from '#lib/core/api-types.ts';
 // Straight from the file, so the browser bundle does not pull in the Markdown and schema readers.
+import { CLIENT_HEADER, CLIENT_HEADER_VALUE } from '#lib/core/client-header.ts';
 import { CONTENT_TYPES, type DeckFormat } from '#lib/core/parse/detect.ts';
 
 // The browser talks to the server with JSON fetch calls only (ADR-006).
@@ -36,7 +37,14 @@ const JSON_HEADERS = { 'content-type': 'application/json' };
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
 	let response: Response;
 	try {
-		response = await fetch(path, init);
+		// Says this call comes from the Tessera page, so a server with an API token still answers it (ADR-011).
+		response = await fetch(path, {
+			...init,
+			headers: {
+				...(init?.headers as Record<string, string> | undefined),
+				[CLIENT_HEADER]: CLIENT_HEADER_VALUE
+			}
+		});
 	} catch {
 		throw new ApiError(
 			0,

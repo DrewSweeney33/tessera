@@ -4,6 +4,7 @@ import { AppError } from '#lib/server/http/errors.ts';
 import { route } from '#lib/server/http/route.ts';
 import { closeApp, getApp, initApp } from '#lib/server/app.ts';
 import {
+	apiTokenGuard,
 	contentTypeGuard,
 	hostGuard,
 	requestLogging,
@@ -19,7 +20,13 @@ type Next = (event: RequestEvent) => Promise<Response>;
 type Hook = (input: { event: RequestEvent; resolve: Next }) => Promise<Response>;
 
 // The same order as hooks.server.ts. Kit's sequence() needs its request store, so it is composed by hand.
-const hooks = [requestLogging, securityHeaders, hostGuard, contentTypeGuard] as unknown as Hook[];
+const hooks = [
+	requestLogging,
+	securityHeaders,
+	hostGuard,
+	apiTokenGuard,
+	contentTypeGuard
+] as unknown as Hook[];
 
 function handle({ event, resolve }: { event: RequestEvent; resolve: Next }): Promise<Response> {
 	const next = (index: number, current: RequestEvent): Promise<Response> =>
@@ -112,6 +119,18 @@ describe('handle hook chain', () => {
 		);
 		expect((await response).status).toBe(200);
 		expect(resolve).toHaveBeenCalledOnce();
+	});
+
+	it('asks for no token when none is configured: the API is open to any caller, as before', async () => {
+		for (const headers of [
+			{},
+			{ authorization: 'Bearer anything' },
+			{ 'sec-fetch-site': 'cross-site' }
+		]) {
+			const { response, resolve } = run(req('GET', '/api/decks', headers));
+			expect((await response).status, JSON.stringify(headers)).toBe(200);
+			expect(resolve).toHaveBeenCalledOnce();
+		}
 	});
 
 	it('does not interfere with form posts outside /api', async () => {

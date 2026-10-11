@@ -6,6 +6,7 @@ import {
 } from '@sveltejs/kit/hooks';
 import { closeApp, getApp, initApp } from '#lib/server/app.ts';
 import {
+	apiTokenGuard,
 	contentTypeGuard,
 	hostGuard,
 	requestLogging,
@@ -20,11 +21,14 @@ export const init: ServerInit = () => {
 	process.on('sveltekit:shutdown', () => closeApp());
 };
 
-// Order matters: logging wraps everything, security headers cover even rejected requests.
+// Order matters: logging wraps everything, security headers cover even rejected requests, the host check
+// comes before anything reads the request, and the token check comes before the content type is judged so
+// that a caller without the token learns nothing about the API.
 export const handle: Handle = sequence(
 	requestLogging,
 	securityHeaders,
 	hostGuard,
+	apiTokenGuard,
 	contentTypeGuard
 );
 

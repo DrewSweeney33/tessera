@@ -76,6 +76,11 @@ export function initApp(): AppContext {
 			: 'host check: using the default rules. Answering localhost, IP addresses, single-word names, and names ending in .local, .lan, .home.arpa, .internal, or .localdomain. If you reach Tessera by any other name, for example through a reverse proxy, set TESSERA_ALLOWED_HOSTS.',
 		hosts ? { hosts: [...hosts] } : {}
 	);
+	if (current.config.apiToken !== undefined) {
+		current.log.info(
+			'API token: set. Requests to /api/* from outside the Tessera web page need Authorization: Bearer. The web page itself is not protected by the token, so keep it behind a VPN or a reverse proxy that asks for a password.'
+		);
+	}
 	return current;
 }
 

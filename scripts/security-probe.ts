@@ -417,6 +417,243 @@ try {
 			origin = saved;
 			listed.stop();
 		}
+
+		// ---- 3b. The API token (ADR-009, ADR-011)
+		console.log('\n# API token');
+		const TOKEN = 'probe-token-0123456789abcdef0123456789abcdef';
+		const guarded = await startSecondServer({ TESSERA_API_TOKEN: TOKEN });
+		const savedOrigin = origin;
+		origin = guarded.origin;
+		const guardedOrigin = guarded.origin.origin;
+		const withToken = { authorization: `Bearer ${TOKEN}` };
+		const status = async (path: string, headers: Record<string, string> = {}, method = 'GET') =>
+			(await send({ method, path, headers })).status;
+		try {
+			const bare = await send({ path: '/api/decks' });
+			check(
+				'without the token a plain call is refused with 401',
+				bare.status === 401,
+				`got ${bare.status}`
+			);
+			check(
+				'the refusal says how to authenticate, in the usual JSON shape',
+				bare.headers['www-authenticate'] === 'Bearer realm="tessera"' &&
+					JSON.parse(bare.text).error?.code === 'unauthorized'
+			);
+			check(
+				'the refusal has the security headers and no cache',
+				bare.headers['x-content-type-options'] === 'nosniff' &&
+					bare.headers['cache-control'] === 'no-store' &&
+					Boolean(bare.headers['x-request-id'])
+			);
+			check('the refusal does not echo the token', !bare.text.includes(TOKEN));
+
+			for (const [name, headers] of [
+				['a wrong token', { authorization: 'Bearer wrong-wrong-wrong-wrong-wrong-wrong' }],
+				['the token one character short', { authorization: `Bearer ${TOKEN.slice(0, -1)}` }],
+				['the token with one more character', { authorization: `Bearer ${TOKEN}x` }],
+				['the token in capitals', { authorization: `Bearer ${TOKEN.toUpperCase()}` }],
+				['an empty token', { authorization: 'Bearer ' }],
+				['the token with no scheme', { authorization: TOKEN }],
+				['the token under Basic', { authorization: `Basic ${TOKEN}` }],
+				['the token in X-Api-Key', { 'x-api-key': TOKEN }],
+				['the token in a cookie', { cookie: `token=${TOKEN}` }]
+			] as const) {
+				check(`${name} is refused`, (await status('/api/decks', headers)) === 401);
+			}
+			check(
+				'the token in the query string is refused',
+				(await status(`/api/decks?token=${TOKEN}`)) === 401
+			);
+
+			check('the right token is accepted', (await status('/api/decks', withToken)) === 200);
+			check(
+				'the scheme word is not case sensitive',
+				(await status('/api/decks', { authorization: `bearer ${TOKEN}` })) === 200
+			);
+			const imported = await send({
+				method: 'POST',
+				path: '/api/import',
+				headers: { ...JSON_HEADERS, ...withToken },
+				body: JSON.stringify(deck('probe-token', [basic('a')]))
+			});
+			check(
+				'a deck can be imported with the token',
+				imported.status === 200,
+				`got ${imported.status}`
+			);
+			const refused = await send({
+				method: 'POST',
+				path: '/api/import',
+				headers: JSON_HEADERS,
+				body: JSON.stringify(deck('probe-token-no', [basic('a')]))
+			});
+			check('and not without it', refused.status === 401, `got ${refused.status}`);
+			check(
+				'a refused import wrote nothing',
+				!(await send({ path: '/api/decks', headers: withToken })).text.includes('probe-token-no')
+			);
+			check(
+				'the token is judged before the content type, so a caller learns nothing about the API',
+				(await status('/api/import', { 'content-type': 'application/xml' }, 'POST')) === 401
+			);
+
+			for (const path of ['/healthz', '/api/schema', '/', '/import']) {
+				check(`${path} stays open`, (await status(path)) === 200);
+			}
+
+			// The router decodes the path before it matches routes, so the guard must too.
+			for (const path of ['/%61pi/decks', '/ap%69/decks', '/api/%64ecks', '/api/study/%6eext']) {
+				check(`${path} does not get around the token`, (await status(path)) === 401);
+			}
+			for (const path of [
+				'/api%2Fdecks',
+				'//api/decks',
+				'/API/decks',
+				'/api/schema/',
+				'/api/decks/',
+				'/api/./decks'
+			]) {
+				const code = await status(path);
+				check(
+					`${path} gives no data without the token`,
+					code === 401 || code === 404 || code === 308,
+					`got ${code}`
+				);
+			}
+
+			// What identifies the Tessera page. The browser sets the first two, and a page cannot change them.
+			for (const [name, headers, expected] of [
+				['Sec-Fetch-Site: same-origin', { 'sec-fetch-site': 'same-origin' }, 200],
+				['a matching Origin', { origin: guardedOrigin }, 200],
+				[
+					'a matching Origin over https, as adapter-node sees it',
+					{ origin: guardedOrigin.replace('http:', 'https:') },
+					200
+				],
+				[
+					'the page marker alone, as plain HTTP on a LAN address',
+					{ 'x-tessera-client': 'web' },
+					200
+				],
+				['Sec-Fetch-Site: cross-site', { 'sec-fetch-site': 'cross-site' }, 401],
+				[
+					'cross-site with a matching Origin and the marker',
+					{ 'sec-fetch-site': 'cross-site', origin: guardedOrigin, 'x-tessera-client': 'web' },
+					401
+				],
+				[
+					'Sec-Fetch-Site: same-site',
+					{ 'sec-fetch-site': 'same-site', 'x-tessera-client': 'web' },
+					401
+				],
+				[
+					'Sec-Fetch-Site: none (an address typed in)',
+					{ 'sec-fetch-site': 'none', 'x-tessera-client': 'web' },
+					401
+				],
+				['another site as Origin', { origin: 'http://evil.example' }, 401],
+				[
+					'another site as Origin with the marker',
+					{ origin: 'http://evil.example', 'x-tessera-client': 'web' },
+					401
+				],
+				[
+					'the same host name on another port as Origin',
+					{ origin: guardedOrigin.replace(/:\d+$/, ':1') },
+					401
+				],
+				['Origin null with the marker', { origin: 'null', 'x-tessera-client': 'web' }, 401],
+				['a wrong marker value', { 'x-tessera-client': 'yes' }, 401]
+			] as const) {
+				const got = await status('/api/decks', headers);
+				check(`${name} gets ${expected}`, got === expected, `got ${got}`);
+			}
+
+			// Said plainly in the documentation, and checked so the documentation stays true.
+			check(
+				'a script that copies the browser headers is accepted, as documented: the token does not protect the web page',
+				(await status('/api/decks', { 'sec-fetch-site': 'same-origin' })) === 200
+			);
+
+			// The host check still comes first: a rebound name is refused whatever else is sent.
+			const rebound = await send({
+				path: '/api/decks',
+				headers: { host: 'attacker.example', 'sec-fetch-site': 'same-origin', ...withToken }
+			});
+			check(
+				'a rebound host name is refused even with the token and browser headers',
+				rebound.status === 421,
+				`got ${rebound.status}`
+			);
+
+			// No cross-origin permission is ever granted, with or without the token.
+			for (const headers of [{}, withToken]) {
+				const r = await send({
+					method: 'OPTIONS',
+					path: '/api/decks',
+					headers: {
+						origin: 'http://evil.example',
+						'access-control-request-method': 'GET',
+						'access-control-request-headers': 'x-tessera-client, authorization',
+						...headers
+					}
+				});
+				check(
+					`a preflight ${Object.keys(headers).length ? 'with' : 'without'} the token is granted nothing`,
+					!Object.keys(r.headers).some((name) => name.startsWith('access-control-allow'))
+				);
+			}
+
+			// A cross-site form post (the one write a page can make without asking) is stopped.
+			const form = await send({
+				method: 'POST',
+				path: '/api/import',
+				headers: {
+					'content-type': 'text/plain',
+					'sec-fetch-site': 'cross-site',
+					origin: 'http://evil.example'
+				},
+				body: JSON.stringify(deck('probe-csrf', [basic('a')]))
+			});
+			check(
+				'a cross-site form post is refused',
+				form.status === 401 || form.status === 403,
+				`got ${form.status}`
+			);
+			check(
+				'and imported nothing',
+				!(await send({ path: '/api/decks', headers: withToken })).text.includes('probe-csrf')
+			);
+
+			// Many wrong guesses change nothing for anyone else.
+			let wrong = 0;
+			for (let i = 0; i < 400; i++) {
+				if (
+					(await status('/api/decks', {
+						authorization: `Bearer guess-${i}-xxxxxxxxxxxxxxxxxxxxxxxxxx`
+					})) === 401
+				)
+					wrong++;
+			}
+			check('400 wrong guesses are all refused', wrong === 400, `${wrong} of 400`);
+			check(
+				'and the right token still works after them',
+				(await status('/api/decks', withToken)) === 200
+			);
+
+			const log = guarded.output();
+			check(
+				'the startup log says a token is set, without printing it',
+				log.includes('API token: set') && !log.includes(TOKEN)
+			);
+			check('refusals are logged', log.includes('request refused, API token missing or wrong'));
+			check('the token never appears in the logs', !log.includes(TOKEN));
+			check('nor do the wrong guesses', !log.includes('guess-17-'));
+		} finally {
+			origin = savedOrigin;
+			guarded.stop();
+		}
 	}
 
 	// ---- 4. Input hardening (section 6)
