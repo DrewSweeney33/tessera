@@ -87,4 +87,4 @@ More: [deploying](docs/deploy.md), [operating](docs/operations.md) (backup, rest
 
 ## License
 
-AGPL-3.0. The license text file is added before the first release.
+Tessera is free software under the GNU Affero General Public License, version 3. See [LICENSE](LICENSE). If you run a modified version as a network service, the AGPL requires you to offer its users the source of your changes.
