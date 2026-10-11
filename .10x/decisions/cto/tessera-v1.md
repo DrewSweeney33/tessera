@@ -63,6 +63,10 @@ Direction: pin `ts-fsrs` to the stable 5.x line, do not adopt the 6.0 beta in v1
 - **Stop expanding and switch to Anki plus a `.apkg` generator skill** if the import loop is not noticeably smoother than that route after M2.
 - Re-check competitors (Brainy releases, Anki features) at M3.
 
+## Phase 2 update (2026-10-10)
+
+The Brainy repository page was read directly. It is a Tauri desktop app with no Docker files, and the repository is **archived by its owner and read-only**. The strategic case is stronger than assumed in Phase 1: the closest open source competitor is desktop-only and no longer maintained. The "Brainy closes the gap" risk is downgraded. Anki remains the real alternative. Internals of Brainy's source were not inspected beyond the repository listing.
+
 ## Sources
 
 - [awesome-fsrs list of FSRS apps](https://github.com/open-spaced-repetition/awesome-fsrs)

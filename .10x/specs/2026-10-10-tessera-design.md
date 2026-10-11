@@ -314,3 +314,17 @@ The planning phase may refine this breakdown.
 ## 18. Deferred
 
 Auto-generated choice distractors (v1.1), image and media support, MCP server, accounts and multi-user, FSRS parameter optimizer UI, sync and native apps.
+
+## 19. Amendments from Phase 2 (2026-10-10)
+
+These refine the approved spec. Details and reasoning are in ADRs 001 to 005 and `.10x/decisions/architect/tessera-v1.md`.
+
+1. **Layout (section 14):** source is split into `src/lib/core` (pure, isomorphic), `src/lib/server`, and `src/lib/ui`, with lint-enforced import rules.
+2. **Image size (sections 14 and 16):** the target is a compressed manifest size under 150 MB per architecture, measured in CI. Base image is `node:24-trixie-slim` (about 79 MB compressed).
+3. **API token (sections 4.2 and 10):** when `TESSERA_API_TOKEN` is set, every `/api/*` route except `/healthz` and `/api/schema` requires the token, not only write routes. Added optional `TESSERA_ALLOWED_HOSTS` and the required `ORIGIN` setting behind a proxy.
+4. **Compose sample (section 14):** publishes on loopback (`127.0.0.1:3000:3000`) by default, with a read-only root filesystem, dropped capabilities, and a named data volume.
+5. **Data model (section 5):** `cards.position` added, `card_state.archived` added, review snapshot stored as columns, default settings seeded at first boot.
+6. **Rendering (sections 8 and 11):** the app runs with `ssr = false`. Markdown is rendered client-side only through one sanitizing component.
+7. **Frontmatter parsing (section 6.2):** uses the `yaml` package with the core schema. `gray-matter` is rejected because it can execute JavaScript frontmatter.
+8. **Review submission (section 9):** server-authoritative queue, one item at a time, with an idempotency key and a stale-review check.
+9. **Retype of a card (section 7):** changing a card's type on re-import resets that card's progress and is flagged in the preview.
