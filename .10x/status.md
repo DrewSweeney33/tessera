@@ -87,7 +87,7 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 | Coverage | 92.1 percent lines, 85.3 percent branches |
 | Mutation check on core invariants | 14 of 15 caught; the survivor (CSP loosening) is now covered by the probe in CI |
 | Defects fixed | Q-01 no h1 on the study screen, Q-02 oversized chunked body gave 500 |
-| Open security findings | S-01 DNS rebinding (Medium), S-02 token vs UI (Medium), S-05 image never built (Low) |
+| Open security findings | S-01 DNS rebinding (Medium, task M2-00), S-02 token vs UI (Medium, **decided 2026-10-11, ADR-009, builds in M2-12**), S-05 image never built (Low, now built and tested in CI, image scan still to add) |
 | Untested | Firefox, Safari, a real screen reader, the Docker image, CI on GitHub, Linux runs of the new scripts |
 
 ### Phase 6 delivery results (2026-10-11)
@@ -127,7 +127,7 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 - [ ] M2-09 Import preview detail (M)
 - [ ] M2-10 Study UI for cloze, typed, choice (M)
 - [ ] M2-11 Mermaid and Shiki under the CSP (M)
-- [ ] M2-12 API token and allowed hosts (M). **Needs the S-02 design decision first, and M2-00 done.** Allowed hosts moves to M2-00.
+- [ ] M2-12 API token and allowed hosts (M). **Design decided in ADR-009 (token covers external clients only; same-origin browser requests are exempt). Needs M2-00 done first.** Allowed hosts moves to M2-00.
 - [ ] M2-13 Claude skill, deck-format docs, golden decks (M)
 - [ ] M2-14 e2e for all card types and Markdown (M). Add Firefox and WebKit projects to CI (QA risk R-1).
 - [ ] M2-15 Release pipeline, publication needs owner approval (M)
@@ -158,11 +158,11 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 
 ## Blockers and open decisions for the owner
 
-1. **M1 exit gate.** Confirm M1 so M2 can start, or ask for changes. QA conditions: first green CI run on GitHub (needs item 4), and M2-00 scheduled first.
-2. **API token versus the browser UI (blocks M2-12; security finding S-02).** ADR-005 requires the bearer token on every `/api/*` route except `/healthz` and `/api/schema`, but the browser UI calls those routes without a token, so enabling it would lock the UI out. Recommendation: the token covers only external clients, same-origin browser requests (`Sec-Fetch-Site: same-origin`) are exempt, and this ships only after M2-00 because a DNS-rebound page also looks same-origin. Needs your decision, then an ADR-005 amendment.
-3. **Merge Dependabot pull request #2** (`setup-node` 7.1.0). Verified safe, awaiting the owner's click.
-4. **Try the guides on your own host.** The `docker compose` commands in `docs/operations.md` and `docs/deploy.md` could not be run here. Installing Docker Desktop on the dev machine would let me run them, or run the backup and restore once on the homelab and tell me anything that differs.
-6. Checkpoint gate: continue past M2 only after at least 5 distinct real study days with a Claude-generated deck.
-7. Deferred to v1.1: auto-generated choice distractors, undo last grade.
-6. Checkpoint gate: continue past M2 only after at least 5 distinct real study days with a Claude-generated deck.
-7. Deferred to v1.1: auto-generated choice distractors, undo last grade.
+1. **M1 exit gate.** Confirm M1 so M2 can start, or ask for changes. The QA condition of a first green CI run on GitHub is met. M2-00 goes first in M2.
+2. **Merge Dependabot pull request #2** (`setup-node` 7.1.0). Verified safe, awaiting the owner's click.
+3. **Try the guides on your own host.** The `docker compose` commands in `docs/operations.md` and `docs/deploy.md` could not be run here. Installing Docker Desktop on the dev machine would let me run them, or run the backup and restore once on the homelab and tell me anything that differs.
+4. **Before the first real tag:** the repository's default workflow permission is "read repository contents and packages", which is fine because the release job asks for `packages: write` and `contents: write` itself. This can only be proven by a real tag.
+5. Checkpoint gate: continue past M2 only after at least 5 distinct real study days with a Claude-generated deck.
+6. Deferred to v1.1: auto-generated choice distractors, undo last grade.
+
+Decided by the owner on 2026-10-11: the API token covers external clients only and same-origin browser requests are exempt (ADR-009, supersedes ADR-005 section 2). License `AGPL-3.0-only`. Repository public. Standing approval to push CI fixes.

@@ -16,7 +16,7 @@ Everything ADR-005 promises that exists today was tested against the built serve
 | ID | Severity | Finding | Status |
 |---|---|---|---|
 | S-01 | Medium | DNS rebinding not blocked by default. `TESSERA_ALLOWED_HOSTS` is parsed but not enforced, and the promised startup warning is missing. | **Open.** Do first in M2. Safe default: reject dotted public host names, allow loopback, IPs, and single-label or `.local`, `.lan`, `.home.arpa`, `.internal` names. |
-| S-02 | Medium | The API token as specified in ADR-005 would lock the UI out, since the UI calls the same routes. Not enforced yet. | **Open decision.** Recommend: token for external clients only, same-origin browser requests exempt, and only after S-01 ships. Amend ADR-005. |
+| S-02 | Medium | The API token as specified in ADR-005 would lock the UI out, since the UI calls the same routes. Not enforced yet. | **Decided 2026-10-11 by the owner: ADR-009.** Token for external clients only, same-origin browser requests exempt, and only after S-01 ships. Builds in M2-12. |
 | S-03 | Low | Oversized chunked body gave 500 | **Fixed** (`readBodyText`) |
 | S-04 | Low | 4 moderate advisories in dev tooling via `drizzle-kit` and old `esbuild` | **Accepted**, dev only, not in the image |
 | S-05 | Low | Image never built or scanned. Base image pinned by tag. Action SHAs unchecked until CI runs. | **Open**, M2-15 |
