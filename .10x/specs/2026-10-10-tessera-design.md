@@ -1,7 +1,7 @@
 # Tessera v1 Design Spec
 
 **Date:** 2026-10-10
-**Status:** Draft, awaiting user review
+**Status:** Approved by user on 2026-10-10
 **Feature slug:** `tessera-v1`
 **License:** AGPL-3.0
 
