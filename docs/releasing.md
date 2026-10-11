@@ -62,9 +62,11 @@ To rehearse without publishing, run the workflow by hand from the Actions tab (*
 
 ## First release checklist (one time)
 
-- [ ] Create the GitHub repository and decide whether it is public.
-- [ ] Add the `LICENSE` file (AGPL-3.0, decide "only" or "or-later").
-- [ ] Push `main` and read the first CI run end to end, including the container jobs on both architectures. They have only been run locally on Windows so far.
-- [ ] In the repository settings, allow the workflow to write packages (Settings, Actions, Workflow permissions) or confirm `packages: write` in the release job is enough for your account type.
-- [ ] Enable private vulnerability reporting (Settings, Code security).
-- [ ] Rehearse once with **Run workflow**.
+- [x] Create the GitHub repository and decide whether it is public. (Done 2026-10-11, public.)
+- [x] Add the `LICENSE` file. (Done 2026-10-11, AGPL-3.0-only.)
+- [x] Push `main` and read the first CI run end to end, including the container jobs on both architectures. (Done. Green from run #8.)
+- [ ] Before the first real tag: confirm the release job is allowed to push packages. The job asks for `packages: write` itself, but a repository or organisation setting (Settings, Actions, General, Workflow permissions) can restrict it. This is the one part the rehearsal could not exercise, together with creating the GitHub Release.
+- [x] Enable private vulnerability reporting (Settings, Advanced Security). (Done 2026-10-11.)
+- [x] Rehearse once with **Run workflow** on a branch whose `package.json` version and changelog section match. (Done 2026-10-11 on a throwaway branch: everything except the registry push and release creation passed.)
+
+To rehearse again, make a short-lived branch with `npm version <x.y.z-rc.n> --no-git-tag-version` and a matching `## [<version>]` changelog section, push it, run the workflow on it from the Actions tab, and delete the branch afterwards.

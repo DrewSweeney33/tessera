@@ -1,7 +1,7 @@
 # Tessera Status
 
 **Last updated:** 2026-10-11
-**Current phase:** Phase 6 Delivery (readiness of the M1 slice) complete. Milestone 1 awaits the owner's exit-gate confirmation. Nothing is released or published; `v0.1.0` is the M2 exit.
+**Current phase:** Phase 6 Delivery (readiness of the M1 slice) complete, and the repository is live on GitHub (public) with CI green on Linux and a passing release rehearsal. Milestone 1 awaits the owner's exit-gate confirmation. No release exists; `v0.1.0` is the M2 exit.
 **Feature slug:** `tessera-v1`
 
 ## Phase tracker
@@ -39,7 +39,7 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 
 ### M1 Vertical slice (23 of 23 done)
 
-- [x] M1-01 Scaffold SvelteKit 3, tooling, layer lint rules (M). LICENSE file pending owner permission to download the AGPL-3.0 text.
+- [x] M1-01 Scaffold SvelteKit 3, tooling, layer lint rules (M). LICENSE added 2026-10-11: AGPL-3.0-only (the first file GitHub's picker added was the GPL v3 by mistake, replaced the same day).
 - [x] M1-02 Foundations: Result, config, logger, clock, error shape (S)
 - [x] M1-03 Deck schema, JSON Schema emit, schema diff check (M)
 - [x] M1-04 parseJson, limits, golden fixtures (S)
@@ -58,9 +58,9 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 - [x] M1-17 Home deck list (S)
 - [x] M1-18 Study API routes (S)
 - [x] M1-19 Study UI (M). All four card types render, self-graded.
-- [x] M1-20 Dockerfile, compose, boot check, shutdown (M). Image not built locally (no Docker), runtime stage simulated. ADR-007 added.
-- [x] M1-21 CI workflow with Docker smoke test (M). Not yet run on GitHub (no remote).
-- [x] M1-22 e2e (20 browser tests) and 5,000-card benchmark (M). Import 1.05 s against a 10 s budget. CI e2e job not yet run on GitHub.
+- [x] M1-20 Dockerfile, compose, boot check, shutdown (M). Image built and checked in CI on amd64 and arm64 (size budget, non-root, hardened start, healthy, graceful SIGTERM, data survives a restart). Not built on this machine (no Docker). ADR-007 added.
+- [x] M1-21 CI workflow with Docker smoke test (M). Run on GitHub from 2026-10-11. The first run failed on two test bugs (a race in the study layout tests, and a reduced-motion check that measured before the page was built), both fixed. Green since run #8.
+- [x] M1-22 e2e (20 browser tests) and 5,000-card benchmark (M). Import 1.05 s against a 10 s budget. 52 browser tests now run green in CI. Retries are off on purpose.
 - [x] M1-23 README quickstart, example deck (S)
 
 ### M1 exit gate checks (2026-10-10)
@@ -73,7 +73,7 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 | `npm run benchmark` (5,000 cards) | Pass: 1.08 s import, budget 10 s |
 | `npm run licenses` | Pass: 12 production packages, all allowed |
 | `npm run audit:prod` | 0 vulnerabilities |
-| Docker image build | Not run (no Docker locally). Verified by CI only, and CI has never run. |
+| Docker image build | Not run locally (no Docker). Built and tested by CI on amd64 and arm64, green in runs #8 and #12. |
 | Contrast, both themes | 36 of 36 pairs pass AA (browser audit) |
 
 ### Phase 5 interim results (2026-10-11, commit `bb53e77`)
@@ -98,8 +98,20 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 | Tests | 332 unit, 238 integration, 50 browser. Smoke 28, security probe 101 (1 known gap), durability 54, **operations check 26 (new)**, benchmark 1.09 s |
 | Reliability fixes (ADR-008) | Two copies on one data folder: 60 of 60 imports now succeed (was 13 of 60). Older version refuses a newer database. Damaged database gets an actionable message. Clock stepping backwards no longer blocks a card. |
 | Capacity | 313 MB under 140 requests/second for 3 minutes, flat. 5,000 cards plus 200,000 reviews: 9 to 14 ms per call, 1 s start, 0.4 s online backup, 1 s restore. |
-| Release workflow | Policy-tested; version check and notes extraction run locally on 9 cases (found and fixed 2 bugs). **Never run on GitHub.** |
-| Not verified | `docker build` and the image size budget, CI on GitHub, arm64, the `docker compose` wrappers in the guides, Linux runs of the scripts, disk-full, a soak longer than 3 minutes |
+| Release workflow | Policy-tested; shell steps run locally on 9 cases (found and fixed 2 bugs). **Rehearsed on GitHub** (manual run on a throwaway branch, since deleted): CI stage, version and changelog check, and the two-architecture build with provenance and an SBOM all passed. Not exercised, because only a tag triggers them: the registry login and push, and the GitHub Release creation. |
+| Not verified | The `docker compose` wrappers in the guides, disk-full, a soak longer than 3 minutes, Firefox and Safari, a real screen reader, the registry push and release creation (first real tag) |
+
+### GitHub setup results (2026-10-11)
+
+| Item | Result |
+|---|---|
+| Repository | `DrewSweeney33/tessera`, public, `main` pushed (history includes author email `drewsweeney3@gmail.com`, accepted by the owner) |
+| CI on Linux | Green: Verify (all 14 steps, including benchmark, security probe, durability, operations check) and Docker on amd64 and arm64 |
+| License | `AGPL-3.0-only`, detected by GitHub as AGPL-3.0 |
+| Private vulnerability reporting | Enabled |
+| Dependabot | Config now holds back majors of the `node` image and `@types/node`, and updates `vitest` with `@vitest/coverage-v8` as one group. vitest 5.0.3 adopted (all tests pass). Pull request #2 (`setup-node` 7.1.0) verified, awaiting the owner's merge. |
+| Release rehearsal | Passed (see above) |
+| Standing approval | The owner allowed pushing CI fixes to `main` of this repository without asking each time. Everything else still needs approval. |
 
 ### M2 Card types, Markdown, Claude skill (17 tasks, about 56 hours)
 
@@ -148,9 +160,8 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 
 1. **M1 exit gate.** Confirm M1 so M2 can start, or ask for changes. QA conditions: first green CI run on GitHub (needs item 4), and M2-00 scheduled first.
 2. **API token versus the browser UI (blocks M2-12; security finding S-02).** ADR-005 requires the bearer token on every `/api/*` route except `/healthz` and `/api/schema`, but the browser UI calls those routes without a token, so enabling it would lock the UI out. Recommendation: the token covers only external clients, same-origin browser requests (`Sec-Fetch-Site: same-origin`) are exempt, and this ships only after M2-00 because a DNS-rebound page also looks same-origin. Needs your decision, then an ADR-005 amendment.
-3. **LICENSE file.** Permission to download the AGPL-3.0 text from gnu.org, and `AGPL-3.0-only` or `AGPL-3.0-or-later`.
-4. **GitHub remote.** Where should the repo live and when does it go public? Nothing is pushed or published without approval. CI has never run, so the Docker image, the browser, probe, durability and operations jobs on Linux, and the release workflow are all unverified until it does. This is now the single biggest remaining unknown.
-5. **Try the guides on your own host.** The `docker compose` commands in `docs/operations.md` and `docs/deploy.md` could not be run here. Installing Docker Desktop on the dev machine would let me run them, or run the backup and restore once on the homelab and tell me anything that differs.
+3. **Merge Dependabot pull request #2** (`setup-node` 7.1.0). Verified safe, awaiting the owner's click.
+4. **Try the guides on your own host.** The `docker compose` commands in `docs/operations.md` and `docs/deploy.md` could not be run here. Installing Docker Desktop on the dev machine would let me run them, or run the backup and restore once on the homelab and tell me anything that differs.
 6. Checkpoint gate: continue past M2 only after at least 5 distinct real study days with a Claude-generated deck.
 7. Deferred to v1.1: auto-generated choice distractors, undo last grade.
 6. Checkpoint gate: continue past M2 only after at least 5 distinct real study days with a Claude-generated deck.

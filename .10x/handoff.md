@@ -32,7 +32,7 @@ Four reliability bugs were found by running failures against the real server and
 
 ### What to do next, in order
 
-1. **Owner:** create the GitHub repository and approve pushing `main`. Read the first CI run end to end. It is the first time the container, Linux, arm64, the browser job, and the new scripts run. Fix what it shows before any other work. Then rehearse the release workflow with **Run workflow**.
+1. ~~GitHub setup~~ **Done 2026-10-11.** The repository `DrewSweeney33/tessera` is public, CI is green on Linux including both container jobs, the license is AGPL-3.0-only, private vulnerability reporting is on, and the release workflow was rehearsed successfully. Details in `.10x/status.md` under "GitHub setup results". The first CI run found two bugs in my own tests (a race and a measure-before-the-page-exists), both fixed. CI retries are off on purpose.
 2. **M2-00 (SDE):** the host check against DNS rebinding (security S-01), with a safe default. Flip the probe check from KNOWN to PASS.
 3. **Owner decision S-02:** how the API token works with the web UI. Then amend ADR-005 and do M2-12.
 4. Continue M2 from M2-01.
@@ -40,7 +40,7 @@ Four reliability bugs were found by running failures against the real server and
 
 ### Residual risks
 
-Docker image never built. CI and the release workflow never run. Linux and arm64 untested. The `docker compose` wrappers in the guides were not executed. Disk-full not triggered. Deep mid-file corruption would not turn `/healthz` red (backups should be integrity-checked; planned with `GET /api/backup`). Chrome only. No real screen reader pass. Nothing alerts on a stale backup.
+The registry push and GitHub Release creation have never run (only a real tag does them). The `docker compose` wrappers in the guides were not executed on a real host. Disk-full not triggered. Deep mid-file corruption would not turn `/healthz` red (backups should be integrity-checked; planned with `GET /api/backup`). Chrome only. No real screen reader pass. Nothing alerts on a stale backup.
 
 ### Lessons to keep applying
 
@@ -53,11 +53,14 @@ Docker image never built. CI and the release workflow never run. Linux and arm64
 ### Open items that need the owner
 
 1. **Confirm the M1 exit gate** so M2 can begin.
-2. **GitHub remote** (location, visibility) and approval to push. Unblocks the first CI run, the container, and the release rehearsal.
+2. **Merge Dependabot pull request #2** (`setup-node` 7.1.0). Verified safe: the pinned SHA is the `v7.1.0` tag and the full CI passed.
 3. **S-02:** how the API token should work. Recommendation in `.10x/status.md`.
-4. **LICENSE file:** permission to download the AGPL-3.0 text from gnu.org, and `AGPL-3.0-only` or `-or-later`.
-5. **Try the guides once on your own host**, or install Docker Desktop here so the compose commands can be run.
-6. Later: enable GitHub private vulnerability reporting (needed by `SECURITY.md`), and choose when the repository goes public.
+4. **Try the guides once on your own host**, or install Docker Desktop here so the compose commands can be run.
+5. Before the first real tag: check that Settings, Actions, General, Workflow permissions does not block the release job's `packages: write`.
+
+Resolved on 2026-10-11: GitHub remote (public), LICENSE (AGPL-3.0-only), private vulnerability reporting, the release rehearsal, and the five Dependabot pull requests (four closed, one pending the owner's merge).
+
+**Standing approval:** the owner allowed pushing CI fixes to `main` of this repository without asking each time. Everything else, including documentation, dependency and license changes, still needs approval first.
 
 ## Handoff history
 
