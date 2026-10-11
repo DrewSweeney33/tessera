@@ -331,3 +331,74 @@ Each entry records what was built, deviations from the plan or ADRs, and tech de
 **Verification:** a whole session through the two endpoints works through every new card, then each learning card again via learn-ahead, graduates them, and ends done. A cloze card's sibling stays buried after its first blank is answered, and the response sequence matches the expected order. The real-server smoke covers next, answer, idempotent replay, unknown deck, and invalid review.
 
 **Tech debt:** none.
+
+## M1-14 Visual direction, tokens, app shell (2026-10-10)
+
+**Built:** `src/lib/ui/{tokens,fonts,base}.css`, `theme.ts`, `Logo.svelte`, `ThemeToggle.svelte`, `src/routes/+layout.svelte`, `static/fonts/*` with the three OFL texts, `static/theme-init.js`, `docs/design.md`.
+
+**Direction (chosen by me, as the owner delegated it):** "Tessera Desk". Warm oat paper and charcoal in OKLCH with `light-dark()`, one verdigris accent, Newsreader for card text, Geist for the interface, JetBrains Mono for code and key hints, a two by two tile mark. Rationale and rules are in `docs/design.md`. The Hallmark app-scope rules were applied: tokens only, upright headings, two families plus one outlier, visible focus rings, all button states, `overflow-x: clip`, non-wrapping clickable text.
+
+**Fonts are static files, not npm packages.** The CSP is `self` only, so the woff2 files are copied into `static/fonts/` with their OFL texts. Latin subset only. A deck in another script falls back to system fonts.
+
+**Finding fixed in M1-22:** the saved theme was applied only after the app loaded (`ssr = false`), so a dark choice on a light system flashed light. `static/theme-init.js` (same-origin, allowed by the CSP) now applies it before first paint. A browser test aborts the whole app bundle and still sees the saved theme.
+
+**Verification:** contrast audited in the browser, 36 of 36 text and control pairs pass AA in both themes. Layout checked at 320, 375, 414, and 768 px by a browser test.
+
+## M1-15 Markdown component and XSS corpus (2026-10-10)
+
+**Built:** `ui/markdown.ts` (`renderMarkdown`, `renderInlineMarkdown`, exported `sanitizeHtml`), `ui/Markdown.svelte` (the only `{@html}` in the app), `tests/e2e/xss-corpus.ts` (20 payloads), `tests/e2e/xss.spec.ts`, `tests/unit/ui/markdown-security.test.ts` (50 tests under jsdom).
+
+**Two layers (ADR-005):** marked is configured so raw HTML is shown as text, images become their alt text, and links must match an allow-list (`https`, `http`, `mailto`, anchors, relative paths, never `//host`). DOMPurify then sanitizes the result with a forbidden tag list, `style`, `srcdoc`, `action`, `id`, and `name` attributes removed, no data attributes, and `rel="noopener noreferrer" target="_blank"` forced on every link. If rendering throws, the component falls back to the raw text and the card stays gradable.
+
+**Negative control found a real gap in the tests.** I disabled DOMPurify and rebuilt. The browser corpus still passed, because layer 1 already neutralizes everything in it. Only the link attribute test failed. So the corpus alone could not detect a layer 2 regression. Fix: `sanitizeHtml` is exported and tested directly with 22 raw hostile HTML strings that never pass through marked. With DOMPurify disabled again, 23 unit tests now fail. Both layers are covered separately and together.
+
+**Also added:** `id` and `name` to the forbidden attributes, to rule out DOM clobbering.
+
+## M1-16 Import UI (2026-10-10)
+
+**Built:** `routes/import/+page.svelte`, `ui/{api,clipboard}.ts`, `core/fix-request.ts`, `core/api-types.ts` (shared DTOs, the server now imports them from here).
+
+**Behavior:** paste, file picker, or drop. Preview shows the plan (counts, warnings, changed cards, first 50). Changing the text after a preview marks it stale and disables Import until the next preview. Errors list a line and column for syntax problems, or the field path. "Copy errors for Claude" builds the message from `buildFixRequest` and, if both the Clipboard API and `execCommand` fail (plain HTTP on a LAN address is not a secure context), shows the text in a read-only box for manual copy.
+
+**Finding fixed in M1-22:** V8 gives a position for most JSON syntax errors but not for "Unexpected token 'X', ..." (a trailing comma in an array, a stray comma). Those errors had no line or column and printed a raw source snippet. `parseJson` now locates them by binary search for the shortest prefix that fails with "Unexpected token" (shorter prefixes fail at end of input), reports `Unexpected character "," at line 4, column 14`, and adds a trailing comma hint. Tested for arrays, a leading dot, a stray comma on a later line, a 10,000 element text, and CRLF with a code fence.
+
+## M1-17 Home deck list (2026-10-10)
+
+**Built:** `routes/+page.svelte`. `/api/decks` now returns per-deck `counts` and `totals` from `countQueue`, so the numbers match what a session will show. Labels say items to study, not cards. Empty, loading, and error states, and "Study all decks".
+
+## M1-19 Study UI (2026-10-10)
+
+**Built:** `routes/study/[[deckId]]/+page.svelte`, `ui/card-sides.ts`, `ui/id.ts`.
+
+**Behavior:** Space or Enter reveals, 1 to 4 grade, Space grades Good after the reveal, H shows the hint. Focus moves to the card for each new item and to the Good button after the reveal. A failed grade submission is retried with the same `reviewId` (idempotent). A 409 reloads the queue. The done screen shows the session tally and when the next item is due. All four card types render, graded by the learner for now (typed matching is M2-03 and M2-10).
+
+**Plain HTTP:** `crypto.randomUUID` and `navigator.clipboard` are missing on a non-secure LAN address, so `newId` falls back to `getRandomValues` and `copyText` to `execCommand`.
+
+**Learn-ahead is visible and intended:** after Good on a new card the card returns as "Learning" when nothing else is due (ADR-003 refined). A browser test pins this, and a keyboard-only flow uses Easy to finish a session.
+
+## M1-22 End-to-end tests and benchmark (2026-10-10)
+
+**Built:** `playwright.config.ts`, `scripts/e2e-server.ts`, `tests/e2e/{helpers,xss-corpus,xss.spec,import-and-study.spec,layout-and-theme.spec}.ts` (20 tests), `scripts/benchmark.ts`, `docs/performance.md`, CI steps for the browser install, e2e, and benchmark.
+
+**Playwright uses the installed Chrome locally** (`channel: 'chrome'`), so no browser download was needed. CI sets no channel and runs `npx playwright install --with-deps chromium`. This path has not run on GitHub yet.
+
+**Coverage:** XSS (20 payloads in 2 groups, link safety, broken formatting), a keyboard-only import and study flow, stale preview, re-import reports no change, errors and the Claude message (real clipboard and the blocked fallback), invalid JSON location, no sideways scroll and no wrapped controls at four widths across home, import, and study, theme persistence, no flash with the bundle blocked, auto following the system, blocked storage.
+
+**The wrapped-control detector was checked with a negative control** (a squeezed button is flagged, the real page is clean).
+
+**Benchmark (5,000 cards, 1.4 MB):** import 1.05 s against a 10 s budget, unchanged re-import 138 ms, study next 14 ms median, review 11 ms median. The script exits 1 over budget.
+
+**Tooling fix:** `scripts/e2e-server.ts` imported `../build/index.js` statically, so `svelte-check` followed it into the compiled output and reported 933 errors once a build existed. The path is now a variable.
+
+## M1-23 README, example deck (2026-10-10)
+
+**Built:** `README.md` (what works, Docker quickstart, security note, writing decks with Claude, configuration, development), `examples/ccna-ospf.json`, `tests/unit/schema/examples.test.ts` (every example must parse), `docs/design.md`, `docs/performance.md`.
+
+**The README says what is not done.** `TESSERA_API_TOKEN` and `TESSERA_ALLOWED_HOSTS` are listed as reserved and inactive (enforcement is M2-12).
+
+## Open issues found during the UI work
+
+1. **API token versus the browser UI (design tension for M2-12).** ADR-005 says every `/api/*` route except `/healthz` and `/api/schema` requires the bearer token. The browser UI calls those same routes and has no token, so enabling the token as written would lock the UI out. M2-12 must decide how same-origin UI requests are authenticated or exempted (for example a separate prefix for the UI, or the reverse proxy doing the authentication and the token covering only external clients). Needs an owner decision or an ADR amendment before M2-12.
+2. **CI has never run.** There is no GitHub remote. The e2e step in CI (Chromium install) and the Docker jobs are unverified.
+3. **No LICENSE file** yet (owner permission to download the AGPL-3.0 text).
+4. **Latin-only fonts.** Cards in other scripts use system fallbacks.

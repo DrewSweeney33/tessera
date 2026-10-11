@@ -1,5 +1,6 @@
 export type ThemeChoice = 'auto' | 'light' | 'dark';
 
+// static/theme-init.js reads this key before first paint, so keep the two in step.
 const KEY = 'tessera-theme';
 const CHOICES: readonly ThemeChoice[] = ['auto', 'light', 'dark'];
 

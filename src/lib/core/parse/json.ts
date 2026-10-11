@@ -20,6 +20,39 @@ const SYNTAX_HINTS: [RegExp, string][] = [
 	]
 ];
 
+const UNEXPECTED_TOKEN_HINTS: Record<string, string> = {
+	']': 'A trailing comma before the closing bracket is the usual cause. JSON does not allow one.',
+	'}': 'A trailing comma before the closing brace is the usual cause. JSON does not allow one.',
+	',': 'A comma with nothing before it, or two commas in a row.'
+};
+
+// V8 gives a position for most syntax errors but not for "Unexpected token". Every shorter prefix of
+// valid-so-far JSON fails with an end-of-input error instead, so the shortest prefix that fails with
+// "Unexpected token" ends exactly on the offending character. Only runs on the error path.
+function locateUnexpectedToken(content: string): { line: number; column: number } | undefined {
+	const fails = (length: number): boolean => {
+		try {
+			JSON.parse(content.slice(0, length));
+			return false;
+		} catch (cause) {
+			return cause instanceof Error && cause.message.startsWith('Unexpected token');
+		}
+	};
+	if (!fails(content.length)) return undefined;
+
+	let low = 1;
+	let high = content.length;
+	while (low < high) {
+		const middle = (low + high) >> 1;
+		if (fails(middle)) high = middle;
+		else low = middle + 1;
+	}
+
+	const offset = low - 1;
+	const before = content.slice(0, offset);
+	return { line: countNewlines(before) + 1, column: offset - before.lastIndexOf('\n') };
+}
+
 function syntaxError(message: string, code: ImportError['code'], extra: Partial<ImportError> = {}) {
 	return err([{ path: '(root)', code, message, ...extra }] satisfies ImportError[]);
 }
@@ -82,11 +115,25 @@ export function parseJson(input: string): Result<Deck, ImportError[]> {
 			);
 		}
 
-		const located = /\(line (\d+) column (\d+)\)/.exec(message);
-		const line = located ? Number(located[1]) + lineOffset : undefined;
-		const column = located ? Number(located[2]) : undefined;
-		const reason = message.split(' in JSON at position')[0]?.trim() ?? message;
-		const hint = SYNTAX_HINTS.find(([pattern]) => pattern.test(message))?.[1];
+		const reported = /\(line (\d+) column (\d+)\)/.exec(message);
+		const token = /^Unexpected token '(.)'/su.exec(message)?.[1];
+		const found =
+			reported !== null
+				? { line: Number(reported[1]), column: Number(reported[2]) }
+				: token !== undefined
+					? locateUnexpectedToken(content)
+					: undefined;
+		const line = found ? found.line + lineOffset : undefined;
+		const column = found?.column;
+		// V8 prints a raw snippet of the source after "Unexpected token", so say it plainly instead.
+		const reason =
+			token !== undefined
+				? `Unexpected character ${JSON.stringify(token)}`
+				: (message.split(' in JSON at position')[0]?.trim() ?? message);
+		const hint =
+			token !== undefined
+				? UNEXPECTED_TOKEN_HINTS[token]
+				: SYNTAX_HINTS.find(([pattern]) => pattern.test(message))?.[1];
 		const where = line !== undefined ? ` at line ${line}, column ${column}` : '';
 
 		return syntaxError(

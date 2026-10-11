@@ -1,0 +1,73 @@
+{
+	"tessera": 1,
+	"deck": {
+		"id": "ccna-ospf",
+		"title": "CCNA: OSPF",
+		"description": "OSPF fundamentals for the CCNA exam.",
+		"tags": ["ccna", "routing"]
+	},
+	"cards": [
+		{
+			"id": "ospf-hello",
+			"type": "basic",
+			"front": "Default OSPF hello interval on broadcast networks?",
+			"back": "10 seconds",
+			"hint": "The dead interval is 4 times this.",
+			"tags": ["timers"],
+			"source": "Lesson 3"
+		},
+		{
+			"id": "ospf-admin-distance",
+			"type": "basic",
+			"front": "What is the administrative distance of OSPF?",
+			"back": "110",
+			"tags": ["metrics"]
+		},
+		{
+			"id": "ospf-dr",
+			"type": "cloze",
+			"text": "The {{c1::DR}} is elected by highest {{c2::priority}}, then by highest {{c3::router ID}}.",
+			"extra": "A priority of 0 means the router never becomes DR or BDR.",
+			"tags": ["dr-bdr"]
+		},
+		{
+			"id": "ospf-multicast",
+			"type": "cloze",
+			"text": "OSPF uses {{c1::224.0.0.5}} for all OSPF routers and {{c2::224.0.0.6}} for the DR and BDR.",
+			"tags": ["addressing"]
+		},
+		{
+			"id": "ospf-show-nbr",
+			"type": "typed",
+			"front": "Command to list OSPF neighbors?",
+			"answer": "show ip ospf neighbor",
+			"accept": ["sh ip ospf nei", "show ip ospf nei"],
+			"tags": ["commands"]
+		},
+		{
+			"id": "ospf-enable",
+			"type": "typed",
+			"front": "Global configuration command to start OSPF process 1?",
+			"answer": "router ospf 1",
+			"tags": ["commands"]
+		},
+		{
+			"id": "ospf-lsa",
+			"type": "choice",
+			"front": "Which LSA type describes a network segment?",
+			"choices": ["Type 1", "Type 2", "Type 3", "Type 5"],
+			"correct": 1,
+			"explanation": "The DR originates the Type 2 network LSA.",
+			"tags": ["lsa"]
+		},
+		{
+			"id": "ospf-area0",
+			"type": "choice",
+			"front": "Which area must every other OSPF area connect to?",
+			"choices": ["Area 0", "Area 1", "Area 51", "Any area"],
+			"correct": 0,
+			"explanation": "Area 0 is the backbone.",
+			"tags": ["areas"]
+		}
+	]
+}

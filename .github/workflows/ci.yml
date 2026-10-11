@@ -36,6 +36,14 @@ jobs:
         run: |
           npm run build
           npm run smoke
+      # Real-browser tests: XSS corpus, the import and study flows, layout at phone widths, themes.
+      # Locally these use the installed Chrome. Here Playwright downloads its own Chromium.
+      - name: Install the test browser
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end tests
+        run: npm run test:e2e
+      - name: Import benchmark (5,000 cards, 10 second budget)
+        run: npm run benchmark
 
   docker:
     name: Docker ${{ matrix.platform }}

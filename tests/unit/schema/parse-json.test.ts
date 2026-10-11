@@ -85,6 +85,43 @@ describe('parseJson: syntax problems', () => {
 	});
 });
 
+describe('parseJson: locating "Unexpected token" errors', () => {
+	// V8 reports a position for most syntax errors but only a raw snippet for these.
+	const locate = (text: string) => {
+		const result = parseJson(text);
+		if (result.ok) throw new Error('expected failure');
+		return result.error[0]!;
+	};
+
+	it.each([
+		['a trailing comma in an array', '[1,]', 1, 4, ']'],
+		['a leading dot in a number', '[.5]', 1, 2, '.'],
+		['a stray comma on a later line', '{\n  "a": 1,\n  "b": [ ,\n}', 3, 10, ','],
+		['a bad token deep in a long text', `{"a":[${'1,'.repeat(5000)}]}`, 1, 10_007, ']']
+	])('%s', (_name, text, line, column, character) => {
+		const error = locate(text);
+		expect(error.code).toBe('invalid_json');
+		expect(error.line).toBe(line);
+		expect(error.column).toBe(column);
+		expect(error.message).toContain(`Unexpected character ${JSON.stringify(character)}`);
+		expect(error.message).toContain(`line ${line}, column ${column}`);
+	});
+
+	it('does not print the raw source snippet', () => {
+		expect(locate('{\n  "a": 1,\n  "b": [ ,\n}').message).not.toContain('is not valid JSON');
+	});
+
+	it('explains a trailing comma', () => {
+		expect(locate('[1,]').message).toContain('trailing comma');
+	});
+
+	it('handles Windows line endings and a fence offset', () => {
+		const error = locate('```json\r\n{\r\n  "a": [1,]\r\n}\r\n```');
+		expect(error.line).toBe(3);
+		expect(error.column).toBe(11);
+	});
+});
+
 describe('parseJson: pasted input handling', () => {
 	const deck = read('valid', 'minimal.json');
 
