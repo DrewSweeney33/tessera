@@ -461,3 +461,25 @@ Closes security finding S-01. Milestone 2 started on the owner's instruction the
 **Mutation check.** 13 injected bugs, 12 caught. The survivor changed nothing: `host.name.length > domain.length` in the wildcard matcher was dead code, because the domain already starts with a dot. Removed instead of tested.
 
 **Why the pipeline test exists.** `src/hooks.server.ts` cannot be imported in a test, so deleting the guard would have passed every other unit test and shown up only in the probe, the same hole the CSP mutation exposed in Phase 5.
+
+## M2-01 to M2-04 Card type logic (2026-10-11)
+
+Core logic for cloze, typed, and choice cards. The study screen does not use the typed matcher or the choice shuffle yet; that is M2-10.
+
+**M2-01 Cloze core.** `core/cloze.ts` is now a scanner, not a regular expression. It reads the text once with its own stack (so thousands of unclosed markers cannot overflow the call stack), builds a tree of text and blanks, and renders a card for one number: that number's blanks are hidden (as the hint or an ellipsis), other numbers are shown as their answers, and in the answer the asked number is bold. Nested blanks work (asking the inner number shows the outer text with only the inner part hidden). A blank with the same number as one inside it hides all of it. Single braces, double braces that are not markers, a stray `}}`, and `::` outside a blank are ordinary text. The first `::` inside a blank starts its hint. `{{{c1::x}}}` keeps its outer braces.
+
+`validateCloze` reports `unclosed_cloze`, `invalid_cloze_number` (0, over 99, a letter, no number, a leading zero), `empty_cloze`, and `cloze_too_deep` (more than 8 levels), each with a message that names the marker and gives line and column. At most 20 are reported. The cloze card schema now refuses these through a `superRefine`, with the issue code as the import error code, so a deck with a mistake goes back to Claude with the position. The published JSON Schema file did not change.
+
+One visible effect: a card whose only marker is `{{c0::x}}` used to get just "needs at least one cloze marker". It now also gets `invalid_cloze_number`, which says why. The golden fixture was updated to expect both.
+
+**M2-02 Cloze in import and queue.** Almost all of it existed from M1 (an item per number, add, archive and restore on edits, burying in `submitReview`, the queue skipping buried items). The new tests cover what the scanner changed: nested numbers get items, progress survives nesting an existing blank inside a new one, an unclosed blank is refused over the API with line and column and nothing written, and a nested card is served as two sibling items, one buried until the next study day.
+
+**M2-03 Typed matcher.** `core/typed-match.ts`. Normalization is deliberately light: NFKC, case fold (with the German sharp s as `ss` and every Greek sigma alike), whitespace runs collapsed, and sentence punctuation dropped only at the end. Nothing inside the text changes, so `10.0.0.1` and `10001` stay different, as do `a-b` and `ab`, words in another order, and a different accent. Nothing typed never matches, even for an answer that is only punctuation. The accepted list gets the same leniency as the main answer, and the result says which one matched. The suggested grade is Good or Again. The learner can override it in the UI.
+
+**M2-04 Choice.** `core/choice.ts`. The schema already rejected a correct index out of range, duplicates, and bad counts; new tests add negative, fractional, text, missing, case and spacing duplicates, empty and over-long choices. New: `gradeChoice` (grades by the author's index, so it does not matter where an option is shown, and a position that does not exist is simply wrong), and `shuffleChoices` with a seed (FNV-1a hash into a mulberry32 generator, so the same seed gives the same order on every machine). `choiceSeed` includes the item's review count, so a refresh mid-question keeps the order and the next review reshuffles. A distribution test checks the shuffle does not favour a position. The pinned order in the test was recorded from the implementation, so it guards against accidental change (which would reshuffle everyone's cards after an upgrade) but does not prove correctness. The distribution and permutation tests do.
+
+**Error wording fixed on the way:** a fractional `correct` said "must be of type int, but found a number". It now says "correct must be a whole number, but found 1.5".
+
+**Mutation check.** 17 deliberate bugs in the new code, 17 caught.
+
+**Tests added:** cloze 70 or so (parsing, rendering, nesting, issues, pathological input, random garbage, deck level), typed 47, choice 32, plus 5 integration. The unit suite is 532.
