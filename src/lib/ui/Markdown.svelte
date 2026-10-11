@@ -4,6 +4,7 @@
 		renderInlineMarkdownWithoutLinks,
 		renderMarkdown
 	} from './markdown.ts';
+	import { enhanceCodeBlocks } from './code-blocks.ts';
 
 	// `links: false` is for text inside a button. It implies inline.
 	let {
@@ -11,6 +12,8 @@
 		inline = false,
 		links = true
 	}: { source: string; inline?: boolean; links?: boolean } = $props();
+
+	let root = $state<HTMLElement>();
 
 	// If rendering fails, the raw text is shown so the card can still be read and graded.
 	const rendered = $derived.by(() => {
@@ -27,11 +30,18 @@
 			return { ok: false as const };
 		}
 	});
+
+	// Code fences are highlighted and mermaid fences drawn after the text is on the page. The libraries load
+	// only when a card has one. Text inside a button (links off) and inline text never has a block.
+	$effect(() => {
+		if (!root || !rendered.ok || inline || !links) return;
+		return enhanceCodeBlocks(root);
+	});
 </script>
 
 {#if rendered.ok}
 	<!-- The only place {@html} is allowed. The string is sanitized by renderMarkdown (ADR-005). -->
-	<div class="md" class:md--inline={inline || !links}>{@html rendered.html}</div>
+	<div class="md" class:md--inline={inline || !links} bind:this={root}>{@html rendered.html}</div>
 {:else}
 	<div class="md md--failed">
 		<p class="md__badge" role="status">This card could not be formatted. Showing the raw text.</p>
@@ -86,11 +96,66 @@
 		font-size: 0.875rem;
 		line-height: 1.5;
 		tab-size: 4;
+		/* Code is read character by character: -> and != must not turn into arrows and symbols. */
+		font-variant-ligatures: none;
 	}
 
 	.md :global(pre code) {
 		padding: 0;
 		background: none;
+	}
+
+	/* Highlighted code: each token carries a colour for both schemes, picked by the active colour scheme. */
+	.md :global(code.shiki .tk) {
+		color: light-dark(var(--shiki-light, currentcolor), var(--shiki-dark, currentcolor));
+	}
+
+	.md :global(.diagram) {
+		margin: 0;
+		overflow-x: auto;
+	}
+
+	.md :global(.diagram__image) {
+		display: block;
+		max-width: 100%;
+		height: auto;
+		margin-inline: auto;
+	}
+
+	.md :global(.diagram__status) {
+		font-family: var(--font-body);
+		font-size: var(--text-sm);
+	}
+
+	.md :global(.diagram__source) {
+		margin-block-start: var(--space-2);
+		font-family: var(--font-body);
+		font-size: var(--text-sm);
+	}
+
+	.md :global(.diagram__source summary) {
+		display: inline-flex;
+		align-items: center;
+		min-height: var(--hit);
+		color: var(--color-accent);
+		cursor: pointer;
+	}
+
+	.md :global(.diagram__source pre) {
+		font-family: var(--font-code);
+	}
+
+	/* Built in script, so the scoped rules above do not reach it. */
+	.md :global(.md__badge) {
+		color: var(--color-error);
+		font-family: var(--font-body);
+		font-size: var(--text-sm);
+	}
+
+	.md :global(.diagram-failed pre) {
+		margin: var(--space-2) 0 0;
+		white-space: pre-wrap;
+		font-family: var(--font-code);
 	}
 
 	.md :global(blockquote) {
