@@ -13,7 +13,7 @@ Six tables, built to the architect's section 5 including its deltas.
 | `cards` | Authored cards | Integer `pk`, unique `(deck_id, key)`. Authored fields live in a JSON `content` column validated by `core/schema`. `position` orders new cards. |
 | `card_state` | One row per schedulable review item | Primary key `(card_pk, ordinal)`. FSRS fields, `leech`, `buried_until`, `archived`. |
 | `review_log` | Append-only history | Client UUID primary key (idempotent submit). Pre-review snapshot as columns. `result` JSON holds the post-review state for replay. |
-| `settings` | User settings | Key and JSON-encoded value. Seeded at boot with `insert or ignore`. |
+| `settings` | User settings | Key and JSON-encoded value, keys in camelCase (`targetRetention`, `newPerDay`, `reviewsPerDay`, `rolloverHour`, `leechThreshold`, `interleave`). Seeded at boot with `insert or ignore`. |
 | `import_history` | One row per committed import | Counts of new, updated, unchanged, archived cards. |
 
 ## Constraints

@@ -108,3 +108,19 @@ Each entry records what was built, deviations from the plan or ADRs, and tech de
 - `drizzle.config.ts` is part of the type-checked project.
 
 **Tech debt:** backups are not pruned. Documented in the DBA file, to be mentioned in `docs/backup.md`.
+
+## M1-06 Repositories (2026-10-10)
+
+**Built:** `server/repos/{decks,cards,card-state,review-log,settings,import-history,index}.ts`, `core/settings.ts` (settings schema, defaults, `validateSetting`), the `Executor` type (database or transaction), `tests/integration/repos/repos.test.ts` (20 tests, 40 integration total).
+
+**Decisions:**
+
+- Repositories are plain functions that take an `Executor` first, so the same code runs against the database or inside `withTx`. A test proves repository writes roll back with the transaction.
+- Settings keys are camelCase (`targetRetention`, `newPerDay`, `reviewsPerDay`, `rolloverHour`, `leechThreshold`, `interleave`). The architect file used snake_case as illustration. Nothing was persisted yet, so the change was free. Defaults and the Zod schema live in `core/settings.ts` so the settings form can reuse them.
+- A corrupt, out-of-range, or unknown stored setting falls back to the default instead of failing, so a bad row cannot stop studying.
+- `card_state` bulk operations chunk `IN` lists at 500 to stay under SQLite's bound-variable limit (tested with 1,200 cards).
+- Repositories return Drizzle's inferred row types (plain objects). No extra mapping layer, because it would add code without isolating anything.
+- The review log has insert and read only. There is no update or delete, matching the append-only rule.
+- Queue and stats queries are not here yet. They arrive with M1-11 and M4-04, so they can be shaped by their real callers.
+
+**Tech debt:** none.

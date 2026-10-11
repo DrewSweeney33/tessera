@@ -7,9 +7,8 @@ import { seedSettings } from './defaults.ts';
 import { runMigrations, type MigrationReport } from './migrate.ts';
 
 export { backupTo } from './backup.ts';
-export { DEFAULT_SETTINGS, type SettingKey } from './defaults.ts';
 export { withTx } from './tx.ts';
-export type { Db, Sqlite, Tx } from './client.ts';
+export type { Db, Executor, Sqlite, Tx } from './client.ts';
 export type { MigrationReport } from './migrate.ts';
 export * as schema from './schema.ts';
 

@@ -38,7 +38,7 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 - [x] M1-03 Deck schema, JSON Schema emit, schema diff check (M)
 - [x] M1-04 parseJson, limits, golden fixtures (S)
 - [x] M1-05 Database layer, migration 0001, pre-migration backup (M)
-- [ ] M1-06 Repositories (M)
+- [x] M1-06 Repositories (M)
 - [ ] M1-07 Normalize, hash, planImport (M)
 - [ ] M1-08 commitImport, rollback and idempotence tests (M)
 - [ ] M1-09 Scheduler wrapper, conformance fixtures (M)

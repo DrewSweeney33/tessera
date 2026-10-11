@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
-import { backupTo, openDatabase, withTx, schema, DEFAULT_SETTINGS } from '#lib/server/db/index.ts';
+import { DEFAULT_SETTINGS } from '#lib/core/settings.ts';
+import { backupTo, openDatabase, withTx, schema } from '#lib/server/db/index.ts';
 import type { DatabaseHandle } from '#lib/server/db/index.ts';
 import { fakeClock } from '../../helpers/fake-clock.ts';
 import { makeTempDir, type TempDir } from '../../helpers/temp-dir.ts';
@@ -124,13 +125,13 @@ describe('openDatabase on a fresh directory', () => {
 describe('reopening an existing database', () => {
 	it('applies nothing, keeps user-changed settings, and writes no backup', () => {
 		const first = open();
-		first.sqlite.prepare("update settings set value = '0.85' where key = 'target_retention'").run();
+		first.sqlite.prepare("update settings set value = '0.85' where key = 'targetRetention'").run();
 		first.close();
 
 		const second = open();
 		expect(second.migration).toEqual({ pending: 0, backupPath: undefined });
 		const row = second.sqlite
-			.prepare("select value from settings where key = 'target_retention'")
+			.prepare("select value from settings where key = 'targetRetention'")
 			.get() as { value: string };
 		expect(row.value).toBe('0.85');
 		expect(existsSync(join(dir.path, 'backups'))).toBe(false);
