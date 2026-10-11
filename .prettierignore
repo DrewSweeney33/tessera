@@ -13,3 +13,7 @@ bun.lockb
 /.vscode/
 /drizzle/
 /tests/fixtures/
+
+# Decks in the Tessera Markdown format. A Markdown formatter does not understand their field labels: it
+# indents the lines after a list, which turns "Explanation:" into part of the last choice.
+/examples/*.md

@@ -68,6 +68,29 @@
 			"correct": 0,
 			"explanation": "Area 0 is the backbone.",
 			"tags": ["areas"]
+		},
+		{
+			"id": "ospf-neighbor-states",
+			"type": "basic",
+			"front": "Name the OSPF neighbor states from first to last.",
+			"back": "```mermaid\nstateDiagram-v2\n  state \"2-Way\" as TwoWay\n  [*] --> Down\n  Down --> Init\n  Init --> TwoWay\n  TwoWay --> ExStart\n  ExStart --> Exchange\n  Exchange --> Loading\n  Loading --> Full\n```\n\nDown, Init, 2-Way, ExStart, Exchange, Loading, Full.",
+			"hint": "Seven states.",
+			"tags": ["neighbors"]
+		},
+		{
+			"id": "ospf-two-way",
+			"type": "cloze",
+			"text": "On a broadcast network, routers that are not the DR or BDR stay in the {{c1::2-Way}} state with each other, and reach {{c2::Full}} only with the DR and BDR.",
+			"tags": ["neighbors", "dr-bdr"]
+		},
+		{
+			"id": "ospf-dead-interval",
+			"type": "typed",
+			"front": "Default OSPF dead interval on broadcast networks, in seconds?",
+			"answer": "40",
+			"accept": ["40 seconds"],
+			"hint": "Four times the hello interval.",
+			"tags": ["timers"]
 		}
 	]
 }

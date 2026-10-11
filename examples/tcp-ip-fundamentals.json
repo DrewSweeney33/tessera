@@ -1,0 +1,126 @@
+{
+	"tessera": 1,
+	"deck": {
+		"id": "tcp-ip-fundamentals",
+		"title": "TCP/IP fundamentals",
+		"description": "Handshakes, ports, DNS records, and subnet sizes. Written in the Tessera JSON format, with diagrams and a table.",
+		"tags": ["networking", "fundamentals"]
+	},
+	"cards": [
+		{
+			"id": "tcp-handshake-diagram",
+			"type": "basic",
+			"front": "Which messages open a TCP connection, in order?\n\n```mermaid\nsequenceDiagram\n  participant C as Client\n  participant S as Server\n  C->>S: ???\n  S->>C: ???\n  C->>S: ???\n```",
+			"back": "```mermaid\nsequenceDiagram\n  participant C as Client\n  participant S as Server\n  C->>S: SYN\n  S->>C: SYN-ACK\n  C->>S: ACK\n```\n\nThe client sends **SYN**, the server answers **SYN-ACK**, and the client confirms with **ACK**.",
+			"hint": "Three messages.",
+			"tags": ["tcp"]
+		},
+		{
+			"id": "tcp-handshake-cloze",
+			"type": "cloze",
+			"text": "The TCP three-way handshake is {{c1::SYN}}, then {{c2::SYN-ACK}}, then {{c3::ACK}}.",
+			"tags": ["tcp"]
+		},
+		{
+			"id": "tcp-syn-reply-flags",
+			"type": "choice",
+			"front": "Which flags does the server set in its reply to a SYN?",
+			"choices": ["ACK only", "SYN and ACK", "FIN and ACK", "RST"],
+			"correct": 1,
+			"explanation": "The reply both acknowledges the client's SYN and sends the server's own SYN, so SYN and ACK are both set.",
+			"tags": ["tcp"]
+		},
+		{
+			"id": "tcp-vs-udp",
+			"type": "basic",
+			"front": "Compare TCP and UDP.",
+			"back": "| | TCP | UDP |\n|---|---|---|\n| Connection | Set up first (handshake) | None |\n| Delivery | Acknowledged and retransmitted | Not guaranteed |\n| Order | Kept | Not kept |\n| Typical use | Web, SSH, email | DNS queries, voice, video |",
+			"tags": ["tcp", "udp"]
+		},
+		{
+			"id": "well-known-ports",
+			"type": "cloze",
+			"text": "SSH uses TCP port {{c1::22}}, HTTPS uses TCP port {{c2::443}}, and DNS listens on port {{c3::53}}.",
+			"extra": "DNS uses UDP for most queries and TCP for large replies and zone transfers.",
+			"tags": ["ports"]
+		},
+		{
+			"id": "port-rdp",
+			"type": "typed",
+			"front": "Which TCP port does Remote Desktop (RDP) use by default?",
+			"answer": "3389",
+			"tags": ["ports"]
+		},
+		{
+			"id": "dns-a-record",
+			"type": "typed",
+			"front": "Which DNS record type maps a name to an IPv4 address?",
+			"answer": "A",
+			"accept": ["A record"],
+			"tags": ["dns"]
+		},
+		{
+			"id": "dns-aaaa-record",
+			"type": "typed",
+			"front": "Which DNS record type maps a name to an IPv6 address?",
+			"answer": "AAAA",
+			"accept": ["AAAA record", "quad A"],
+			"tags": ["dns"]
+		},
+		{
+			"id": "dns-mx-record",
+			"type": "choice",
+			"front": "Which DNS record tells other servers where to deliver email for a domain?",
+			"choices": ["CNAME", "MX", "PTR", "TXT"],
+			"correct": 1,
+			"explanation": "MX records name the mail servers for a domain, each with a preference number. A lower number is tried first.",
+			"tags": ["dns"]
+		},
+		{
+			"id": "dhcp-dora-diagram",
+			"type": "basic",
+			"front": "What are the four steps a DHCP client goes through to get an address (DORA)?\n\n```mermaid\nsequenceDiagram\n  participant C as Client\n  participant S as DHCP server\n  C->>S: ???\n  S->>C: ???\n  C->>S: ???\n  S->>C: ???\n```",
+			"back": "```mermaid\nsequenceDiagram\n  participant C as Client\n  participant S as DHCP server\n  C->>S: Discover\n  S->>C: Offer\n  C->>S: Request\n  S->>C: Acknowledge\n```\n\n**D**iscover, **O**ffer, **R**equest, **A**cknowledge.",
+			"tags": ["dhcp"]
+		},
+		{
+			"id": "subnet-24-hosts",
+			"type": "cloze",
+			"text": "A /24 network has {{c1::254}} usable host addresses, and a /26 has {{c2::62}}.",
+			"extra": "Usable hosts are 2 to the power of the host bits, minus 2 (the network and broadcast addresses).",
+			"tags": ["subnetting"]
+		},
+		{
+			"id": "subnet-mask-26",
+			"type": "typed",
+			"front": "What is the dotted decimal subnet mask for a /26?",
+			"answer": "255.255.255.192",
+			"tags": ["subnetting"]
+		},
+		{
+			"id": "icmp-ping",
+			"type": "choice",
+			"front": "Which protocol does the ping command use?",
+			"choices": ["TCP", "UDP", "ICMP", "ARP"],
+			"correct": 2,
+			"explanation": "Ping sends ICMP echo requests and waits for echo replies.",
+			"tags": ["icmp"]
+		},
+		{
+			"id": "ip-ttl",
+			"type": "basic",
+			"front": "What does the TTL field in an IPv4 packet do?",
+			"back": "It limits how many routers the packet may pass. Each router subtracts 1. At 0 the packet is dropped and the router sends back an ICMP Time Exceeded message, which is how `traceroute` finds each hop.",
+			"tags": ["ip", "icmp"]
+		},
+		{
+			"id": "tracert-windows",
+			"type": "typed",
+			"front": "Which Windows command shows the route packets take to a host?",
+			"answer": "tracert",
+			"accept": ["tracert.exe"],
+			"hint": "The Linux command is `traceroute`.",
+			"tags": ["tools"]
+		}
+	]
+}
