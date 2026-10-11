@@ -17,7 +17,11 @@ const workflow = parse(text) as {
 	>;
 };
 const dependabot = parse(readFileSync('.github/dependabot.yml', 'utf8')) as {
-	updates: { 'package-ecosystem': string; ignore?: { 'dependency-name': string }[] }[];
+	updates: {
+		'package-ecosystem': string;
+		ignore?: { 'dependency-name': string }[];
+		groups?: Record<string, { patterns?: string[] }>;
+	}[];
 };
 
 const allSteps = Object.values(workflow.jobs).flatMap((job) => job.steps);
@@ -94,6 +98,21 @@ describe('Dependabot', () => {
 
 	it('holds back the majors that would break the stack decisions', () => {
 		const npm = dependabot.updates.find((u) => u['package-ecosystem'] === 'npm')!;
-		expect(npm.ignore?.map((i) => i['dependency-name']).sort()).toEqual(['ts-fsrs', 'typescript']);
+		expect(npm.ignore?.map((i) => i['dependency-name']).sort()).toEqual([
+			'@types/node',
+			'ts-fsrs',
+			'typescript'
+		]);
+	});
+
+	it('does not let a bot move the Node major of the container (ADR-004)', () => {
+		const docker = dependabot.updates.find((u) => u['package-ecosystem'] === 'docker')!;
+		expect(docker.ignore?.map((i) => i['dependency-name'])).toEqual(['node']);
+	});
+
+	it('updates vitest and its coverage plugin in one pull request, ahead of the general group', () => {
+		const npm = dependabot.updates.find((u) => u['package-ecosystem'] === 'npm')!;
+		expect(Object.keys(npm.groups ?? {})).toEqual(['vitest', 'development-tools']);
+		expect(npm.groups?.['vitest']?.patterns).toEqual(['vitest', '@vitest/*']);
 	});
 });

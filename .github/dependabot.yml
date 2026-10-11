@@ -12,7 +12,15 @@ updates:
       # ADR-003: stay on the stable 5.x scheduler until 6.x is released and reviewed.
       - dependency-name: ts-fsrs
         update-types: ['version-update:semver-major']
+      # The types must match the Node major we run (24, see ADR-004). Moving to a new Node is a deliberate
+      # change to the Dockerfile, CI, and these types together, never a single bot pull request.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
     groups:
+      # Versioned together. Two separate pull requests could never pass CI on their own.
+      # This group comes first so majors of these two arrive together, in one pull request.
+      vitest:
+        patterns: ['vitest', '@vitest/*']
       development-tools:
         dependency-type: development
         update-types: [minor, patch]
@@ -21,6 +29,11 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # ADR-004: Node 24 LTS. Odd-numbered Node releases are never LTS, and a move to a new LTS is a
+      # deliberate change made by hand across the Dockerfile, CI, and @types/node.
+      - dependency-name: node
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: github-actions
     directory: /
