@@ -2,32 +2,37 @@
 
 ## Current handoff
 
-**From:** SDE, Milestone 2 (M2-09 and M2-10, import preview detail and the study screen for typed and choice cards)
-**To:** The owner (approve the push), then the SDE for M2-11
+**From:** SDE, Milestone 2 (M2-11, diagrams and code highlighting)
+**To:** The owner (approve the push), then the SDE for M2-12
 **Date:** 2026-10-11
-**Per-feature file:** `.10x/decisions/sde/tessera-v1.md` (section "M2-09 and M2-10")
+**Per-feature files:** `.10x/decisions/sde/tessera-v1.md` (section "M2-11"), `.10x/adrs/010-diagrams-and-code-highlighting-under-the-csp.md`
 
 ### Result
 
-The import preview now shows old and new text, warns about retypes and about ids that look changed, and lists missing cards. Typed cards have an answer box and matching, choice cards shuffle and mark, both suggest a grade and let the learner pick any. Gates on a fresh build: verify (673 unit, 290 integration), 87 e2e, smoke, probe (156), durability, ops, licenses, audit all pass. Mutation checks caught all injected bugs after one test gap was closed.
+Code fences are highlighted and `mermaid` fences are drawn, with the Content-Security-Policy unchanged. Both libraries are dev dependencies and load only for a card with a code fence. Gates are in the SDE log.
 
 ### State of git
 
-M2-05 to M2-08 are on GitHub. M2-09 and M2-10 are committed locally and **not pushed**; they need the owner's approval.
+M2-05 to M2-10 are on GitHub. M2-11 is committed locally and **not pushed**. It adds two dependencies (Mermaid 12.1.0 and Shiki 4.5.0, MIT) and about 1,900 lines to `package-lock.json`, so it needs the owner's approval.
 
 ### Next
 
-1. Owner: approve pushing M2-09 and M2-10. Also worth trying: import a revised deck on the real app and tell me whether the id-change and mostly-replaced warnings fire at sensible times (the thresholds are guesses).
-2. M2-11 Mermaid and Shiki under the CSP, M2-12 API token (ADR-009), M2-13 Claude skill, `docs/deck-format.md`, golden decks, M2-14 e2e for everything plus Firefox and WebKit, M2-16 gate (QA, security review, `v0.1.0` only after approval).
+1. Owner: approve pushing M2-11. Try a real deck with a diagram and a code block in both themes.
+2. M2-12 API token (ADR-009), M2-13 Claude skill, `docs/deck-format.md` (say which languages are highlighted and which diagram types were checked), golden decks, M2-14 e2e for everything plus Firefox and WebKit (diagrams and highlighting were only run in Chrome), M2-16 gate (QA, security review, `v0.1.0` only after approval, image scan).
 
 ### Things to know
 
-- Good, Hard, and Again keep a new card in a learning step and it returns at once when nothing else is due. Only Easy ends the session for that card. Tests must account for it.
-- Choice options render as inline text with links removed. Code blocks inside an option are shown inline.
-- Space and Enter after an attempt give the suggested grade, which is Again after a wrong answer. The hint line says so.
+- Diagram text is part of an image: not selectable, fixed system font. The source sits under "Diagram source".
+- Cisco IOS style configuration has no grammar, so it shows as plain code.
+- `npm audit` lists a low `katex` advisory through Mermaid and an `esbuild` one through `drizzle-kit` (the second predates M2-11). `npm run audit:prod` finds 0.
+- The app has no favicon, so each first page load gets a 404 for `/favicon.ico`. Harmless, worth fixing.
 - Earlier open items are unchanged (compose wrappers unverified on a real host, registry push unexercised, disk-full and long soak untested, Firefox, Safari and screen readers untested).
 
 ## Handoff history
+
+### 2026-10-11: SDE, M2-09 and M2-10, to the owner
+
+Import preview detail and the typed and choice study screen. See the SDE log section "M2-09 and M2-10".
 
 ### 2026-10-11: SDE, M2-05 to M2-08, to the owner
 

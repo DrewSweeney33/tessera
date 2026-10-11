@@ -13,6 +13,7 @@ First working version, built in milestone 1. Not yet released: the first public 
 - Re-importing a revised deck keeps your progress. Cards are matched by `id`. Importing an unchanged file changes nothing.
 - Study with FSRS spaced repetition. Keyboard first: Space shows the answer, 1 to 4 grade it, H shows a hint. Interval labels on the buttons, daily new and review limits, cloze blanks scheduled separately and buried for the day.
 - Four card types in the deck format: basic, cloze, typed answer, and multiple choice. Typed cards have an answer box and compare what you type with the answer and the accepted alternatives, ignoring case, extra spaces, and a final full stop. Choice cards show their options in a shuffled order (the same order if you refresh) with keys 1 to 9. Both suggest Good or Again and mark the right answer, and you can always pick a different grade.
+- Code in cards is highlighted for 23 common languages (Python, PowerShell, Bash, SQL, YAML, JSON, TypeScript and more), readable in both themes. A `mermaid` code block is drawn as a diagram (flowcharts, sequence, state, class, entity relationship, pie, Gantt, and mind map diagrams were checked), with its source underneath. If a diagram cannot be drawn, its source is shown with a note. Both load only when a card needs them, and neither needed a change to the Content Security Policy.
 - Home screen with a deck list and counts.
 - Light and dark themes that follow the system, usable on a phone.
 - Docker image for `linux/amd64` and `linux/arm64`, a hardened `compose.yaml`, a health check, and graceful shutdown.
@@ -37,5 +38,5 @@ First working version, built in milestone 1. Not yet released: the first public 
 
 ### Known limitations
 
-- Mermaid diagrams, leech handling, cram mode, statistics, and the API token are not built yet.
+- Leech handling, cram mode, statistics, and the API token are not built yet.
 - Only Chrome has been tested.

@@ -534,3 +534,29 @@ The API summary keeps the reply small: text cut at 300 characters with a `cut` f
 **Tests added.** 12 plan tests (preview.test.ts), 6 API tests (import-preview), 5 plus 2 browser tests for the preview, 15 unit tests for `study-card`, 3 for link-free choice text, 17 browser tests for the four card types (keyboard, override, reload, links, axe in both themes, 320px). Totals: 673 unit, 290 integration, 87 e2e, probe 156, smoke, durability, ops, licenses, audit clean.
 
 **Not done.** Mermaid and code highlighting are M2-11. A choice option with a code block or a list is shown as inline text. `docs/deck-format.md` and the Claude skill are M2-13. There is no screen reader test (QA gap carried over).
+
+## M2-11 Mermaid and Shiki under the CSP (2026-10-11)
+
+Decision record: ADR-010. No change to the Content-Security-Policy.
+
+**What was built.** `ui/code-blocks.ts` (loaded by `Markdown.svelte` after the text is on the page, only for text with a code fence):
+
+- Highlighting: Shiki 4.5.0 core with the JavaScript regular expression engine, so `script-src` needs no `'wasm-unsafe-eval'`. 23 grammars, each loaded only when used. The highlighted code is built from DOM nodes with `textContent`, never from an HTML string. Token colours are accepted only as hex and set as custom properties, chosen by `light-dark()`. Unknown languages, over 20,000 characters, or over 600 lines stay plain.
+- Diagrams: Mermaid 12.1.0, strict, HTML labels off, at most 8,000 characters and 200 edges, one at a time, 8 second timeout. The SVG is sanitized again and shown as an image through a `data:` URI, so a diagram cannot run script, load anything, or restyle the page. Drawn again when the colour scheme changes. A failure shows the source with a note. The source is also under "Diagram source" on a diagram that drew.
+- `Markdown.svelte` also gained: no code ligatures (`->` and `!=` stay as written), and global styles for the pieces built in script (Svelte's scoped CSS does not reach them, which showed up in a screenshot).
+
+**Both libraries are development dependencies** (compiled into the browser bundle, never loaded by the server, so not in the runtime image or the production licence check). MIT. `npm run audit:prod` still finds 0. `npm audit` now also lists a low severity `katex` advisory through Mermaid, recorded in ADR-010.
+
+**Measured.** A plain card downloads 194 KB of script (65 KB on the wire). A code card adds about 370 KB (64 KB on the wire). A flowchart adds about 2.1 MB (about 494 KB on the wire). A test fails if a plain card starts downloading the diagram library.
+
+**Found by looking and by testing, not by reasoning:**
+- A sequence diagram failed to draw because its `viewBox` starts at a negative origin and my size parser rejected it. Every other type drew. All seven common types (flowchart, sequence, state, class, entity relationship, pie, Gantt, mind map) are now checked in a real browser.
+- Axe found the light theme's comment grey at about 4.3 to 1. A unit test then found three more colours in the two themes that are unreadable on our code background (near white or near black, meant for a background the theme paints and we do not). They are replaced per theme, and the test now checks every colour of both themes against the real background colours, so a theme or colour change cannot reintroduce it.
+- The "could not be drawn" note was big and black because scoped CSS did not reach elements created by script.
+- jsdom has no `matchMedia`, so the scheme code guards for its absence.
+
+**Mutation check.** 17 injected bugs in `code-blocks.ts`. First run caught 8. The survivors showed missing tests for a prototype-name lookup in the alias table (fixed in the code as well, because `ALIASES['constructor']` returned a function), the colour check (now exported and tested with hostile strings), font styles, and the case of a mermaid fence. After that 12 of 17 are caught. The rest: removing either of the two overlapping SVG forbid lists alone changes nothing (removing both together is caught), dropping the `style` tag allowance changes nothing (DOMPurify's SVG profile keeps it), and showing a drawn diagram after the card was replaced can only be reached in a real browser, where the success path runs.
+
+**Tests added.** 42 unit tests for `code-blocks` plus 5 contrast tests (colours of both themes), 13 browser tests: drawn under the unchanged policy with no violation and no outside request, policy header has no `unsafe` keyword in `script-src`, redrawn for the other colour scheme, mistake shows source and the card still works, over-size refused quickly, hostile diagram text (HTML in labels, script, click handlers, javascript links, external `url()` in `classDef`) runs nothing and reaches nowhere, wide diagram on a 320 pixel screen, highlighted text equals the written text, unknown language stays plain, code that looks like markup stays text, lazy loading, axe in both themes.
+
+**Not done.** `docs/deck-format.md` (M2-13) should say which languages are highlighted and which diagram types were checked. A card with a code block inside a choice option is still shown as inline text. The app has no favicon, so every first page load requests `/favicon.ico` and gets a 404 (found while chasing a console error, unrelated to M2-11).

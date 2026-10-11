@@ -2,7 +2,7 @@
 
 Self-hosted flashcards that Claude can write for you. Ask Claude for a deck, paste it in, study it with FSRS spaced repetition, and re-import a revised deck later without losing your progress.
 
-**Status:** early development, milestone 2 of 5 under way. You can import decks, study them, and run it in Docker. Mermaid diagrams, leech handling, cram mode, and statistics are still to come. The plan lives in [`.10x/`](.10x/).
+**Status:** early development, milestone 2 of 5 under way. You can import decks, study them, and run it in Docker. Leech handling, cram mode, and statistics are still to come. The plan lives in [`.10x/`](.10x/).
 
 ## What works today
 

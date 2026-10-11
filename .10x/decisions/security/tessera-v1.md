@@ -28,6 +28,8 @@ Everything ADR-005 promises that exists today was tested against the built serve
 2. The probe reports documented-but-unbuilt controls as KNOWN, not PASS and not FAIL. Closing one flips it to PASS.
 3. No code change to the threat posture was needed beyond S-03. S-01 and S-02 are scheduled, not patched here, because they are M2-12 scope and S-02 needs the owner's decision.
 
+4. **2026-10-11, M2-11 (ADR-010):** Mermaid and Shiki run under the unchanged policy. Diagrams are shown as images through data URIs, so a hostile diagram cannot run script, load resources, or restyle the page. Highlighted code is text nodes only. The browser tests send hostile diagram text and code and check for violations, dialogs, outside requests, and injected elements. Open: a low severity `katex` advisory through Mermaid (dev only, not in the production audit), and a hostile but within-limits diagram that is slow to lay out has not been searched for.
+
 ## Handoff
 
 SDE: S-01 first, S-02 after the owner decides, `docs/security.md`. DevOps: GitHub remote, first CI run on Linux, image scan.
