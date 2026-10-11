@@ -1,6 +1,7 @@
 import { parseJson } from '#lib/core/parse/index.ts';
 import { LIMITS } from '#lib/core/schema/index.ts';
 import type { AppContext } from '../app.ts';
+import { readBodyText } from '../http/body.ts';
 import { mediaType } from '../http/content-type.ts';
 import { errorResponse } from '../http/errors.ts';
 import { jsonResponse } from '../http/response.ts';
@@ -64,16 +65,13 @@ export async function handleImport(
 		);
 	}
 
-	const declared = Number(request.headers.get('content-length') ?? 0);
-	if (declared > LIMITS.maxBodyBytes) {
-		return errorResponse(
-			'payload_too_large',
-			`The deck is larger than ${LIMITS.maxBodyBytes / (1024 * 1024)} MB.`,
-			undefined,
-			requestId
-		);
-	}
-	const body = await request.text();
+	const body = await readBodyText(
+		request,
+		LIMITS.maxBodyBytes,
+		`The deck is larger than ${LIMITS.maxBodyBytes / (1024 * 1024)} MB.`,
+		requestId
+	);
+	if (body instanceof Response) return body;
 
 	const parsed = parseJson(body);
 	if (!parsed.ok) {

@@ -179,6 +179,11 @@
 		</p>
 	</header>
 
+	<!-- The done screen has its own visible h1. Every other state needs one for heading navigation. -->
+	{#if phase !== 'done'}
+		<h1 class="sr-only">Studying: {deckLabel}</h1>
+	{/if}
+
 	{#if notice}
 		<p class="callout" role="status">{notice}</p>
 	{/if}

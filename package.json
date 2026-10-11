@@ -19,6 +19,8 @@
 		"test:e2e": "playwright test",
 		"smoke": "node scripts/smoke.ts",
 		"benchmark": "node scripts/benchmark.ts",
+		"security:probe": "node scripts/security-probe.ts",
+		"durability": "node scripts/durability-check.ts",
 		"fixtures:scheduler": "node scripts/gen-scheduler-fixtures.ts",
 		"licenses": "node scripts/check-licenses.ts",
 		"audit:prod": "npm audit --omit=dev --audit-level=moderate",
@@ -29,6 +31,7 @@
 		"verify": "npm run check && npm run lint && npm run schema:check && npm run test && npm run test:integration"
 	},
 	"devDependencies": {
+		"@axe-core/playwright": "4.13.0",
 		"@eslint/js": "10.0.1",
 		"@playwright/test": "1.64.0",
 		"@sveltejs/adapter-node": "6.0.0",
@@ -36,6 +39,7 @@
 		"@sveltejs/vite-plugin-svelte": "7.3.1",
 		"@types/better-sqlite3": "9.6.0",
 		"@types/node": "24.19.2",
+		"@vitest/coverage-v8": "4.1.11",
 		"drizzle-kit": "0.31.11",
 		"eslint": "10.12.0",
 		"eslint-config-prettier": "10.1.8",

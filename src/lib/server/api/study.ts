@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ID_PATTERN } from '#lib/core/schema/limits.ts';
 import type { AppContext } from '../app.ts';
+import { readBodyText } from '../http/body.ts';
 import { errorResponse, type ApiErrorCode } from '../http/errors.ts';
 import { jsonResponse } from '../http/response.ts';
 import { fieldErrors } from '../http/validation.ts';
@@ -66,24 +67,13 @@ export async function handleStudyReview(
 	request: Request,
 	requestId: string
 ): Promise<Response> {
-	const declared = Number(request.headers.get('content-length') ?? 0);
-	if (declared > MAX_BODY_BYTES) {
-		return errorResponse(
-			'payload_too_large',
-			'The request body is too large.',
-			undefined,
-			requestId
-		);
-	}
-	const text = await request.text();
-	if (text.length > MAX_BODY_BYTES) {
-		return errorResponse(
-			'payload_too_large',
-			'The request body is too large.',
-			undefined,
-			requestId
-		);
-	}
+	const text = await readBodyText(
+		request,
+		MAX_BODY_BYTES,
+		'The request body is too large.',
+		requestId
+	);
+	if (text instanceof Response) return text;
 
 	let body: unknown;
 	try {
