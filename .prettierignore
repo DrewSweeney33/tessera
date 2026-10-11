@@ -1,0 +1,15 @@
+# Package Managers
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+bun.lock
+bun.lockb
+
+# Miscellaneous
+/static/
+
+# Team state and generated output are not auto-formatted
+/.10x/
+/.vscode/
+/drizzle/
+/tests/fixtures/

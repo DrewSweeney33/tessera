@@ -33,7 +33,7 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 
 ### M1 Vertical slice (23 tasks, 80 hours)
 
-- [ ] M1-01 Scaffold SvelteKit 3, tooling, layer lint rules, LICENSE (M)
+- [x] M1-01 Scaffold SvelteKit 3, tooling, layer lint rules (M). LICENSE file pending owner permission to download the AGPL-3.0 text.
 - [ ] M1-02 Foundations: Result, config, logger, clock, error shape (S)
 - [ ] M1-03 Deck schema, JSON Schema emit, schema diff check (M)
 - [ ] M1-04 parseJson, limits, golden fixtures (S)

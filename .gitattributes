@@ -1,0 +1,6 @@
+# Keep line endings LF on every platform so Prettier, CI, and Docker agree.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary
