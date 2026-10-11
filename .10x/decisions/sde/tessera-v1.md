@@ -314,3 +314,20 @@ Each entry records what was built, deviations from the plan or ADRs, and tech de
 **Test correction:** the first version expected the second Good to still be in learning. With the default steps (1m, 10m) it graduates, which matches the conformance fixtures. The test was wrong, the code was right.
 
 **Tech debt:** the result carries only the new state. Previews for the next card and its content are attached by the API layer (M1-18).
+
+## M1-18 Study API routes (2026-10-10)
+
+**Built:** `server/study/dto.ts` (`buildNext`, `StudyItemDto`), `server/api/study.ts` (`handleStudyNext`, `handleStudyReview`), `server/http/validation.ts` (`fieldErrors`), `rng` on the app context, routes `GET /api/study/next` and `POST /api/study/review`, `tests/integration/api/study.test.ts` (15 tests). The smoke script grew from 23 to 28 checks.
+
+**Contract:**
+
+- `GET /api/study/next?deckId=` returns `{ done: false, item, counts }` or `{ done: true, waitingUntil, counts }`. The item carries `category`, `cardPk`, `ordinal`, `deckId`, `deckTitle`, `key`, `type`, authored `content` (Markdown text for the browser to render and sanitize), `tags`, the serialized `state`, `previews` (a label for each of grades 1 to 4), and `servedAt`.
+- `POST /api/study/review` takes a review (`reviewId`, `cardPk`, `ordinal`, `grade`, `servedAt`, optional `durationMs`, `typedAnswer`) plus an optional `deckId` for scoping the next card. It returns `{ result, next }`, so a session normally needs one request per card (ADR-003).
+- Errors use the standard shape. Stale is 409 `stale_review`. A missing card or deck is 404. A reused `reviewId` is 400. Validation problems are 422 with `{ path, code, message }` for each field, including `unknown_field`. A bad deck id format, invalid JSON, and an oversized body (over 16 KB) are 400, 400, and 413.
+- Neither route logs card content or typed answers (tested).
+
+**Counts are review items, not cards.** The CCNA fixture has 8 cards but 11 new items, because each cloze blank is its own review item. The smoke test initially asserted 8 and failed on the real server. The home screen (M1-17) must label these as items or "to study", not "cards".
+
+**Verification:** a whole session through the two endpoints works through every new card, then each learning card again via learn-ahead, graduates them, and ends done. A cloze card's sibling stays buried after its first blank is answered, and the response sequence matches the expected order. The real-server smoke covers next, answer, idempotent replay, unknown deck, and invalid review.
+
+**Tech debt:** none.

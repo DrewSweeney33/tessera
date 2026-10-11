@@ -50,7 +50,7 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 - [ ] M1-15 Markdown component and XSS corpus (M)
 - [ ] M1-16 Import UI (M)
 - [ ] M1-17 Home deck list (S)
-- [ ] M1-18 Study API routes (S)
+- [x] M1-18 Study API routes (S)
 - [ ] M1-19 Study UI for basic cards (M)
 - [x] M1-20 Dockerfile, compose, boot check, shutdown (M). Image not built locally (no Docker), runtime stage simulated. ADR-007 added.
 - [x] M1-21 CI workflow with Docker smoke test (M). Not yet run on GitHub (no remote).

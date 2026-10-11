@@ -76,7 +76,7 @@ export function serializeState(state: ItemState): SerializedState {
 
 // One scheduler per target retention is plenty. They are stateless.
 const schedulers = new Map<number, Scheduler>();
-function schedulerFor(targetRetention: number): Scheduler {
+export function schedulerFor(targetRetention: number): Scheduler {
 	let scheduler = schedulers.get(targetRetention);
 	if (!scheduler) {
 		scheduler = createScheduler({ ...DEFAULT_SCHEDULER_CONFIG, targetRetention });

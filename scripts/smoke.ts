@@ -206,6 +206,60 @@ try {
 			dig(decks, 'decks', 0, 'cardCount') === 8
 	);
 
+	// The study flow: get a card, answer it, and get the next card in the same response.
+	const nextRes = await fetch(`${base}/api/study/next?deckId=ccna-ospf`);
+	const nextBody: unknown = await nextRes.json();
+	const firstItem = dig(nextBody, 'item') as Record<string, unknown> | undefined;
+	check(
+		'GET /api/study/next serves a new card with four grade labels',
+		nextRes.status === 200 &&
+			dig(nextBody, 'done') === false &&
+			dig(firstItem, 'category') === 'new' &&
+			dig(firstItem, 'previews', '3', 'label') === '10m' &&
+			// 8 cards, but the two cloze cards have 3 and 2 blanks, and each blank is a review item.
+			dig(nextBody, 'counts', 'new') === 11
+	);
+	const unknownDeck = await fetch(`${base}/api/study/next?deckId=nope`);
+	check('an unknown deck is a 404 for study', unknownDeck.status === 404);
+
+	const reviewPayload = {
+		reviewId: 'smoke-review-000001',
+		cardPk: dig(firstItem, 'cardPk'),
+		ordinal: dig(firstItem, 'ordinal'),
+		grade: 3,
+		servedAt: dig(firstItem, 'servedAt'),
+		deckId: 'ccna-ospf'
+	};
+	const reviewRes = await fetch(`${base}/api/study/review`, {
+		method: 'POST',
+		headers: json,
+		body: JSON.stringify(reviewPayload)
+	});
+	const reviewBody: unknown = await reviewRes.json();
+	check(
+		'POST /api/study/review records the answer and returns the next card',
+		reviewRes.status === 200 &&
+			dig(reviewBody, 'result', 'replayed') === false &&
+			dig(reviewBody, 'result', 'next', 'phase') === 1 &&
+			dig(reviewBody, 'next', 'done') === false &&
+			dig(reviewBody, 'next', 'item', 'key') !== dig(firstItem, 'key')
+	);
+	const replay = await fetch(`${base}/api/study/review`, {
+		method: 'POST',
+		headers: json,
+		body: JSON.stringify(reviewPayload)
+	});
+	check(
+		'repeating the same reviewId is idempotent',
+		replay.status === 200 && dig(await replay.json(), 'result', 'replayed') === true
+	);
+	const invalidReview = await fetch(`${base}/api/study/review`, {
+		method: 'POST',
+		headers: json,
+		body: JSON.stringify({ ...reviewPayload, reviewId: 'smoke-review-000002', grade: 9 })
+	});
+	check('an invalid review is a 422', invalidReview.status === 422);
+
 	const bad = await fetch(`${base}/api/import`, {
 		method: 'POST',
 		headers: json,
