@@ -2,38 +2,41 @@
 
 ## Current handoff
 
-**From:** SDE, Milestone 2 (M2-13, the Claude skill, format reference, workflow guide, and golden decks)
-**To:** The owner (approve the push and try the skill), then the SDE for M2-14
+**From:** SDE, Milestone 2 (M2-14, end-to-end coverage and cross-browser CI)
+**To:** The owner (approve the push, then watch the first CI run), then the SDE for M2-15
 **Date:** 2026-10-11
-**Per-feature file:** `.10x/decisions/sde/tessera-v1.md` (section "M2-13")
+**Per-feature file:** `.10x/decisions/sde/tessera-v1.md` (section "M2-14")
 
 ### Result
 
-The skill, `docs/deck-format.md`, `docs/claude-workflow.md`, and three golden decks exist, and tests keep every document in step with the code. All gates pass on a fresh build.
+A keyboard-only test covers import and all four card types. The e2e suite now runs in WebKit as well as Chrome (118 tests each, all passing), and CI has a new `browsers` job for Firefox and WebKit. **Firefox has never run**: it will not start on this Windows machine, so its first run is in CI.
 
 ### State of git
 
-M2-05 to M2-12 are on GitHub. M2-13 is committed locally and **not pushed**.
+M2-05 to M2-13 are on GitHub. M2-14 is committed locally and **not pushed**.
 
 ### Needs the owner
 
-1. **Approve the push.**
-2. **Try the skill on a real conversation.** Install `claude-skill/tessera-deck` (or paste `SKILL.md`), give Claude some notes you actually want to study, and import what it writes. Tell me what went wrong. That is the real test of the skill, and nothing automated can stand in for it.
-3. **Skim the three example decks for factual errors** if you plan to study from them (PowerShell, OSPF, TCP/IP). I checked them carefully but I am not a subject expert.
-4. **Read the "Do not run a Markdown formatter" paragraph** in `docs/deck-format.md` and say if the `label_in_choice` rule is acceptable (it makes an indented `Explanation:` under a choice an error instead of silently part of the choice).
+1. **Approve the push**, then **watch the first CI run**. The new Firefox job may fail on something I could only read and not run. If it does, tell me, or say "keep pushing CI fixes" and I will fix and push (the standing approval covers CI fixes).
+2. If you want Firefox tested locally too, the cause is the `firefox.exe` side-by-side error. It needs administrator tools (or a repair of the Visual C++ runtimes) that I did not use.
+3. Safari on a real Mac or iPhone is still untested. Playwright's WebKit is the same engine, not the same product.
 
 ### Next
 
-M2-14 (e2e for all card types and Markdown, add Firefox and WebKit to CI, QA risk R-1), M2-15 (release pipeline, publication needs approval), M2-16 (the M2 gate: QA report, security review, image scan, `v0.1.0` only after approval).
+M2-15 (release pipeline, publication needs your approval) and M2-16 (the M2 exit gate: QA report, security review, image scan, then `v0.1.0` only after your approval).
 
 ### Things to know
 
-- Anything that reformats Markdown (Prettier, editors with format-on-save) can break a Markdown deck. The repo ignores `examples/*.md` for that reason.
-- The skill defaults to Markdown output with a four-backtick outer fence for decks that contain code. If Claude gets that wrong in practice, change the skill, not the parser.
-- Diagrams and highlighting have only been run in Chrome. Firefox and WebKit are M2-14.
-- Earlier open items are unchanged (compose wrappers unverified on a real host, registry push unexercised, disk-full and long soak untested, screen readers untested, no favicon).
+- Safari does not Tab to links by default, so a keyboard user there uses Option+Tab for links. Documented in the README. Tests focus links directly in WebKit.
+- A test loop that acts on "the card on screen" can act on the card just answered, which stays visible with disabled buttons until the next arrives. Wait for the grade buttons to go. Two tests had this.
+- `test:e2e:all` runs Chrome, Firefox, and WebKit in turn and stops at the first failure, so on this machine it stops at Firefox.
+- Earlier open items are unchanged (compose wrappers unverified on a real host, registry push unexercised, disk-full and long soak untested, screen readers untested, no favicon, the skill untried in a real conversation).
 
 ## Handoff history
+
+### 2026-10-11: SDE, M2-13, to the owner
+
+The Claude skill, format reference, workflow guide, and golden decks. See the SDE log section "M2-13".
 
 ### 2026-10-11: SDE, M2-12, to the owner
 

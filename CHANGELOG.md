@@ -43,4 +43,4 @@ First working version, built in milestone 1. Not yet released: the first public 
 ### Known limitations
 
 - Leech handling, cram mode, and statistics are not built yet.
-- Only Chrome has been tested.
+- Browser tests run in Chrome and WebKit (the engine of Safari) and, in CI, Firefox. Tessera has not been tried on a real Safari, iPhone, or Android device, or with a screen reader. Safari does not Tab to links by default, so on Safari use Option+Tab to reach links.

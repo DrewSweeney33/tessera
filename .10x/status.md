@@ -1,7 +1,7 @@
 # Tessera Status
 
 **Last updated:** 2026-10-11
-**Current phase:** Phase 4 Implementation, Milestone 2 in progress (started 2026-10-11). The repository is live on GitHub (public) with CI green on Linux. M2-00 to M2-13 are done. No release exists; `v0.1.0` is the M2 exit.
+**Current phase:** Phase 4 Implementation, Milestone 2 in progress (started 2026-10-11). The repository is live on GitHub (public) with CI green on Linux. M2-00 to M2-14 are done. No release exists; `v0.1.0` is the M2 exit.
 **Feature slug:** `tessera-v1`
 
 ## Phase tracker
@@ -12,7 +12,7 @@
 | 1 Strategy | Complete. Verdict: build, with a checkpoint after M2. |
 | 2 Design | Complete. 7 ADRs accepted (005 to 007 added during implementation). |
 | 3 Planning | Complete. 67 tasks, 5 milestones, about 224 hours (human-equivalent). |
-| 4 Implementation | M1 done (23 of 23 tasks), exit gate accepted by the owner 2026-10-11 ("start Milestone 2"). M2 in progress: M2-00 to M2-13 done (M2-00 to M2-12 pushed; M2-13 committed locally, awaiting the owner's approval to push), M2-14 next. |
+| 4 Implementation | M1 done (23 of 23 tasks), exit gate accepted by the owner 2026-10-11 ("start Milestone 2"). M2 in progress: M2-00 to M2-14 done (M2-00 to M2-13 pushed; M2-14 committed locally, awaiting the owner's approval to push, and CI has not yet run the Firefox job), M2-15 next. |
 | 5 Verification | **Interim pass on the M1 slice done 2026-10-11.** 2 defects fixed, 0 blocking. Repeat at the M2 exit (with a security review) and final at M5 exit. |
 | 6 Delivery | **Delivery package for the M1 slice done 2026-10-11:** deploy, operations, and release docs, tag-driven release workflow, ops check script, four reliability fixes (ADR-008). Conditional sign-off: ready for the owner's own use on loopback or a VPN with backups. Public `v0.1.0` at M2 exit, `v1.0.0` at M5 exit. |
 
@@ -129,7 +129,7 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 - [x] M2-11 Mermaid and Shiki under the CSP (M). Done 2026-10-11, **no change to the policy** (ADR-010). Shiki with its JavaScript engine (no WebAssembly), code built from text nodes. Mermaid strict, sanitized, shown as an image through a data URI, with limits, a timeout, and a source fallback. Both are dev dependencies, loaded only for cards with a code fence (plain card 194 KB of script, flowchart adds about 2.1 MB). Seven diagram types checked in a real browser. Every colour of both themes checked for contrast. 17 injected bugs, 12 caught, the rest explained in the SDE log.
 - [x] M2-12 API token and allowed hosts (M). Done 2026-10-11 (allowed hosts was M2-00). With `TESSERA_API_TOKEN` set, `/api/*` (except `/api/schema`) needs `Authorization: Bearer` unless the Tessera page itself sent the request. **ADR-011 refines ADR-009:** a real browser on plain HTTP sends no `Sec-Fetch-Site`, no `Origin` on a same-origin GET, and the server believes it is https, so the page would have been locked out. The page is now recognized by `Sec-Fetch-Site`, then the Origin host and port, then a marker header that other sites cannot send. Path variants the router decodes cannot get around it. A client that copies the browser headers is accepted, which is documented and tested. 14 + 9 injected bugs, all caught. Probe has about 60 new checks, 11 new browser tests against a second server.
 - [x] M2-13 Claude skill, deck-format docs, golden decks (M). Done 2026-10-11. `claude-skill/tessera-deck/SKILL.md`, `docs/deck-format.md`, `docs/claude-workflow.md`, three golden decks (CCNA in both formats, PowerShell with code, TCP/IP with diagrams), README rewritten. 34 tests keep the documents in step with the code (every example parses, languages, labels, limits, quoted error messages, error codes, links); 12 deliberate document mistakes all caught. **Found and fixed:** Prettier silently turns the lines after a choices list into part of the last choice, so an indented label is now an error (`label_in_choice`) and the writer escapes such lines; the 'Copy errors for Claude' message now asks for the deck's own format. **Not yet tried on a real Claude conversation, which needs the owner.**
-- [ ] M2-14 e2e for all card types and Markdown (M). Add Firefox and WebKit projects to CI (QA risk R-1).
+- [x] M2-14 e2e for all card types and Markdown, Firefox and WebKit in CI (M). Done 2026-10-11, **except that Firefox has never run**. New keyboard-only test through import and all four card types. One browser per invocation (`E2E_BROWSER`, `scripts/run-e2e.ts`), new CI job `browsers` (Firefox and WebKit, parallel to verify, 20 minute budget). WebKit passes all 118 tests after changes that reflect real browser differences (Safari does not Tab to links by default, only Chromium can be granted clipboard access) and after removing two races in my own tests. Firefox will not launch on this Windows machine (side-by-side configuration error), so its first run is in CI. Minimum browser versions stated in the README and deployment guide. QA risk R-1 is closed for Chrome and WebKit and open for Firefox until CI is green.
 - [ ] M2-15 Release pipeline, publication needs owner approval (M)
 - [ ] M2-16 M2 exit gate: QA report, security review, v0.1.0 (S)
 
