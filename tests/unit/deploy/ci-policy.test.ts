@@ -80,6 +80,14 @@ describe('CI workflow', () => {
 		expect(text).toMatch(/browsers:[\s\S]*?timeout-minutes: 20/);
 	});
 
+	it('reports a failed browser test as a GitHub annotation, and never retries one', () => {
+		// The job log needs a login to read, an annotation does not. A retry would hide a flaky test, and most tests
+		// import decks with fixed ids, so a second attempt would meet the first one's data.
+		const config = readFileSync('playwright.config.ts', 'utf8');
+		expect(config).toMatch(/reporter: process\.env\['CI'\] \? \[\['list'\], \['github'\]\]/);
+		expect(config).toContain('retries: 0');
+	});
+
 	it('can be called by the release workflow', () => {
 		expect(Object.keys((parse(text) as { on: object }).on)).toContain('workflow_call');
 	});

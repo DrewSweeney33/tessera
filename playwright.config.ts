@@ -28,7 +28,13 @@ export default defineConfig({
 	// No retries anywhere. A test that passes only on the second try is a race, and it should fail loudly.
 	// (Most tests also import fixed deck ids, so a retry would meet cards the first attempt already studied.)
 	retries: 0,
-	reporter: [['list']],
+	// More headroom than the defaults (30 seconds a test, 5 seconds for each wait), for a slower runner. A test that
+	// passes still takes the same time. Only one that is going to fail waits longer before it does.
+	timeout: 45_000,
+	expect: { timeout: 10_000 },
+	// In CI the failing test and its message are also written as GitHub annotations. Those can be read from the run
+	// page and the API without logging in, which the job log cannot.
+	reporter: process.env['CI'] ? [['list'], ['github']] : [['list']],
 	projects: [{ name: browser, use: browsers[browser as keyof typeof browsers] }],
 	use: {
 		baseURL,
