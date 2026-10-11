@@ -2,7 +2,7 @@
 # Tessera container (ADR-004). Debian 13 slim, glibc, runs as the non-root "node" user.
 # better-sqlite3 ships prebuilt binaries for linux x64 and arm64, so no compiler is needed.
 
-FROM node:24-trixie-slim AS build
+FROM node:25-trixie-slim AS build
 WORKDIR /app
 
 # Dependencies first so this layer is cached until the lockfile changes.
@@ -12,7 +12,7 @@ RUN npm ci
 COPY . .
 RUN npm run build && npm prune --omit=dev
 
-FROM node:24-trixie-slim AS runtime
+FROM node:25-trixie-slim AS runtime
 
 ARG VERSION=dev
 ARG REVISION=unknown
