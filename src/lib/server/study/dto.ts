@@ -41,6 +41,14 @@ export function buildNext(x: Executor, context: NextContext): NextResponse {
 	const previews = {} as Record<Grade, { label: string }>;
 	for (const grade of GRADES) previews[grade] = { label: preview[grade].label };
 
+	// The system clock can step backwards (an NTP correction, a VM resuming). An item must never be
+	// stamped earlier than its own last review, or the stale check in submitReview would reject every
+	// answer until the clock caught up. Genuine races between tabs are still caught, because the other
+	// tab's review is later than this stamp.
+	const nowIso = context.now.toISOString();
+	const servedAt =
+		state.lastReview !== null && state.lastReview > nowIso ? state.lastReview : nowIso;
+
 	return {
 		done: false,
 		counts,
@@ -56,7 +64,7 @@ export function buildNext(x: Executor, context: NextContext): NextResponse {
 			tags: card.tags,
 			state: serializeState(toItemState(state)),
 			previews,
-			servedAt: context.now.toISOString()
+			servedAt
 		}
 	};
 }

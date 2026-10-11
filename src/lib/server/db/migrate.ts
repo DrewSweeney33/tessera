@@ -6,6 +6,13 @@ import type { Logger } from '../log.ts';
 import { backupTo } from './backup.ts';
 import type { Db } from './client.ts';
 
+export class DatabaseTooNewError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'DatabaseTooNewError';
+	}
+}
+
 export interface MigrationReport {
 	pending: number;
 	backupPath: string | undefined;
@@ -56,6 +63,17 @@ export function runMigrations(
 			).latest ?? 0)
 		: 0;
 	const pending = journal.filter((entry) => entry.when > lastApplied).length;
+
+	// A rollback to an older image after an upgrade would otherwise open a newer database with code that
+	// does not know its schema, and fail in strange ways later or damage data. Refuse, and say what to do.
+	const newestKnown = journal.reduce((latest, entry) => Math.max(latest, entry.when), 0);
+	if (lastApplied > newestKnown) {
+		throw new DatabaseTooNewError(
+			`This database was written by a newer version of Tessera than the one running now. ` +
+				`Start the newer version again, or restore the backup that was made before the upgrade ` +
+				`(see ${join(options.dataDir, 'backups')}). The database was not changed.`
+		);
+	}
 
 	if (pending === 0) return { pending: 0, backupPath: undefined };
 

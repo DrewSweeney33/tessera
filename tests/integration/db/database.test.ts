@@ -3,7 +3,14 @@ import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { DEFAULT_SETTINGS } from '#lib/core/settings.ts';
-import { backupTo, openDatabase, withTx, schema } from '#lib/server/db/index.ts';
+import {
+	DatabaseOpenError,
+	DatabaseTooNewError,
+	backupTo,
+	openDatabase,
+	withTx,
+	schema
+} from '#lib/server/db/index.ts';
 import type { DatabaseHandle } from '#lib/server/db/index.ts';
 import { fakeClock } from '../../helpers/fake-clock.ts';
 import { makeTempDir, type TempDir } from '../../helpers/temp-dir.ts';
@@ -369,5 +376,73 @@ describe('backupTo', () => {
 		writeFileSync(dest, 'keep me');
 		expect(() => backupTo(handle.sqlite, dest)).toThrow(/Refusing to overwrite/);
 		expect(readFileSync(dest, 'utf8')).toBe('keep me');
+	});
+});
+
+describe('operational safeguards', () => {
+	it('refuses a database written by a newer version, and leaves it unchanged', () => {
+		const first = open();
+		first.sqlite
+			.prepare('insert into __drizzle_migrations (hash, created_at) values (?, ?)')
+			.run('from-the-future', Date.now() + 10 * 365 * 24 * 3600 * 1000);
+		first.close();
+		const before = readFileSync(join(dir.path, 'tessera.db'));
+
+		expect(() => open()).toThrow(DatabaseTooNewError);
+		expect(() => open()).toThrow(/newer version of Tessera/);
+		expect(() => open()).toThrow(/backups/);
+		expect(readFileSync(join(dir.path, 'tessera.db')).equals(before)).toBe(true);
+		// The failed attempts must not leave the file locked or add a backup.
+		expect(existsSync(join(dir.path, 'backups'))).toBe(false);
+	});
+
+	it('explains a damaged database file by name and leaves it alone', () => {
+		mkdirSync(dir.path, { recursive: true });
+		const file = join(dir.path, 'tessera.db');
+		writeFileSync(file, Buffer.from('this is not a database '.repeat(300)));
+		const before = readFileSync(file);
+
+		let message = '';
+		try {
+			open();
+		} catch (error) {
+			expect(error).toBeInstanceOf(DatabaseOpenError);
+			message = (error as Error).message;
+		}
+		expect(message).toContain(file);
+		expect(message).toMatch(/damaged or is not a Tessera database/);
+		expect(message).toMatch(/Restore the most recent backup/);
+		expect(readFileSync(file).equals(before)).toBe(true);
+	});
+
+	it('takes the write lock when a transaction begins, not at its first write', () => {
+		const handle = open();
+		const other = new Database(handle.path);
+		other.pragma('busy_timeout = 0');
+		try {
+			withTx(handle.db, (tx) => {
+				// Only a read so far. A deferred transaction would not hold the write lock yet.
+				tx.select().from(schema.settings).all();
+				expect(() => other.exec('BEGIN IMMEDIATE')).toThrow(/locked|busy/i);
+			});
+			// Once committed, the other connection can take it.
+			other.exec('BEGIN IMMEDIATE');
+			other.exec('ROLLBACK');
+		} finally {
+			other.close();
+		}
+	});
+
+	it('rolls back as before when the callback throws', () => {
+		const handle = open();
+		expect(() =>
+			withTx(handle.db, (tx) => {
+				tx.insert(schema.decks)
+					.values({ id: 'x', title: 'X', createdAt: now, updatedAt: now })
+					.run();
+				throw new Error('boom');
+			})
+		).toThrow('boom');
+		expect(handle.db.select().from(schema.decks).all()).toHaveLength(0);
 	});
 });

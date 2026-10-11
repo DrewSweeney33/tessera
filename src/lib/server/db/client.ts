@@ -15,10 +15,16 @@ export type Executor = BaseSQLiteDatabase<'sync', RunResult, typeof schema>;
 // absorbs the brief lock a backup or migration may hold.
 export function openSqlite(path: string): Sqlite {
 	const sqlite = new Database(path);
-	sqlite.pragma('journal_mode = WAL');
-	sqlite.pragma('foreign_keys = ON');
-	sqlite.pragma('busy_timeout = 5000');
-	sqlite.pragma('synchronous = NORMAL');
+	try {
+		sqlite.pragma('journal_mode = WAL');
+		sqlite.pragma('foreign_keys = ON');
+		sqlite.pragma('busy_timeout = 5000');
+		sqlite.pragma('synchronous = NORMAL');
+	} catch (error) {
+		// A damaged file fails on the first pragma. Do not leave the handle open.
+		sqlite.close();
+		throw error;
+	}
 	return sqlite;
 }
 

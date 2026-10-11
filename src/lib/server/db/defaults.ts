@@ -9,5 +9,6 @@ export function seedSettings(sqlite: Sqlite): void {
 			insert.run(key, JSON.stringify(value));
 		}
 	});
-	seed();
+	// Immediate for the same reason as withTx: another process may be starting or writing.
+	seed.immediate();
 }

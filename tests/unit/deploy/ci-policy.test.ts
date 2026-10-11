@@ -45,6 +45,19 @@ describe('CI workflow', () => {
 		expect(commands).toContain('npm run smoke');
 	});
 
+	it('runs the browser tests and every check against the built server', () => {
+		expect(commands).toContain('npx playwright install --with-deps chromium');
+		expect(commands).toContain('npm run test:e2e');
+		expect(commands).toContain('npm run benchmark');
+		expect(commands).toContain('npm run security:probe');
+		expect(commands).toContain('npm run durability');
+		expect(commands).toContain('npm run ops:check');
+	});
+
+	it('can be called by the release workflow', () => {
+		expect(Object.keys((parse(text) as { on: object }).on)).toContain('workflow_call');
+	});
+
 	it('builds and tests the container on amd64 and arm64 after verify passes', () => {
 		const docker = workflow.jobs['docker']!;
 		expect(docker.needs).toBe('verify');

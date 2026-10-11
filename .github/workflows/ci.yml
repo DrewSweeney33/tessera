@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The release workflow runs all of this on the commit it is about to publish.
+  workflow_call:
 
 # Least privilege. No job writes to the repository or publishes anything.
 permissions:
@@ -50,6 +52,10 @@ jobs:
       # Hard kills, restarts, and parallel writes against the real server and its SQLite file.
       - name: Durability check
         run: npm run durability
+      # Runs the backup command from docs/operations.md as written, restores it, and checks every error
+      # message in the troubleshooting table.
+      - name: Operations guide check
+        run: npm run ops:check
 
   docker:
     name: Docker ${{ matrix.platform }}

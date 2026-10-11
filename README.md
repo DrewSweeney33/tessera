@@ -24,11 +24,11 @@ docker compose up -d --build
 
 Open <http://localhost:3000>, choose **Import**, and paste the contents of [`examples/ccna-ospf.json`](examples/ccna-ospf.json) to try it.
 
-Your data lives in a Docker volume named `tessera-data`. To back it up, copy the file `/data/tessera.db` out of that volume while the container is stopped.
+Your data lives in a Docker volume. Do not back it up by copying `tessera.db` while Tessera is running, because recent changes sit in a side file and the copy can be empty. [docs/operations.md](docs/operations.md) has a one-line backup command that is safe while you study, plus restore, upgrade, and rollback steps. Take a backup before you rely on it.
 
 ### Security: there is no login
 
-Tessera is a single-user app and has no accounts. `compose.yaml` publishes the port on `127.0.0.1` only, on purpose. To use it from another device, either put a reverse proxy with authentication in front of it, or change the port mapping to `3000:3000` **only** on a network you fully trust. See [ADR-005](.10x/adrs/005-security-posture-without-login.md) for the reasoning.
+Tessera is a single-user app and has no accounts. `compose.yaml` publishes the port on `127.0.0.1` only, on purpose. To use it from another device, the safest route is a private network such as Tailscale, or a reverse proxy that asks for a password. [docs/deploy.md](docs/deploy.md) walks through each option and what to avoid. See [ADR-005](.10x/adrs/005-security-posture-without-login.md) for the reasoning and [SECURITY.md](SECURITY.md) to report a problem.
 
 If you use a reverse proxy that terminates TLS, set `PROTOCOL_HEADER=x-forwarded-proto` and `HOST_HEADER=x-forwarded-host` (commented out in `compose.yaml`) so the app sees the real address.
 
@@ -83,7 +83,7 @@ npm run benchmark    # 5,000 card import and study timings, see docs/performance
 
 Node 24 is expected. Dependencies install with `ignore-scripts=true` (see [ADR-007](.10x/adrs/007-install-without-lifecycle-scripts.md)), so a clean `npm ci` needs no compiler.
 
-More: [visual design](docs/design.md), [performance](docs/performance.md), [architecture decisions](.10x/adrs/).
+More: [deploying](docs/deploy.md), [operating](docs/operations.md) (backup, restore, upgrade, troubleshooting), [releasing](docs/releasing.md), [changelog](CHANGELOG.md), [visual design](docs/design.md), [performance](docs/performance.md), [architecture decisions](.10x/adrs/).
 
 ## License
 

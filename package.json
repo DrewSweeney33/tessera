@@ -21,6 +21,7 @@
 		"benchmark": "node scripts/benchmark.ts",
 		"security:probe": "node scripts/security-probe.ts",
 		"durability": "node scripts/durability-check.ts",
+		"ops:check": "node scripts/ops-check.ts",
 		"fixtures:scheduler": "node scripts/gen-scheduler-fixtures.ts",
 		"licenses": "node scripts/check-licenses.ts",
 		"audit:prod": "npm audit --omit=dev --audit-level=moderate",

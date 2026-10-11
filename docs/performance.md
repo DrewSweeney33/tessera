@@ -35,7 +35,23 @@ The first import dominates because it writes about 11,500 rows to SQLite in one 
 - Import is planned in memory without touching the database, then written in a single transaction. A failure rolls everything back.
 - Rendering Markdown happens in the browser for one card at a time.
 
+## A long history (measured 2026-10-11)
+
+The same 5,000 card deck with 200,000 review records added, which is about five years of 100 reviews a day. Same machine and method as above.
+
+| Measure                                       | Result                                           |
+| --------------------------------------------- | ------------------------------------------------ |
+| Database file                                 | 55 MB (52 MB after a backup compacts it)         |
+| GET /api/decks (median, 95th percentile)      | 11 ms, 14 ms                                     |
+| GET /api/study/next (median, 95th percentile) | 9 ms, 9 ms                                       |
+| Memory in use                                 | 200 MB when empty, 247 MB with the large history |
+| Start to healthy                              | 0.6 s empty, 1.0 s with the large history        |
+| Online backup while studying                  | 0.4 s, passes integrity_check                    |
+| Restore from that backup, to healthy          | 1.0 s                                            |
+
+History size barely matters for what a learner does each day, because the queue reads indexed due dates and never scans the review log. The statistics screens planned for a later milestone will read the log and need their own measurement.
+
 ## What is not measured yet
 
-- A very large review history. The stats work in a later milestone will add a benchmark with a year of simulated reviews.
+- The statistics queries over a large history (they do not exist yet).
 - Slow storage such as a network share. SQLite over NFS or SMB is not supported. Keep the data folder on a local disk or a Docker volume.
