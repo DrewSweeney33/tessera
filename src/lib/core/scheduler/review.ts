@@ -7,7 +7,6 @@ import {
 	GRADES,
 	type Grade,
 	type GradePreview,
-	type ItemState,
 	type Scheduler,
 	type SchedulerConfig
 } from './types.ts';
