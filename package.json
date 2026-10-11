@@ -17,7 +17,9 @@
 		"test:watch": "vitest --project unit",
 		"test:integration": "vitest run --project integration --passWithNoTests",
 		"test:e2e": "playwright test",
-		"verify": "npm run check && npm run lint && npm run test && npm run test:integration"
+		"schema:emit": "node scripts/emit-schema.ts",
+		"schema:check": "node scripts/emit-schema.ts --check",
+		"verify": "npm run check && npm run lint && npm run schema:check && npm run test && npm run test:integration"
 	},
 	"devDependencies": {
 		"@eslint/js": "10.0.1",

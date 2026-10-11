@@ -1,0 +1,315 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "tessera": {
+      "type": "number",
+      "const": 1,
+      "description": "Format version. Must be 1."
+    },
+    "deck": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+          "description": "Stable deck id. Importing the same id again updates the deck instead of creating a new one."
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 200,
+          "pattern": "\\S",
+          "description": "Deck title shown in the app."
+        },
+        "description": {
+          "description": "Optional short description.",
+          "type": "string",
+          "maxLength": 2000
+        },
+        "tags": {
+          "description": "Optional deck-level tags.",
+          "maxItems": 32,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 40,
+            "pattern": "^[^,\\s](?:[^,\\r\\n]*[^,\\s])?$"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "title"
+      ],
+      "additionalProperties": false
+    },
+    "cards": {
+      "minItems": 1,
+      "maxItems": 5000,
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "basic"
+              },
+              "front": {
+                "type": "string",
+                "maxLength": 20000,
+                "pattern": "\\S",
+                "description": "The question or prompt (Markdown)."
+              },
+              "back": {
+                "type": "string",
+                "maxLength": 20000,
+                "pattern": "\\S",
+                "description": "The answer (Markdown)."
+              },
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+                "description": "Stable card id, unique within the deck. Keep it unchanged when you revise a card so review history is preserved."
+              },
+              "hint": {
+                "type": "string",
+                "maxLength": 20000,
+                "pattern": "\\S",
+                "description": "Optional hint shown on request before the answer."
+              },
+              "tags": {
+                "maxItems": 32,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[^,\\s](?:[^,\\r\\n]*[^,\\s])?$"
+                },
+                "description": "Optional tags used for filtering, cram mode, and weak-spot reports."
+              },
+              "source": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "description": "Optional note on where the card came from, for example \"Lesson 3\"."
+              }
+            },
+            "required": [
+              "type",
+              "front",
+              "back"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "cloze"
+              },
+              "text": {
+                "type": "string",
+                "maxLength": 20000,
+                "allOf": [
+                  {
+                    "pattern": "\\S"
+                  },
+                  {
+                    "pattern": "\\{\\{c[1-9][0-9]?::"
+                  }
+                ],
+                "description": "Text with one or more {{c1::answer}} markers. Each marker number is reviewed separately."
+              },
+              "extra": {
+                "type": "string",
+                "maxLength": 20000,
+                "pattern": "\\S",
+                "description": "Optional extra information shown after the answer."
+              },
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+                "description": "Stable card id, unique within the deck. Keep it unchanged when you revise a card so review history is preserved."
+              },
+              "hint": {
+                "type": "string",
+                "maxLength": 20000,
+                "pattern": "\\S",
+                "description": "Optional hint shown on request before the answer."
+              },
+              "tags": {
+                "maxItems": 32,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[^,\\s](?:[^,\\r\\n]*[^,\\s])?$"
+                },
+                "description": "Optional tags used for filtering, cram mode, and weak-spot reports."
+              },
+              "source": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "description": "Optional note on where the card came from, for example \"Lesson 3\"."
+              }
+            },
+            "required": [
+              "type",
+              "text"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "typed"
+              },
+              "front": {
+                "type": "string",
+                "maxLength": 20000,
+                "pattern": "\\S",
+                "description": "The question or prompt (Markdown)."
+              },
+              "answer": {
+                "type": "string",
+                "maxLength": 20000,
+                "pattern": "\\S",
+                "description": "The exact answer the learner types."
+              },
+              "accept": {
+                "description": "Optional alternate answers that also count as correct, for example abbreviations.",
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                }
+              },
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+                "description": "Stable card id, unique within the deck. Keep it unchanged when you revise a card so review history is preserved."
+              },
+              "hint": {
+                "type": "string",
+                "maxLength": 20000,
+                "pattern": "\\S",
+                "description": "Optional hint shown on request before the answer."
+              },
+              "tags": {
+                "maxItems": 32,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[^,\\s](?:[^,\\r\\n]*[^,\\s])?$"
+                },
+                "description": "Optional tags used for filtering, cram mode, and weak-spot reports."
+              },
+              "source": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "description": "Optional note on where the card came from, for example \"Lesson 3\"."
+              }
+            },
+            "required": [
+              "type",
+              "front",
+              "answer"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "choice"
+              },
+              "front": {
+                "type": "string",
+                "maxLength": 20000,
+                "pattern": "\\S",
+                "description": "The question (Markdown)."
+              },
+              "choices": {
+                "minItems": 2,
+                "maxItems": 8,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                },
+                "description": "The options shown to the learner, 2 to 8."
+              },
+              "correct": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Zero-based index into choices of the single correct option."
+              },
+              "explanation": {
+                "type": "string",
+                "maxLength": 20000,
+                "pattern": "\\S",
+                "description": "Optional explanation shown after answering."
+              },
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+                "description": "Stable card id, unique within the deck. Keep it unchanged when you revise a card so review history is preserved."
+              },
+              "hint": {
+                "type": "string",
+                "maxLength": 20000,
+                "pattern": "\\S",
+                "description": "Optional hint shown on request before the answer."
+              },
+              "tags": {
+                "maxItems": 32,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[^,\\s](?:[^,\\r\\n]*[^,\\s])?$"
+                },
+                "description": "Optional tags used for filtering, cram mode, and weak-spot reports."
+              },
+              "source": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "description": "Optional note on where the card came from, for example \"Lesson 3\"."
+              }
+            },
+            "required": [
+              "type",
+              "front",
+              "choices",
+              "correct"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "description": "The cards in the deck."
+    }
+  },
+  "required": [
+    "tessera",
+    "deck",
+    "cards"
+  ],
+  "additionalProperties": false,
+  "title": "Tessera deck, format version 1",
+  "description": "A flashcard deck for Tessera. Cards are basic, cloze, typed, or choice. All text fields are Markdown and may contain code fences and mermaid diagrams."
+}
