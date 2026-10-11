@@ -10,7 +10,9 @@ export default defineConfig({
 	testMatch: '**/*.spec.ts',
 	fullyParallel: false,
 	workers: 1,
-	retries: process.env['CI'] ? 1 : 0,
+	// No retries anywhere. A test that passes only on the second try is a race, and it should fail loudly.
+	// (Most tests also import fixed deck ids, so a retry would meet cards the first attempt already studied.)
+	retries: 0,
 	reporter: [['list']],
 	use: {
 		baseURL,

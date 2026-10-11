@@ -54,23 +54,45 @@ test.describe('hostile content does not break the layout or the controls', () =>
 			{ id: 'huge', type: 'basic', front: HUGE, back: HUGE }
 		]);
 
+	// Each grade waits for the server, so the old card stays on screen until the reply arrives. A slow
+	// server (CI, a Raspberry Pi) must not make the test race ahead, so every width runs with a fast
+	// and a slow server. Deck ids include the retry number so a retry never meets cards already studied.
 	for (const width of [320, 768]) {
-		test(`study page at ${width}px`, async ({ page, request }) => {
-			await importViaApi(request, hostileDeck(`hostile-${width}`));
-			await page.setViewportSize({ width, height: 700 });
-			await page.goto(`/study/hostile-${width}`);
-			for (let i = 0; i < 5; i++) {
-				await expect(page.locator('.card')).toBeVisible();
-				expect(await scrollsHorizontally(page), `card ${i + 1} front`).toBe(false);
-				await page.keyboard.press('Space');
-				await expect(page.getByRole('group', { name: /How well/ })).toBeVisible();
-				expect(await scrollsHorizontally(page), `card ${i + 1} back`).toBe(false);
-				// The grade buttons must be reachable even after a very long card.
-				await page.getByRole('button', { name: /Good/ }).scrollIntoViewIfNeeded();
-				await expect(page.getByRole('button', { name: /Good/ })).toBeInViewport();
-				await page.keyboard.press('4');
-			}
-		});
+		for (const delayMs of [0, 300]) {
+			test(`study page at ${width}px, server delay ${delayMs} ms`, async ({
+				page,
+				request
+			}, info) => {
+				const deckId = `hostile-${width}-${delayMs}-${info.retry}`;
+				await importViaApi(request, hostileDeck(deckId));
+				if (delayMs > 0) {
+					await page.route('**/api/study/review', async (route) => {
+						await new Promise((resolve) => setTimeout(resolve, delayMs));
+						await route.continue();
+					});
+				}
+				await page.setViewportSize({ width, height: 700 });
+				await page.goto(`/study/${deckId}`);
+
+				const seen = new Set<string>();
+				for (let i = 0; i < 5; i++) {
+					await expect(page.locator('.card')).toBeVisible();
+					seen.add((await page.locator('.card__front').innerText()).slice(0, 40));
+					expect(await scrollsHorizontally(page), `card ${i + 1} front`).toBe(false);
+					await page.keyboard.press('Space');
+					await expect(page.getByRole('group', { name: /How well/ })).toBeVisible();
+					expect(await scrollsHorizontally(page), `card ${i + 1} back`).toBe(false);
+					// The grade buttons must be reachable even after a very long card.
+					await page.getByRole('button', { name: /Good/ }).scrollIntoViewIfNeeded();
+					await expect(page.getByRole('button', { name: /Good/ })).toBeInViewport();
+					await page.keyboard.press('4');
+					// Wait for the grade to be saved and the next card (or the end) to replace this one.
+					await expect(page.getByRole('group', { name: /How well/ })).toBeHidden();
+				}
+				expect(seen.size, 'five different cards were shown, not one card five times').toBe(5);
+				await expect(page.getByRole('heading', { name: 'Session complete' })).toBeVisible();
+			});
+		}
 	}
 
 	test('wide code and tables scroll inside the card, not the page', async ({ page, request }) => {
@@ -106,7 +128,10 @@ test.describe('hostile content does not break the layout or the controls', () =>
 		for (let i = 0; i < 3; i++) {
 			await expect(page.locator('.card')).toBeVisible();
 			await page.keyboard.press('Space');
+			await expect(page.getByRole('group', { name: /How well/ })).toBeVisible();
 			await page.keyboard.press('4');
+			// Wait for the grade to be saved and the next card to replace this one.
+			await expect(page.getByRole('group', { name: /How well/ })).toBeHidden();
 		}
 		await expect(page.locator('.card__front')).toContainText('日本語のテキスト');
 		await expect(page.locator('.card__front')).toContainText('👨‍👩‍👧‍👦');
