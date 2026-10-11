@@ -1,0 +1,28 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    ignore:
+      # SvelteKit 3 requires TypeScript 6 (peer range ^6.0.0). Revisit when it allows 7.
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
+      # ADR-003: stay on the stable 5.x scheduler until 6.x is released and reviewed.
+      - dependency-name: ts-fsrs
+        update-types: ['version-update:semver-major']
+    groups:
+      development-tools:
+        dependency-type: development
+        update-types: [minor, patch]
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

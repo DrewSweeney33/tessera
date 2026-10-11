@@ -200,3 +200,24 @@ Each entry records what was built, deviations from the plan or ADRs, and tech de
 **Deviations:** none from the plan. Graceful shutdown cannot be exercised on Windows (signals terminate the process). The `sveltekit:shutdown` handler that closes the database and logs is in place, and CI will confirm it with `docker stop` and the container logs.
 
 **Tech debt:** no pruning of `<dataDir>/backups`. `compose.yaml` builds locally and tags `tessera:local`. A GHCR image reference is added in M2-15.
+
+## M1-21 CI workflow (2026-10-10)
+
+**Built:** `.github/workflows/ci.yml`, `.github/dependabot.yml`, `scripts/check-licenses.ts` and `scripts/lib/licenses.ts` (an SPDX license policy evaluator, no external tool), `tests/unit/deploy/{ci-policy,licenses}.test.ts`, npm scripts `licenses` and `audit:prod`.
+
+**Workflow:**
+
+- **Verify job:** `npm ci`, `npm run verify`, `npm run audit:prod`, `npm run licenses`, then `npm run build` and `npm run smoke` against the real Node server.
+- **Docker job** (needs Verify; matrix `linux/amd64` and `linux/arm64`, the latter under QEMU): builds the image; asserts it runs as uid 1000 and is under 150 MB compressed (approximated with `docker save | gzip`); starts it with the same hardening as `compose.yaml` (`--init --read-only --tmpfs /tmp --cap-drop ALL --no-new-privileges`, loopback port, named volume); waits for `/healthz`; runs the full smoke script against the container; waits for Docker's own health status; stops it with SIGTERM and asserts exit code 0 and the "shutting down" log line; restarts it and asserts the imported deck survived.
+- Every action is pinned to a commit SHA with a version comment, looked up from the GitHub API on 2026-10-10: `actions/checkout` v7.0.1, `actions/setup-node` v7.0.0 (v7.1.0 was only two days old), `docker/setup-qemu-action` v4.4.0, `docker/setup-buildx-action` v4.4.1. Permissions are `contents: read`. Nothing is published and no registry login exists. Publishing is M2-15.
+- Dependabot covers npm, Docker, and Actions weekly. It ignores TypeScript majors (Kit 3 needs 6.x) and `ts-fsrs` majors (ADR-003).
+
+**What was verified here:** every step of the Verify job ran locally from a clean install (`npm ci`, `verify`, `audit:prod` with 0 vulnerabilities, `licenses` with 8 production packages all allowed, `build`, `smoke` with 23 passing checks). Policy tests assert the workflow's structure, SHA pins, least privilege, and every container check.
+
+**Not verified here:** the workflow has not run on GitHub (no remote exists), and the Docker job has never executed. Likely first-run surprises to watch for: arm64 under QEMU being slow (45 minute timeout set), the `docker save | gzip` size approximation, and the SIGTERM exit code (adapter-node source shows a natural exit with code 0 after the `sveltekit:shutdown` event).
+
+**Bug found and fixed:** the license evaluator treated `MIT OR` (a missing right operand) as allowed. It now tracks malformed input and requires every token to be consumed.
+
+**Finding:** `npm ci --omit=dev` leaves empty `@scope` directories for omitted dev packages. The production tree is 8 packages, and the extra directories are harmless.
+
+**Tech debt:** the e2e job arrives with M1-22. The CI image size check is an approximation until M2-15 publishes a real manifest.

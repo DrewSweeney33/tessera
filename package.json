@@ -18,6 +18,8 @@
 		"test:integration": "vitest run --project integration --passWithNoTests",
 		"test:e2e": "playwright test",
 		"smoke": "node scripts/smoke.ts",
+		"licenses": "node scripts/check-licenses.ts",
+		"audit:prod": "npm audit --omit=dev --audit-level=moderate",
 		"db:generate": "drizzle-kit generate",
 		"db:check": "drizzle-kit check",
 		"schema:emit": "node scripts/emit-schema.ts",

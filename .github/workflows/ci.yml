@@ -1,0 +1,133 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Least privilege. No job writes to the repository or publishes anything.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      # A clean install on a runner with no extra build tools. Install scripts are off (ADR-007).
+      - run: npm ci
+      # Type check, lint, format check, schema drift check, unit and integration tests.
+      - run: npm run verify
+      - name: Audit production dependencies
+        run: npm run audit:prod
+      - name: Check production licenses
+        run: npm run licenses
+      - name: Build and smoke test the Node server
+        run: |
+          npm run build
+          npm run smoke
+
+  docker:
+    name: Docker ${{ matrix.platform }}
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [linux/amd64, linux/arm64]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Node runs the smoke script on the runner against the container.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: Set up QEMU for arm64 emulation
+        if: matrix.platform == 'linux/arm64'
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build the image
+        run: >
+          docker buildx build
+          --platform ${{ matrix.platform }}
+          --load
+          --build-arg VERSION=ci
+          --build-arg REVISION=${{ github.sha }}
+          --tag tessera:ci
+          .
+
+      - name: Check the image (non-root user, size budget)
+        run: |
+          docker image inspect tessera:ci --format 'architecture: {{.Architecture}}  uncompressed bytes: {{.Size}}'
+          uid=$(docker run --rm --platform ${{ matrix.platform }} --entrypoint id tessera:ci -u)
+          echo "runs as uid: $uid"
+          test "$uid" = "1000"
+          bytes=$(docker save tessera:ci | gzip -1 | wc -c)
+          echo "compressed image bytes (approximate): $bytes"
+          # ADR-004 budget: under 150 MB compressed.
+          test "$bytes" -lt 157286400
+
+      - name: Start the container with the same hardening as compose.yaml
+        run: |
+          docker volume create tessera-ci-data
+          docker run -d --name tessera --platform ${{ matrix.platform }} \
+            --init --read-only --tmpfs /tmp \
+            --cap-drop ALL --security-opt no-new-privileges:true \
+            -p 127.0.0.1:3000:3000 \
+            -v tessera-ci-data:/data \
+            tessera:ci
+
+      - name: Wait for /healthz
+        run: |
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:3000/healthz > /dev/null; then echo "up after ${i} tries"; exit 0; fi
+            sleep 2
+          done
+          docker logs tessera
+          exit 1
+
+      - name: Smoke test the running container
+        run: node scripts/smoke.ts --base http://127.0.0.1:3000
+
+      - name: Docker reports the container healthy
+        run: |
+          for i in $(seq 1 30); do
+            status=$(docker inspect -f '{{.State.Health.Status}}' tessera)
+            echo "health: $status"
+            if [ "$status" = "healthy" ]; then exit 0; fi
+            sleep 5
+          done
+          docker logs tessera
+          exit 1
+
+      - name: Shuts down gracefully on SIGTERM
+        run: |
+          docker stop -t 20 tessera
+          code=$(docker inspect -f '{{.State.ExitCode}}' tessera)
+          echo "exit code: $code"
+          docker logs tessera 2>&1 | grep -q "shutting down"
+          test "$code" = "0"
+
+      - name: Data survives a restart
+        run: |
+          docker start tessera
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:3000/healthz > /dev/null; then break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:3000/api/decks | grep -q '"ccna-ospf"'
+
+      - name: Container logs
+        if: always()
+        run: docker logs tessera || true
