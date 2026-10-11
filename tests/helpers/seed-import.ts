@@ -17,7 +17,7 @@ export function seedDeck(
 			id: deck.deck.id,
 			title: deck.deck.title,
 			description: deck.deck.description,
-			tags: deck.deck.tags ?? []
+			tags: deck.deck.tags
 		},
 		now
 	);

@@ -159,3 +159,28 @@ Each entry records what was built, deviations from the plan or ADRs, and tech de
 **Rollback evidence:** instead of mocks, tests install SQLite triggers that abort mid-import (on the history insert, on the third card insert, and on an update). In each case the database ends identical to its state before the import, and a later import succeeds. A 2,000-card import completes in well under the 5 second test bound (the formal budget check is M1-22).
 
 **Tech debt:** none.
+
+## M1-13 HTTP layer: hooks, routes, CSP (2026-10-10)
+
+**Built:**
+
+- `server/app.ts` (`createApp`, `initApp`, `getApp`, `closeApp`): config, logger, clock, and database created once in the `init` hook, passed to handlers explicitly.
+- `server/http/{hooks,content-type,request-id,headers,route,response}.ts`. Hooks: `requestLogging` (request id, one log line per request, `/healthz` and `/_app/` at debug), `securityHeaders` (`nosniff`, `no-referrer`, `no-store` on `/api/`), `contentTypeGuard` (415 unless JSON, or Markdown on import). `route()` wraps handlers so thrown errors use the standard shape and unexpected errors are logged and hidden.
+- `server/api/{import,decks,health,schema}.ts` as plain functions over the app context. Thin `+server.ts` files for `GET /healthz`, `GET /api/schema`, `GET /api/decks`, `POST /api/import`.
+- `POST /api/import`: `dry_run` and `archive_missing` flags, `filename`, code fences accepted, 422 with path-level errors, 413 for over 5 MB, 400 for bad flags, 415 for non-JSON (Markdown arrives in M2-08). Dry run returns counts plus every non-unchanged card with changed fields.
+- CSP configured as a `sveltekit({ csp })` option in `vite.config.ts`.
+- Tests: `tests/unit/http` (23), `tests/integration/api` (hooks, handlers). `scripts/smoke.ts` (`npm run smoke`) starts the real production build and runs 25 checks. CI will run the same script against the Docker image.
+
+**Findings that changed the design (see ADR-006):**
+
+| Finding | Detail |
+|---|---|
+| adapter-node 6 has no `ORIGIN` variable | Supported: `SOCKET_PATH`, `HOST`, `PORT`, `XFF_DEPTH`, `ADDRESS_HEADER`, `PROTOCOL_HEADER`, `HOST_HEADER`, `PORT_HEADER`, `BODY_SIZE_LIMIT`, timeouts. The protocol defaults to `https`. My `ORIGIN` config setting was dead and is removed. |
+| SvelteKit 3 CSRF rule | A mutating request with no content type, or a form type, and an `Origin` that differs from the derived origin gets 403 before any hook runs. Over plain `http` this rejects even same-origin form posts. Requests with `application/json` are exempt. Decision: the UI uses JSON `fetch` only, no form actions (ADR-006). |
+| `BODY_SIZE_LIMIT` | adapter-node defaults to 512K. Imports need 5M. The Dockerfile and compose file must set it. The app logs a warning in production when it is unset. The smoke test proves a 5,000 card deck imports at `5M` and a 6 MB body gets 413. |
+| Kit 3 hook types | `Handle`, `HandleServerError`, `ServerInit`, and `sequence` come from `@sveltejs/kit/hooks`, not `@sveltejs/kit`. `handleError` receives a `kind` (`app`, `framework`, `unknown`) instead of a status. Only `unknown` is logged. |
+| `sequence()` needs a request store | It cannot run with fake events in tests. The hooks live in `server/http/hooks.ts` as plain functions and `hooks.server.ts` only composes them. Tests compose them by hand. |
+| CSP result | Kit's `auto` mode emits `script-src 'self'` plus a nonce or hash. No `unsafe-inline` or `unsafe-eval` for scripts. Verified on the real server. |
+| Deck metadata on re-import | A revised file that omits `description` or `tags` no longer erases them. Explicit values, including empty ones, update. Found by an API test. `upsertDeck` and the plan now treat omitted fields as unchanged. |
+
+**Tech debt:** request logging does not yet record the API token state or host check (M2-12). `/api/decks` has card counts only. Due and new counts arrive in M1-17.

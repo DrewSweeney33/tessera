@@ -17,6 +17,7 @@
 		"test:watch": "vitest --project unit",
 		"test:integration": "vitest run --project integration --passWithNoTests",
 		"test:e2e": "playwright test",
+		"smoke": "node scripts/smoke.ts",
 		"db:generate": "drizzle-kit generate",
 		"db:check": "drizzle-kit check",
 		"schema:emit": "node scripts/emit-schema.ts",

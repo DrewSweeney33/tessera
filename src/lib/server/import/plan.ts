@@ -72,8 +72,9 @@ export interface ImportPlan {
 	deck: {
 		id: string;
 		title: string;
+		// As written in the file. Undefined means the file did not mention it, so the stored value is kept.
 		description: string | undefined;
-		tags: string[];
+		tags: string[] | undefined;
 		action: 'created' | 'updated';
 		changed: boolean;
 	};
@@ -244,18 +245,21 @@ export function planImport(
 		});
 	}
 
+	// Only fields the file provides can change an existing deck. Omitted ones are left alone.
 	const deckChanged =
 		!existingDeck ||
 		existingDeck.title !== deck.deck.title ||
-		(existingDeck.description ?? undefined) !== deck.deck.description ||
-		canonicalJson(existingDeck.tags) !== canonicalJson(deck.deck.tags ?? []);
+		(deck.deck.description !== undefined &&
+			(existingDeck.description ?? undefined) !== deck.deck.description) ||
+		(deck.deck.tags !== undefined &&
+			canonicalJson(existingDeck.tags) !== canonicalJson(deck.deck.tags));
 
 	return ok({
 		deck: {
 			id: deckId,
 			title: deck.deck.title,
 			description: deck.deck.description,
-			tags: deck.deck.tags ?? [],
+			tags: deck.deck.tags,
 			action: existingDeck ? 'updated' : 'created',
 			changed: deckChanged
 		},

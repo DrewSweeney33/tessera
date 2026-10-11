@@ -256,6 +256,26 @@ describe('commitImport: updating cards keeps review progress', () => {
 		expect(count('import_history')).toBe(1);
 	});
 
+	it('never erases a description or tags just because a revised file leaves them out', () => {
+		commit(makeDeck(abc(), { description: 'Exam prep', tags: ['net'] }));
+		clock.advance(DAY);
+		const revised = commit(makeDeck(abc()));
+		expect(revised.changed).toBe(false);
+		expect(handle.sqlite.prepare("select * from decks where id = 'd1'").get()).toMatchObject({
+			description: 'Exam prep',
+			tags: '["net"]',
+			updated_at: START
+		});
+
+		clock.advance(DAY);
+		const cleared = commit(makeDeck(abc(), { description: '', tags: [] }));
+		expect(cleared.changed).toBe(true);
+		expect(handle.sqlite.prepare("select * from decks where id = 'd1'").get()).toMatchObject({
+			description: '',
+			tags: '[]'
+		});
+	});
+
 	it('updates deck metadata', () => {
 		commit(makeDeck(abc()));
 		clock.advance(DAY);

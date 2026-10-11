@@ -45,7 +45,7 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 - [ ] M1-10 Study-day helper with DST tests (S)
 - [ ] M1-11 Queue nextItem (M)
 - [ ] M1-12 submitReview (M)
-- [ ] M1-13 Hooks and routes: healthz, schema, import, decks, CSP (M)
+- [x] M1-13 Hooks and routes: healthz, schema, import, decks, CSP (M). ADR-006 added.
 - [ ] M1-14 Visual direction, tokens, app shell (M)
 - [ ] M1-15 Markdown component and XSS corpus (M)
 - [ ] M1-16 Import UI (M)

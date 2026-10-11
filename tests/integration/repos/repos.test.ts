@@ -64,6 +64,19 @@ describe('decks repo', () => {
 		});
 	});
 
+	it('keeps a stored description and tags when an update omits them, and clears them when explicit', () => {
+		repos.upsertDeck(x(), { id: 'k', title: 'K', description: 'Keep me', tags: ['a', 'b'] }, now);
+		repos.upsertDeck(x(), { id: 'k', title: 'K2', description: undefined, tags: undefined }, later);
+		expect(repos.getDeck(x(), 'k')).toMatchObject({
+			title: 'K2',
+			description: 'Keep me',
+			tags: ['a', 'b']
+		});
+
+		repos.upsertDeck(x(), { id: 'k', title: 'K2', description: '', tags: [] }, later);
+		expect(repos.getDeck(x(), 'k')).toMatchObject({ description: '', tags: [] });
+	});
+
 	it('lists decks by title and hides archived ones unless asked', () => {
 		repos.upsertDeck(x(), { id: 'b', title: 'Beta', description: undefined, tags: [] }, now);
 		repos.upsertDeck(x(), { id: 'a', title: 'Alpha', description: undefined, tags: [] }, now);

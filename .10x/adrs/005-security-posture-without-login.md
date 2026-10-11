@@ -1,6 +1,6 @@
 # ADR-005: Security Posture Without Login
 
-**Status:** Accepted
+**Status:** Accepted. Section 3 (form actions and `ORIGIN`) is superseded by ADR-006.
 **Date:** 2026-10-10
 **Feature:** tessera-v1
 **Author:** 10x-Team (Architect + Staff Engineer)

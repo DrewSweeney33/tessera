@@ -5,8 +5,10 @@ import { decks, type DeckRow } from '../db/schema.ts';
 export interface DeckInput {
 	id: string;
 	title: string;
+	// On update, an omitted (undefined) description or tag list leaves the stored value alone,
+	// so a revised deck file that leaves them out never erases them. An explicit empty value clears.
 	description: string | undefined;
-	tags: string[];
+	tags: string[] | undefined;
 }
 
 export function getDeck(x: Executor, id: string): DeckRow | undefined {
@@ -19,21 +21,30 @@ export function listDecks(x: Executor, options: { includeArchived?: boolean } = 
 	return rows.orderBy(asc(decks.title)).all();
 }
 
-// Creates the deck, or updates its title, description, and tags. Importing into an archived deck restores it.
+// Creates the deck, or updates its title and any description or tags that were provided.
+// Importing into an archived deck restores it.
 export function upsertDeck(x: Executor, input: DeckInput, now: string): 'created' | 'updated' {
-	const values = {
-		title: input.title,
-		description: input.description ?? null,
-		tags: input.tags
-	};
 	if (!getDeck(x, input.id)) {
 		x.insert(decks)
-			.values({ id: input.id, ...values, createdAt: now, updatedAt: now })
+			.values({
+				id: input.id,
+				title: input.title,
+				description: input.description ?? null,
+				tags: input.tags ?? [],
+				createdAt: now,
+				updatedAt: now
+			})
 			.run();
 		return 'created';
 	}
 	x.update(decks)
-		.set({ ...values, archived: false, updatedAt: now })
+		.set({
+			title: input.title,
+			...(input.description !== undefined ? { description: input.description } : {}),
+			...(input.tags !== undefined ? { tags: input.tags } : {}),
+			archived: false,
+			updatedAt: now
+		})
 		.where(eq(decks.id, input.id))
 		.run();
 	return 'updated';

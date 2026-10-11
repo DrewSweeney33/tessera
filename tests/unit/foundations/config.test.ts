@@ -21,8 +21,7 @@ describe('parseConfig', () => {
 			apiToken: undefined,
 			allowedHosts: undefined,
 			timeZone: 'UTC',
-			logLevel: 'info',
-			origin: undefined
+			logLevel: 'info'
 		});
 	});
 
@@ -41,16 +40,14 @@ describe('parseConfig', () => {
 			DATA_DIR: '/data',
 			TESSERA_API_TOKEN: token,
 			TZ: 'America/Chicago',
-			LOG_LEVEL: 'debug',
-			ORIGIN: 'https://tessera.example.com'
+			LOG_LEVEL: 'debug'
 		});
 		expect(config).toMatchObject({
 			port: 8080,
 			dataDir: '/data',
 			apiToken: token,
 			timeZone: 'America/Chicago',
-			logLevel: 'debug',
-			origin: 'https://tessera.example.com'
+			logLevel: 'debug'
 		});
 	});
 
@@ -67,14 +64,13 @@ describe('parseConfig', () => {
 		expect(list[0]).toContain('at least 24 characters');
 	});
 
-	it('rejects invalid port, time zone, log level, and origin, reporting all problems at once', () => {
-		const list = problems({
-			PORT: '70000',
-			TZ: 'Mars/Olympus',
-			LOG_LEVEL: 'chatty',
-			ORIGIN: 'not a url'
-		});
-		expect(list.map((p) => p.split(':')[0]).sort()).toEqual(['LOG_LEVEL', 'ORIGIN', 'PORT', 'TZ']);
+	it('rejects invalid port, time zone, and log level, reporting all problems at once', () => {
+		const list = problems({ PORT: '70000', TZ: 'Mars/Olympus', LOG_LEVEL: 'chatty' });
+		expect(list.map((p) => p.split(':')[0]).sort()).toEqual(['LOG_LEVEL', 'PORT', 'TZ']);
+	});
+
+	it('does not read ORIGIN, which adapter-node 6 ignores (ADR-006)', () => {
+		expect(parsed({ ORIGIN: 'not a url' })).not.toHaveProperty('origin');
 	});
 
 	it('rejects a non-numeric port', () => {

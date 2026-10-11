@@ -9,7 +9,6 @@ export interface Config {
 	readonly allowedHosts: readonly string[] | undefined;
 	readonly timeZone: string;
 	readonly logLevel: LogLevel;
-	readonly origin: string | undefined;
 }
 
 // A blank environment variable (VAR=) counts as unset.
@@ -42,11 +41,7 @@ const EnvSchema = z.object({
 			message: 'is not a valid IANA time zone, for example UTC or America/Chicago'
 		})
 	),
-	LOG_LEVEL: z.preprocess(blank, z.enum(LOG_LEVELS).default('info')),
-	ORIGIN: z.preprocess(
-		blank,
-		z.url({ message: 'must be a full URL such as https://tessera.example.com' }).optional()
-	)
+	LOG_LEVEL: z.preprocess(blank, z.enum(LOG_LEVELS).default('info'))
 });
 
 export function parseConfig(env: Record<string, string | undefined>): Result<Config, string[]> {
@@ -69,8 +64,7 @@ export function parseConfig(env: Record<string, string | undefined>): Result<Con
 			apiToken: e.TESSERA_API_TOKEN,
 			allowedHosts: hosts && hosts.length > 0 ? Object.freeze(hosts) : undefined,
 			timeZone: e.TZ,
-			logLevel: e.LOG_LEVEL,
-			origin: e.ORIGIN
+			logLevel: e.LOG_LEVEL
 		})
 	);
 }
