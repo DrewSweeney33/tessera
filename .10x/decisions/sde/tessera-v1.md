@@ -86,3 +86,25 @@ Each entry records what was built, deviations from the plan or ADRs, and tech de
 - **Sorting bug fixed.** Errors were ordered alphabetically by object key, which put `cards` errors before `deck` errors. They now follow the schema field order (tessera, deck, cards; type, front, back, ...). A parent path sorts before its children.
 
 **Tech debt:** none.
+
+## M1-05 Database layer (2026-10-10)
+
+**Built:** `server/db/{schema,client,migrate,backup,defaults,tx,index}.ts`, `drizzle.config.ts`, migration `drizzle/0000_init.sql`, `tests/helpers/temp-dir.ts`, `tests/integration/db/database.test.ts` (20 tests). Schema design is recorded in `.10x/decisions/dba/tessera-v1.md`.
+
+**Dependencies added:** `better-sqlite3` 13.0.3, `drizzle-orm` 0.45.4, `drizzle-kit` 0.31.11 (dev), `@types/better-sqlite3` 9.6.0 (dev). `better-sqlite3` 13 ships no types of its own.
+
+**Behavior:**
+
+- `openDatabase({ dataDir, clock, log?, migrationsFolder? })` creates the data directory, opens `tessera.db` with the ADR-001 pragmas, applies pending migrations, seeds missing settings, and returns `{ db, sqlite, path, migration, close }`.
+- A database with existing migration history gets a `VACUUM INTO` snapshot in `<dataDir>/backups` before pending migrations run. Fresh databases and no-op reopens write no backup. A failed migration throws an error that names the backup file.
+- `withTx(db, fn)` wraps `db.transaction`. Nested calls become savepoints. An async callback is rejected by better-sqlite3 and leaves the connection usable (tested).
+- `backupTo(sqlite, dest)` refuses to overwrite an existing file.
+
+**Accepted risk:** `npm audit` reports 4 moderate advisories, all from `drizzle-kit`'s transitive `esbuild <= 0.24.2` (GHSA-67mh-4wv8-2f99: esbuild's dev server accepts cross-site requests). `drizzle-kit` is a dev-only tool that never starts that server. `npm audit --omit=dev` reports 0 vulnerabilities, and that is the gate for CI. Revisit when `drizzle-kit` 1.0 is released.
+
+**Deviations:**
+
+- No separate `card_state(card_pk)` index. The composite primary key `(card_pk, ordinal)` already serves it (the architect's list included one).
+- `drizzle.config.ts` is part of the type-checked project.
+
+**Tech debt:** backups are not pruned. Documented in the DBA file, to be mentioned in `docs/backup.md`.

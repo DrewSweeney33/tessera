@@ -9,5 +9,12 @@
 		"erasableSyntaxOnly": true,
 		"types": ["$app/types", "node"]
 	},
-	"include": ["src", "tests", "scripts", "vite.config.ts", "playwright.config.ts"]
+	"include": [
+		"src",
+		"tests",
+		"scripts",
+		"vite.config.ts",
+		"playwright.config.ts",
+		"drizzle.config.ts"
+	]
 }
