@@ -144,3 +144,18 @@ Each entry records what was built, deviations from the plan or ADRs, and tech de
 | Hash scope | Type, content, tags, and source. The id is excluded because it is identity. |
 
 **Tech debt:** none. **Next:** M1-08 commit applies a plan inside one transaction and recomputes the plan inside it.
+
+## M1-08 commitImport (2026-10-10)
+
+**Built:** `server/import/commit.ts` (`commitImport(db, deck, options, clock)`) and `tests/integration/import/commit.test.ts` (17 tests, 84 integration total).
+
+**Behavior:**
+
+- One `withTx` transaction. The plan is recomputed inside it from live data, so a stale preview cannot be applied (tested: a second commit of the same deck after another import landed reports all unchanged and does not violate the unique key).
+- New cards get a card row and New review items due now. Updated cards replace content and keep their schedule. Type changes replace the schedule and keep `review_log`. Cloze numbers are added, archived (keeping progress), and restored. Archived cards return with their schedule. `archiveMissing` archives only active cards that belong to the same deck.
+- **A re-import that changes nothing writes nothing.** No deck update, no import history row, and SQLite's `total_changes()` is identical before and after (tested, along with a full dump of every table). Reordering cards and repairing item drift are applied silently and do not count as a change.
+- `import_history.updatedCount` is updated plus type changed plus restored. `archivedCount` is archived missing cards.
+
+**Rollback evidence:** instead of mocks, tests install SQLite triggers that abort mid-import (on the history insert, on the third card insert, and on an update). In each case the database ends identical to its state before the import, and a later import succeeds. A 2,000-card import completes in well under the 5 second test bound (the formal budget check is M1-22).
+
+**Tech debt:** none.
