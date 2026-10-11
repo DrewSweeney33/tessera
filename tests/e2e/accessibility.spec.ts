@@ -35,6 +35,9 @@ for (const scheme of ['light', 'dark'] as const) {
 
 		test('import: empty, preview, and errors', async ({ page }) => {
 			await page.goto('/import');
+			// The page is built in the browser, so scan it only once it exists. A slower browser meets the empty
+			// shell otherwise, which has no title or heading to find.
+			await expect(page.getByRole('heading', { name: 'Import a deck' })).toBeVisible();
 			await scan(page, 'import empty');
 
 			const deck = JSON.stringify(deckOf(`a11y-import-${scheme}`, 'Import check', basicCards(3)));
@@ -161,12 +164,19 @@ test.describe('keyboard and focus', () => {
 		}
 	});
 
-	test('the skip link is the first tab stop and works', async ({ page }) => {
+	test('the skip link is the first tab stop and works', async ({ page, browserName }) => {
 		await page.goto('/import');
 		await expect(page.locator('main')).toBeVisible();
-		await page.keyboard.press('Tab');
-		const first = page.locator(':focus');
-		await expect(first).toHaveText(/skip/i);
+		if (browserName === 'webkit') {
+			// Safari does not Tab to links unless the person turns that on (they use Option+Tab). So the link is focused
+			// directly, which checks that it works, and the first Tab is checked to land on a control, not nowhere.
+			await page.keyboard.press('Tab');
+			await expect(page.locator(':focus')).toHaveCount(1);
+			await page.getByRole('link', { name: /skip/i }).focus();
+		} else {
+			await page.keyboard.press('Tab');
+			await expect(page.locator(':focus')).toHaveText(/skip/i);
+		}
 		await page.keyboard.press('Enter');
 		await expect(page.locator('main')).toBeFocused();
 	});

@@ -101,9 +101,12 @@ npm ci
 npm run dev          # development server
 npm run verify       # type check, lint, schema check, unit and integration tests
 npm run build
-npm run test:e2e     # browser tests (needs Chrome, or run: npx playwright install chromium)
+npm run test:e2e     # browser tests in Chrome (or run: npx playwright install chromium)
+npm run test:e2e:all # the same tests in Chrome, Firefox, and WebKit, one after the other (npx playwright install firefox webkit)
 npm run benchmark    # 5,000 card import and study timings, see docs/performance.md
 ```
+
+Browsers: Tessera needs `light-dark()` colours, so Chrome and Edge 123 or newer, Firefox 120 or newer, or Safari 17.5 or newer. CI runs the browser tests in Chrome, Firefox, and WebKit. Safari does not Tab to links unless the person turns that on (they use Option+Tab), so a keyboard user there reaches buttons and fields by Tab and links by Option+Tab.
 
 Node 24 is expected. Dependencies install with `ignore-scripts=true` (see [ADR-007](.10x/adrs/007-install-without-lifecycle-scripts.md)), so a clean `npm ci` needs no compiler.
 

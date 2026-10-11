@@ -10,7 +10,7 @@ Tessera is one container with one SQLite file. This page covers running it, reac
 | CPU     | 64-bit x86 or ARM. The image is built for `linux/amd64` and `linux/arm64`, so a Raspberry Pi with a 64-bit OS works                                                   |
 | Memory  | About 250 MB in use, up to about 315 MB under heavy load. Allow 512 MB                                                                                                |
 | Disk    | The image is built to stay under 150 MB compressed (the pipeline fails if it does not). The database is about 55 MB for 5,000 cards and five years of heavy reviewing |
-| Browser | A current Chrome, Edge, Firefox 120 or newer, or Safari 17.5 or newer. Only Chrome is tested so far                                                                   |
+| Browser | A current Chrome or Edge (123 or newer), Firefox 120 or newer, or Safari 17.5 or newer. Every change is tested in Chrome, Firefox, and WebKit, the engine of Safari   |
 
 ## Start it
 

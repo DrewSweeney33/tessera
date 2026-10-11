@@ -57,6 +57,30 @@ jobs:
       - name: Operations guide check
         run: npm run ops:check
 
+  # The same browser tests in Firefox and in WebKit (the engine of Safari), each on its own server and an empty
+  # data folder. Chromium runs in the verify job. This is separate so the three browsers do not share one time
+  # budget, and so the verify job and this one run at the same time. QA risk R-1.
+  browsers:
+    name: Browser tests in ${{ matrix.browser }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [firefox, webkit]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Install the test browser and its system libraries
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: End-to-end tests in ${{ matrix.browser }}
+        run: npm run test:e2e:${{ matrix.browser }}
+
   docker:
     name: Docker ${{ matrix.platform }}
     needs: verify

@@ -64,12 +64,33 @@ async function studyThrough(page: Page, deckId: string) {
 	for (let step = 0; step < 60; step++) {
 		const card = page.locator('.card');
 		const done = page.getByRole('heading', { name: /Session complete|Nothing to study/ });
-		await expect(card.or(done)).toBeVisible();
+		try {
+			await expect(card.or(done)).toBeVisible({ timeout: 15_000 });
+		} catch (error) {
+			// Say what the page was showing, so a rare failure can be understood from the report alone.
+			const shown = await page
+				.locator('body')
+				.innerText()
+				.catch(() => '(page gone)');
+			throw new Error(
+				`${deckId}, step ${step}: no card and no end of session. The page shows: ${shown.slice(0, 400)}`,
+				{ cause: error }
+			);
+		}
+		if (await done.isVisible()) break;
+
+		// Right after a grade the card just answered is still on screen, with its buttons disabled, until the next one
+		// arrives. Wait for the question to be showing again (no grade buttons), then check the session did not end.
+		await expect(page.getByRole('group', { name: /How well/ })).toBeHidden({ timeout: 15_000 });
 		if (await done.isVisible()) break;
 		seen.cards++;
 
 		const count = async () => {
-			await page.waitForTimeout(250);
+			// Wait until the diagrams are drawn and the code is coloured, not for a fixed time.
+			await expect(card.locator('.diagram__status')).toHaveCount(0);
+			await expect(
+				card.locator('pre > code[class*="language-"]:not(.language-mermaid):not(.shiki)')
+			).toHaveCount(0);
 			seen.diagrams += await card.locator('figure.diagram img').count();
 			seen.failedDiagrams += await card.locator('.diagram-failed').count();
 			seen.codeBlocks += await card.locator('code.shiki').count();
@@ -79,7 +100,7 @@ async function studyThrough(page: Page, deckId: string) {
 		const skip = page.getByRole('button', { name: 'I don’t know' });
 		if (await skip.isVisible()) await skip.click();
 		else await page.keyboard.press('Space');
-		await expect(page.getByRole('group', { name: /How well/ })).toBeVisible();
+		await expect(page.getByRole('group', { name: /How well/ })).toBeVisible({ timeout: 15_000 });
 		await count();
 		await page.keyboard.press('4');
 	}
@@ -90,10 +111,16 @@ test('the diagrams in the example decks are drawn and the code is coloured', asy
 	request,
 	page
 }) => {
-	for (const file of ['tcp-ip-fundamentals.json', 'powershell-essentials.md']) {
+	// Three whole study sessions, in a slower browser too.
+	test.setTimeout(150_000);
+	// Each deck is imported here, so this test does not depend on another one having run. The CCNA deck gets its own
+	// id because the first tests in this file import it from a file under other ids.
+	for (const file of ['tcp-ip-fundamentals.json', 'powershell-essentials.md', 'ccna-ospf.json']) {
+		let data = readFileSync(`examples/${file}`, 'utf8');
+		if (file === 'ccna-ospf.json') data = data.replace('"id": "ccna-ospf"', '"id": "ccna-render"');
 		const response = await request.post('/api/import', {
 			headers: { 'content-type': file.endsWith('.json') ? 'application/json' : 'text/markdown' },
-			data: readFileSync(`examples/${file}`, 'utf8')
+			data
 		});
 		expect(response.ok(), await response.text()).toBe(true);
 	}
@@ -112,7 +139,7 @@ test('the diagrams in the example decks are drawn and the code is coloured', asy
 	);
 
 	// The CCNA deck has a state diagram on the back of a card.
-	const ccna = await studyThrough(page, 'ccna-ospf-json');
+	const ccna = await studyThrough(page, 'ccna-render');
 	expect(ccna.failedDiagrams, 'a diagram could not be drawn').toBe(0);
 	expect(ccna.diagrams, 'diagram images across the deck').toBeGreaterThanOrEqual(1);
 });

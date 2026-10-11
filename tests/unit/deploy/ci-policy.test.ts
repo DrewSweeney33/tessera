@@ -58,6 +58,28 @@ describe('CI workflow', () => {
 		expect(commands).toContain('npm run ops:check');
 	});
 
+	it('runs the same browser tests in Firefox and WebKit, each in its own job, alongside verify', () => {
+		const browsers = workflow.jobs['browsers']!;
+		expect(browsers.needs).toBeUndefined();
+		expect(
+			(browsers.strategy as unknown as { matrix: { browser: string[] } }).matrix.browser
+		).toEqual(['firefox', 'webkit']);
+		const run = browsers.steps.map((step) => step.run ?? '').join('\n');
+		expect(run).toContain('npm ci');
+		expect(run).toContain('npm run build');
+		expect(run).toContain('npx playwright install --with-deps ${{ matrix.browser }}');
+		expect(run).toContain('npm run test:e2e:${{ matrix.browser }}');
+		// Every browser the runner knows has a script, so the job's command exists for each.
+		const scripts = JSON.parse(readFileSync('package.json', 'utf8')).scripts as Record<
+			string,
+			string
+		>;
+		for (const browser of ['firefox', 'webkit']) {
+			expect(scripts[`test:e2e:${browser}`], browser).toBe(`node scripts/run-e2e.ts ${browser}`);
+		}
+		expect(text).toMatch(/browsers:[\s\S]*?timeout-minutes: 20/);
+	});
+
 	it('can be called by the release workflow', () => {
 		expect(Object.keys((parse(text) as { on: object }).on)).toContain('workflow_call');
 	});

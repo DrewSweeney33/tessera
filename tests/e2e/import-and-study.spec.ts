@@ -86,9 +86,12 @@ test('importing the same deck twice reports that nothing changed', async ({ page
 
 test('a broken deck lists what to fix and offers a message for Claude', async ({
 	page,
-	context
+	context,
+	browserName
 }) => {
-	await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+	// Only Chromium can be granted clipboard access, and so only there can the clipboard be read back.
+	if (browserName === 'chromium')
+		await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 	await page.goto('/import');
 	await page.getByLabel('Deck (JSON or Markdown)').fill(BAD_DECK);
 	await page.getByRole('button', { name: 'Preview' }).click();
@@ -98,6 +101,17 @@ test('a broken deck lists what to fix and offers a message for Claude', async ({
 	await expect(page.getByRole('button', { name: 'Import', exact: true })).toBeDisabled();
 
 	await page.getByRole('button', { name: 'Copy errors for Claude' }).click();
+
+	if (browserName !== 'chromium') {
+		// Either the browser copied it, or the page offers the text to copy by hand. Both give the person the message.
+		const copied = page.getByRole('button', { name: 'Copied' });
+		const manual = page.getByLabel('Your browser blocked copying. Select and copy this text:');
+		await expect(copied.or(manual)).toBeVisible();
+		if (await manual.isVisible())
+			await expect(manual).toHaveValue(/Keep every card "id" unchanged/);
+		return;
+	}
+
 	await expect(page.getByRole('button', { name: 'Copied' })).toBeVisible();
 	const clipboard = await page.evaluate(() => navigator.clipboard.readText());
 	expect(clipboard).toContain('Keep every card "id" unchanged');

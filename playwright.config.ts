@@ -1,4 +1,4 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test';
 import { tokenPort, tokenValue } from './tests/e2e/token-server.ts';
 
 const port = 4177;
@@ -6,6 +6,20 @@ const baseURL = `http://127.0.0.1:${port}`;
 
 // Run `npm run build` first. Locally this drives the Chrome that is already installed, so no browser
 // download is needed. In CI the workflow installs Chromium and the channel is left unset.
+//
+// One browser per run, chosen by E2E_BROWSER (chromium, firefox, or webkit; chromium by default). Most tests
+// import decks with fixed ids into one shared server, so two browsers in one run would meet each other's data.
+// Each run starts its own servers on an empty data folder. `npm run test:e2e:firefox`, `:webkit`, and `:all`
+// (scripts/run-e2e.ts) do this.
+const browser = process.env['E2E_BROWSER'] ?? 'chromium';
+const browsers = {
+	chromium: { ...devices['Desktop Chrome'], ...(process.env['CI'] ? {} : { channel: 'chrome' }) },
+	firefox: { ...devices['Desktop Firefox'] },
+	webkit: { ...devices['Desktop Safari'] }
+} as const;
+if (!(browser in browsers)) {
+	throw new Error(`E2E_BROWSER must be chromium, firefox, or webkit, not "${browser}".`);
+}
 export default defineConfig({
 	testDir: 'tests/e2e',
 	testMatch: '**/*.spec.ts',
@@ -15,9 +29,9 @@ export default defineConfig({
 	// (Most tests also import fixed deck ids, so a retry would meet cards the first attempt already studied.)
 	retries: 0,
 	reporter: [['list']],
+	projects: [{ name: browser, use: browsers[browser as keyof typeof browsers] }],
 	use: {
 		baseURL,
-		...(process.env['CI'] ? {} : { channel: 'chrome' }),
 		trace: 'retain-on-failure'
 	},
 	webServer: [
