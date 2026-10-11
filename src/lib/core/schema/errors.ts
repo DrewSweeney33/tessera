@@ -83,11 +83,16 @@ function mapIssue(issue: Issue, input: unknown): ImportError[] {
 			if (found === undefined) {
 				return [{ path: where, code: 'required', message: `${name} is required` }];
 			}
+			// "type int" means nothing to a reader. A number with a fraction is the usual cause.
+			const expected =
+				issue.expected === 'int'
+					? `a whole number, but found ${typeof found === 'number' ? found : describeValue(found)}`
+					: `of type ${issue.expected}, but found ${describeValue(found)}`;
 			return [
 				{
 					path: where,
 					code: 'wrong_type',
-					message: `${name} must be of type ${issue.expected}, but found ${describeValue(found)}`
+					message: `${name} must be ${expected}`
 				}
 			];
 		}
