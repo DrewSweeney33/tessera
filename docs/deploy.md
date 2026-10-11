@@ -97,6 +97,37 @@ You can list several names separated by commas, add a port (`box.example.com:844
 
 This does not decide who may connect. Anyone who can reach the port can still use Tessera, so options 1 and 2 above still apply. `/healthz` always answers, under any name, so monitors and the Docker health check keep working.
 
+### The API token (for scripts, not for the web page)
+
+Setting `TESSERA_API_TOKEN` makes the API demand a password, but only from callers that are not the Tessera web page. It is for scripts and tools that call `/api/*` from outside the browser, such as something that imports decks for you.
+
+Make a token of at least 24 characters, for example `openssl rand -hex 32`, and put it in `compose.yaml`:
+
+```yaml
+environment:
+  TESSERA_API_TOKEN: put-your-long-random-value-here
+```
+
+A script then sends it in a header:
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" http://tessera.lan:3000/api/decks
+curl -H "Authorization: Bearer YOUR_TOKEN" -H "Content-Type: text/markdown" --data-binary @deck.md http://tessera.lan:3000/api/import
+```
+
+Without it the answer is `401` and a message that says what to send. `/healthz` and `/api/schema` never need it. The startup log says when a token is set, and never prints it, nor does any other log line.
+
+**What it does:** stops scripts and tools that do not pretend to be the web page, and stops other websites from using a visitor's browser to reach your Tessera.
+
+**What it does not do:** it does not protect the web page. Tessera has no login, so anyone who can open the page in a browser can use it, and a script that copies what the page sends can use the API too. The token is not a replacement for options 1 and 2 above. If other people or devices on your network should not use your Tessera, keep it behind a private network or a reverse proxy that asks for a password.
+
+How the page is recognised: the browser says so itself (`Sec-Fetch-Site: same-origin`, or an `Origin` header that names this server), or, over plain HTTP on a network address where browsers send neither, a header that only the page itself can send. See [ADR-011](../.10x/adrs/011-recognizing-the-web-page-for-the-api-token.md).
+
+Two things to know:
+
+- If a reverse proxy in front of Tessera uses **HTTP Basic** authentication, it uses the same `Authorization` header, so a script cannot send both. Point scripts at Tessera directly (for example on the private network) instead of through that proxy.
+- If you open an API address directly in a browser tab (for example `/api/decks`), the browser identifies it as typed in, so it needs the token. The web pages themselves are not affected.
+
 ## Settings you may want to change
 
 Edit `compose.yaml`, then run `docker compose up -d`.
@@ -105,11 +136,12 @@ Edit `compose.yaml`, then run `docker compose up -d`.
 | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `TZ`                              | **Set this.** It decides when a study day rolls over (04:00 local time). The default is UTC, which makes the day change at odd hours elsewhere. Use a name like `America/Chicago`. |
 | The left side of the port mapping | If port 3000 is taken, use for example `127.0.0.1:3100:3000`.                                                                                                                      |
+| `TESSERA_API_TOKEN`               | Optional. Makes scripts send a password to use the API. Does not protect the web page. See "The API token" above.                                                                  |
 | `LOG_LEVEL`                       | `debug`, `info` (default), `warn`, or `error`.                                                                                                                                     |
 | `TESSERA_ALLOWED_HOSTS`           | **Set this if you use a real domain name**, for example a reverse proxy address. See "Host names" above.                                                                           |
 | `mem_limit: 512m`                 | Optional cap, under the service. Tessera uses about 60 percent of this at its busiest.                                                                                             |
 
-`TESSERA_ALLOWED_HOSTS` is described above. `TESSERA_API_TOKEN` appears in the file as a comment and is reserved for a later release. It does nothing yet.
+`TESSERA_ALLOWED_HOSTS` and `TESSERA_API_TOKEN` are described above. The token appears in the file as a comment.
 
 ## Where the data lives
 

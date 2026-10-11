@@ -560,3 +560,29 @@ Decision record: ADR-010. No change to the Content-Security-Policy.
 **Tests added.** 42 unit tests for `code-blocks` plus 5 contrast tests (colours of both themes), 13 browser tests: drawn under the unchanged policy with no violation and no outside request, policy header has no `unsafe` keyword in `script-src`, redrawn for the other colour scheme, mistake shows source and the card still works, over-size refused quickly, hostile diagram text (HTML in labels, script, click handlers, javascript links, external `url()` in `classDef`) runs nothing and reaches nowhere, wide diagram on a 320 pixel screen, highlighted text equals the written text, unknown language stays plain, code that looks like markup stays text, lazy loading, axe in both themes.
 
 **Not done.** `docs/deck-format.md` (M2-13) should say which languages are highlighted and which diagram types were checked. A card with a code block inside a choice option is still shown as inline text. The app has no favicon, so every first page load requests `/favicon.ico` and gets a 404 (found while chasing a console error, unrelated to M2-11).
+
+## M2-12 API token (2026-10-11)
+
+ADR-009 decided what the token covers. ADR-011 refines how the server recognizes its own web page, because running a real browser against a real built server showed ADR-009's rule did not work on the main deployment.
+
+**What was built.**
+- `server/http/auth.ts`: `requiresToken` (judges the path the way the router sees it), `bearerToken`, `tokenMatches` (SHA-256 digests compared with `timingSafeEqual`), `isWebPageRequest`. `apiTokenGuard` in `hooks.ts`, placed after the host check and before the content type check. A refusal is `401` with `WWW-Authenticate: Bearer realm="tessera"` and the usual JSON error. The refusal is logged with the request id, method, path, and whether a token was sent, never the token. The startup log says a token is set.
+- The web app adds `X-Tessera-Client: web` to every API call (`ui/api.ts`, `core/client-header.ts`).
+- Open paths: everything outside `/api`, and exactly `/api/schema`. `/healthz` is not under `/api`.
+
+**Three things the real browser showed that the unit tests did not (all in ADR-011):**
+1. Browsers send `Sec-Fetch-Site` only to HTTPS and localhost, so over `http://192.168.x.x` it is absent. A same-origin GET carries no `Origin`. The page would have been locked out of its own API. Fixed with the marker header, which a page on another site cannot send (it would need a CORS preflight, which Tessera never grants).
+2. `adapter-node` assumes `https` when `ORIGIN` is not set, so `event.url.origin` was `https://…` on a plain HTTP server and no browser `Origin` ever matched. The unit tests used `http://localhost`. Fixed by comparing the Origin's host and port with the Host header, ignoring the scheme. The browser test over the machine's LAN address failed until this was fixed, and a probe check and an integration test now reproduce the cause.
+3. SvelteKit's own CSRF layer answers 403 to a form-typed cross-site post before any hook runs. That is fine, and the tests accept 401 or 403 there.
+
+**An honest limit, documented and tested.** A client that copies the browser's headers is accepted. The token stops honest scripts and other websites, not a hostile client on the network. That is inherent without a login, it is what ADR-009 decision 6 meant, and the deployment guide and README now say it. A probe check asserts it, so the documentation cannot drift from the behaviour. ADR-009's wording that the headers "cannot be forged" was true only of page script.
+
+**Path variants.** SvelteKit decodes the path before matching (`/%61pi/decks` reaches `/api/decks`). The guard decodes the same way and fails closed. Tested through the real router with `/%61pi/decks`, `/ap%69/decks`, `/api/%64ecks`, and others.
+
+**Mutation checks.** 14 injected bugs in `auth.ts` and 9 in the hook, startup log, and pipeline: all caught after three added tests (an undecodable path outside `/api`, the no-token case stated explicitly, and the pipeline order, which only the unit test that reads `hooks.server.ts` can see).
+
+**Tests added.** 40 unit (`auth.test.ts`), 49 integration with the real hook chain and a token (`api-token.test.ts`), 11 browser tests against a second server with a token (`api-token.spec.ts`: the page imports and studies on loopback and over the machine's LAN address, the token is not in the page or scripts, scripts with and without the token, encoded paths, a preflight is granted nothing, a cross-site fetch cannot read or carry the marker, a cross-site form post imports nothing), and 60 new probe checks (now about 215 in all). `playwright.config.ts` starts that second server on port 4178.
+
+**Not done.** No lockout or delay for repeated wrong guesses (tested that 400 wrong guesses change nothing for the right one). The token cannot be sent through a reverse proxy that uses HTTP Basic authentication, because both want the `Authorization` header. Documented. No rotation tooling: change the setting and restart.
+
+**Housekeeping found on the way.** The probe's earlier form-post check is covered by two independent layers (SvelteKit 403 and the token guard), and the tests say which answered. `pkill` does not exist in this shell, so a stray test server kept a port and nearly hid a result, so stray servers are now stopped by process search first.

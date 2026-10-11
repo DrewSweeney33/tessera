@@ -30,6 +30,8 @@ Everything ADR-005 promises that exists today was tested against the built serve
 
 4. **2026-10-11, M2-11 (ADR-010):** Mermaid and Shiki run under the unchanged policy. Diagrams are shown as images through data URIs, so a hostile diagram cannot run script, load resources, or restyle the page. Highlighted code is text nodes only. The browser tests send hostile diagram text and code and check for violations, dialogs, outside requests, and injected elements. Open: a low severity `katex` advisory through Mermaid (dev only, not in the production audit), and a hostile but within-limits diagram that is slow to lay out has not been searched for.
 
+5. **2026-10-11, M2-12 (ADR-009, ADR-011): S-02 closed.** The API token is enforced for callers that are not the web page. Found by running a real browser: the rule in ADR-009 would have locked the page out over plain HTTP, so it was refined. Stated plainly: the token does not protect the web page, and a client that copies the browser headers is accepted. Protection of the page is the proxy or the VPN. Open: no lockout for repeated guesses, token cannot pass through a Basic-auth proxy.
+
 ## Handoff
 
 SDE: S-01 first, S-02 after the owner decides, `docs/security.md`. DevOps: GitHub remote, first CI run on Linux, image scan.

@@ -11,7 +11,8 @@ services:
       - '127.0.0.1:3000:3000'
     environment:
       TZ: UTC
-      # Optional. Protects /api/* (except /healthz and /api/schema) with a bearer token. 24+ characters.
+      # Optional. Scripts calling /api/* (except /healthz and /api/schema) must send "Authorization: Bearer <token>".
+      # 24+ characters. The web page does not need it, and it does not protect the web page. See docs/deploy.md.
       # TESSERA_API_TOKEN: change-me-to-a-long-random-value
       # Host names Tessera answers to (defends against DNS rebinding). Without this line it answers localhost,
       # any IP address, single-word names, and names ending in .local, .lan, .home.arpa, .internal, or

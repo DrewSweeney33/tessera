@@ -2,33 +2,42 @@
 
 ## Current handoff
 
-**From:** SDE, Milestone 2 (M2-11, diagrams and code highlighting)
-**To:** The owner (approve the push), then the SDE for M2-12
+**From:** SDE, Milestone 2 (M2-12, the API token)
+**To:** The owner (approve the push), then the SDE for M2-13
 **Date:** 2026-10-11
-**Per-feature files:** `.10x/decisions/sde/tessera-v1.md` (section "M2-11"), `.10x/adrs/010-diagrams-and-code-highlighting-under-the-csp.md`
+**Per-feature files:** `.10x/decisions/sde/tessera-v1.md` (section "M2-12"), `.10x/adrs/011-recognizing-the-web-page-for-the-api-token.md`, `.10x/adrs/009-api-token-for-external-clients-only.md`
 
 ### Result
 
-Code fences are highlighted and `mermaid` fences are drawn, with the Content-Security-Policy unchanged. Both libraries are dev dependencies and load only for a card with a code fence. Gates are in the SDE log.
+`TESSERA_API_TOKEN` is enforced. The web page works without it, on loopback, on a network address over plain HTTP, and over HTTPS. Scripts need `Authorization: Bearer`. Other websites cannot reach the API through a visitor's browser. The deployment guide, README, compose file, and changelog describe it, including what it does not do.
 
 ### State of git
 
-M2-05 to M2-10 are on GitHub. M2-11 is committed locally and **not pushed**. It adds two dependencies (Mermaid 12.1.0 and Shiki 4.5.0, MIT) and about 1,900 lines to `package-lock.json`, so it needs the owner's approval.
+M2-05 to M2-11 are on GitHub. M2-12 is committed locally and **not pushed**.
+
+### Needs the owner
+
+1. **Approve the push.**
+2. **Read the "what it does not do" paragraph** in `docs/deploy.md` ("The API token"). The token does not protect the web page, and a script that copies the browser headers gets in. That is inherent without a login and is what ADR-009 decision 6 said, but ADR-009's wording suggested more. Say if you want the guide to read differently, or if you want a stronger design (it would need a login, which was ruled out).
+3. Try it once on the homelab: set a token, open the page from another device by its address, check `curl` with and without the header.
 
 ### Next
 
-1. Owner: approve pushing M2-11. Try a real deck with a diagram and a code block in both themes.
-2. M2-12 API token (ADR-009), M2-13 Claude skill, `docs/deck-format.md` (say which languages are highlighted and which diagram types were checked), golden decks, M2-14 e2e for everything plus Firefox and WebKit (diagrams and highlighting were only run in Chrome), M2-16 gate (QA, security review, `v0.1.0` only after approval, image scan).
+M2-13 Claude skill, `docs/deck-format.md` (also say which languages are highlighted and which diagram types were checked), golden decks. Then M2-14 (e2e for everything plus Firefox and WebKit), M2-15 release pipeline (publication needs approval), M2-16 gate (QA, security review, image scan, `v0.1.0` only after approval).
 
 ### Things to know
 
-- Diagram text is part of an image: not selectable, fixed system font. The source sits under "Diagram source".
-- Cisco IOS style configuration has no grammar, so it shows as plain code.
-- `npm audit` lists a low `katex` advisory through Mermaid and an `esbuild` one through `drizzle-kit` (the second predates M2-11). `npm run audit:prod` finds 0.
-- The app has no favicon, so each first page load gets a 404 for `/favicon.ico`. Harmless, worth fixing.
-- Earlier open items are unchanged (compose wrappers unverified on a real host, registry push unexercised, disk-full and long soak untested, Firefox, Safari and screen readers untested).
+- Testing against a real built server and a real browser found two faults that every unit test passed (the scheme `adapter-node` assumes, and what browsers send on plain HTTP). Keep doing that for anything that depends on headers.
+- A reverse proxy with HTTP Basic authentication cannot pass the token through (same header). Documented.
+- `playwright.config.ts` now starts two servers (ports 4177 and 4178). Stray servers from manual testing can hold the ports.
+- The app has no favicon, so each first page load gets a 404. Harmless.
+- Earlier open items are unchanged (compose wrappers unverified on a real host, registry push unexercised, disk-full and long soak untested, Firefox, Safari and screen readers untested, diagrams and highlighting only run in Chrome).
 
 ## Handoff history
+
+### 2026-10-11: SDE, M2-11, to the owner
+
+Diagrams and code highlighting under the unchanged policy (ADR-010). See the SDE log section "M2-11".
 
 ### 2026-10-11: SDE, M2-09 and M2-10, to the owner
 

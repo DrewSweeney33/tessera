@@ -1,7 +1,7 @@
 # Tessera Status
 
 **Last updated:** 2026-10-11
-**Current phase:** Phase 4 Implementation, Milestone 2 in progress (started 2026-10-11). The repository is live on GitHub (public) with CI green on Linux. M2-00 to M2-11 are done. No release exists; `v0.1.0` is the M2 exit.
+**Current phase:** Phase 4 Implementation, Milestone 2 in progress (started 2026-10-11). The repository is live on GitHub (public) with CI green on Linux. M2-00 to M2-12 are done. No release exists; `v0.1.0` is the M2 exit.
 **Feature slug:** `tessera-v1`
 
 ## Phase tracker
@@ -12,7 +12,7 @@
 | 1 Strategy | Complete. Verdict: build, with a checkpoint after M2. |
 | 2 Design | Complete. 7 ADRs accepted (005 to 007 added during implementation). |
 | 3 Planning | Complete. 67 tasks, 5 milestones, about 224 hours (human-equivalent). |
-| 4 Implementation | M1 done (23 of 23 tasks), exit gate accepted by the owner 2026-10-11 ("start Milestone 2"). M2 in progress: M2-00 to M2-11 done (M2-00 to M2-10 pushed; M2-11 committed locally, awaiting the owner's approval to push), M2-12 next. |
+| 4 Implementation | M1 done (23 of 23 tasks), exit gate accepted by the owner 2026-10-11 ("start Milestone 2"). M2 in progress: M2-00 to M2-12 done (M2-00 to M2-11 pushed; M2-12 committed locally, awaiting the owner's approval to push), M2-13 next. |
 | 5 Verification | **Interim pass on the M1 slice done 2026-10-11.** 2 defects fixed, 0 blocking. Repeat at the M2 exit (with a security review) and final at M5 exit. |
 | 6 Delivery | **Delivery package for the M1 slice done 2026-10-11:** deploy, operations, and release docs, tag-driven release workflow, ops check script, four reliability fixes (ADR-008). Conditional sign-off: ready for the owner's own use on loopback or a VPN with backups. Public `v0.1.0` at M2 exit, `v1.0.0` at M5 exit. |
 
@@ -87,7 +87,7 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 | Coverage | 92.1 percent lines, 85.3 percent branches |
 | Mutation check on core invariants | 14 of 15 caught; the survivor (CSP loosening) is now covered by the probe in CI |
 | Defects fixed | Q-01 no h1 on the study screen, Q-02 oversized chunked body gave 500 |
-| Open security findings | S-02 token vs UI (Medium, **decided 2026-10-11, ADR-009, builds in M2-12**), S-05 image scan (Low, image is built and tested in CI, a vulnerability scan is still to add). S-01 DNS rebinding was **closed by M2-00** (2026-10-11). |
+| Open security findings | S-02 token vs UI **closed by M2-12** (ADR-009, ADR-011; the token does not protect the web page, by design, and says so), S-05 image scan (Low, image is built and tested in CI, a vulnerability scan is still to add). S-01 DNS rebinding was **closed by M2-00** (2026-10-11). |
 | Untested | Firefox, Safari, a real screen reader, the Docker image, CI on GitHub, Linux runs of the new scripts |
 
 ### Phase 6 delivery results (2026-10-11)
@@ -127,7 +127,7 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 - [x] M2-09 Import preview detail (M). Done 2026-10-11. The plan carries old and new text per changed field and how many review items a retype erases. Warnings: `type_changed`, `ids_changed` (a new card has exactly the content of a card missing from the file), `mostly_replaced` (half the deck missing, 3 or more new cards, and no id match). Archived cards are not counted as missing. API reply cut at 300 chars per side, diffs for the first 50 changed cards, 200 missing cards listed. The page shows a Show what changes section, a Progress starts over notice, and a Not in this file list. Preview and import give identical counts and warnings (tested). 20 injected bugs, all caught.
 - [x] M2-10 Study UI for cloze, typed, choice (M). Done 2026-10-11. Typed: answer box with focus, Enter checks it (`matchTyped`), the right or wrong result and what was typed are shown, Good or Again is suggested and focused, I do not know suggests Again. Choice: options shuffled by a seed that includes the review count (stable on refresh), keys 1 to 9, right and chosen options marked with words as well as colour, explanation shown. The learner can always pick any grade, Space and Enter give the suggestion. Choice text renders without links so no control sits inside a button. The render-failure badge already existed. 11 injected bugs in the new module, all caught after one test gap was closed. Axe clean in both themes.
 - [x] M2-11 Mermaid and Shiki under the CSP (M). Done 2026-10-11, **no change to the policy** (ADR-010). Shiki with its JavaScript engine (no WebAssembly), code built from text nodes. Mermaid strict, sanitized, shown as an image through a data URI, with limits, a timeout, and a source fallback. Both are dev dependencies, loaded only for cards with a code fence (plain card 194 KB of script, flowchart adds about 2.1 MB). Seven diagram types checked in a real browser. Every colour of both themes checked for contrast. 17 injected bugs, 12 caught, the rest explained in the SDE log.
-- [ ] M2-12 API token and allowed hosts (M). **Design decided in ADR-009 (token covers external clients only; same-origin browser requests are exempt). Needs M2-00 done first.** Allowed hosts moves to M2-00.
+- [x] M2-12 API token and allowed hosts (M). Done 2026-10-11 (allowed hosts was M2-00). With `TESSERA_API_TOKEN` set, `/api/*` (except `/api/schema`) needs `Authorization: Bearer` unless the Tessera page itself sent the request. **ADR-011 refines ADR-009:** a real browser on plain HTTP sends no `Sec-Fetch-Site`, no `Origin` on a same-origin GET, and the server believes it is https, so the page would have been locked out. The page is now recognized by `Sec-Fetch-Site`, then the Origin host and port, then a marker header that other sites cannot send. Path variants the router decodes cannot get around it. A client that copies the browser headers is accepted, which is documented and tested. 14 + 9 injected bugs, all caught. Probe has about 60 new checks, 11 new browser tests against a second server.
 - [ ] M2-13 Claude skill, deck-format docs, golden decks (M)
 - [ ] M2-14 e2e for all card types and Markdown (M). Add Firefox and WebKit projects to CI (QA risk R-1).
 - [ ] M2-15 Release pipeline, publication needs owner approval (M)
