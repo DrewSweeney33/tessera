@@ -2,37 +2,40 @@
 
 ## Current handoff
 
-**From:** SDE, Milestone 2 (M2-14, end-to-end coverage and cross-browser CI)
-**To:** The owner (approve the push, then watch the first CI run), then the SDE for M2-15
+**From:** SDE, Milestone 2 (M2-15, the release pipeline)
+**To:** The owner (approve the push, then watch the first CI run), then the SDE for M2-16
 **Date:** 2026-10-11
-**Per-feature file:** `.10x/decisions/sde/tessera-v1.md` (section "M2-14")
+**Per-feature file:** `.10x/decisions/sde/tessera-v1.md` (sections "M2-14 follow-up" and "M2-15"), `docs/releasing.md`
 
 ### Result
 
-A keyboard-only test covers import and all four card types. The e2e suite now runs in WebKit as well as Chrome (118 tests each, all passing), and CI has a new `browsers` job for Firefox and WebKit. **Firefox has never run**: it will not start on this Windows machine, so its first run is in CI.
+The release workflow now attaches the deck schema, the Claude skill as a zip, and checksums to a release, and the CI image job scans the built image for fixable high or critical vulnerabilities. Nothing was published or tagged. The previous push (M2-14) was fully green in CI, including Firefox on its first run.
 
 ### State of git
 
-M2-05 to M2-13 are on GitHub. M2-14 is committed locally and **not pushed**.
+M2-05 to M2-14 are on GitHub. M2-15 is committed locally and **not pushed**.
 
 ### Needs the owner
 
-1. **Approve the push**, then **watch the first CI run**. The new Firefox job may fail on something I could only read and not run. If it does, tell me, or say "keep pushing CI fixes" and I will fix and push (the standing approval covers CI fixes).
-2. If you want Firefox tested locally too, the cause is the `firefox.exe` side-by-side error. It needs administrator tools (or a repair of the Visual C++ runtimes) that I did not use.
-3. Safari on a real Mac or iPhone is still untested. Playwright's WebKit is the same engine, not the same product.
+1. **Approve the push, then watch the first CI run.** It is the first run of the Trivy scan, which I could not run here (no container program on this machine). It can fail for two reasons that are not bugs: a high or critical finding with a fix available in the base image (rebuilding usually clears it) or the vulnerability database download being rate limited. Tell me what it says, or say "keep pushing CI fixes".
+2. **Run the release workflow by hand once** (Actions, Release, Run workflow, on `main`) before the real tag, to see the new asset step pass. It publishes nothing. The version in `package.json` is `0.0.1` and the changelog has no `0.0.1` section, so the rehearsal's version check will fail on `main`; use a short-lived branch as `docs/releasing.md` describes, or wait for M2-16, which sets the version.
+3. **Confirm Settings, Actions, General, Workflow permissions** allows the release job to push packages (still unverifiable until a real tag).
 
 ### Next
 
-M2-15 (release pipeline, publication needs your approval) and M2-16 (the M2 exit gate: QA report, security review, image scan, then `v0.1.0` only after your approval).
+M2-16, the Milestone 2 exit gate: repeat QA and security review, the disk-full and long soak runs on the homelab, set the version and move the changelog, and tag `v0.1.0` **only on your approval**. Before that the QA report, a fresh security review, and your try-out of the skill and the decks are needed.
 
 ### Things to know
 
-- Safari does not Tab to links by default, so a keyboard user there uses Option+Tab for links. Documented in the README. Tests focus links directly in WebKit.
-- A test loop that acts on "the card on screen" can act on the card just answered, which stays visible with disabled buttons until the next arrives. Wait for the grade buttons to go. Two tests had this.
-- `test:e2e:all` runs Chrome, Firefox, and WebKit in turn and stops at the first failure, so on this machine it stops at Firefox.
+- A failed image scan is meant to be actionable: it only reports findings that have a fix. Do not add a `.trivyignore` without recording why.
+- The release zip is reproducible, so a checksum can be rebuilt and compared from the tagged source.
 - Earlier open items are unchanged (compose wrappers unverified on a real host, registry push unexercised, disk-full and long soak untested, screen readers untested, no favicon, the skill untried in a real conversation).
 
 ## Handoff history
+
+### 2026-10-11: SDE, M2-14, to the owner
+
+Keyboard-only test, and Firefox and WebKit in CI. Passed in CI on its first run. See the SDE log section "M2-14".
 
 ### 2026-10-11: SDE, M2-13, to the owner
 

@@ -17,6 +17,7 @@ First working version, built in milestone 1. Not yet released: the first public 
 - A Claude skill (`claude-skill/tessera-deck`), a deck format reference (`docs/deck-format.md`), a guide to making decks with Claude (`docs/claude-workflow.md`), and three example decks: CCNA OSPF (in JSON and Markdown), PowerShell essentials (code blocks), and TCP/IP fundamentals (diagrams and a table). Tests keep the documents in step with the code.
 - A line under a choice that is indented but looks like a field label (for example `Explanation:`) is now an import error with a clear message, instead of silently becoming part of the choice. This is what a Markdown formatter does to a deck.
 - "Copy errors for Claude" now asks for the corrected deck in the same format as the one you imported.
+- Each release will carry the deck schema, the Claude skill as a zip, and a checksum file as downloads next to the container image, and the image is scanned for known vulnerabilities before a release can go out.
 - Optional API token: with `TESSERA_API_TOKEN` set, scripts and tools calling `/api/*` must send `Authorization: Bearer <token>`. The web page keeps working without it, including over plain HTTP on a network address. Another website cannot reach the API through a visitor's browser. The token does not protect the web page itself, which has no login: keep it behind a VPN or a reverse proxy that asks for a password (see the deployment guide).
 - Home screen with a deck list and counts.
 - Light and dark themes that follow the system, usable on a phone.
@@ -43,4 +44,4 @@ First working version, built in milestone 1. Not yet released: the first public 
 ### Known limitations
 
 - Leech handling, cram mode, and statistics are not built yet.
-- Browser tests run in Chrome and WebKit (the engine of Safari) and, in CI, Firefox. Tessera has not been tried on a real Safari, iPhone, or Android device, or with a screen reader. Safari does not Tab to links by default, so on Safari use Option+Tab to reach links.
+- Browser tests run in Chrome, Firefox, and WebKit (the engine of Safari). Tessera has not been tried on a real Safari, iPhone, or Android device, or with a screen reader. Safari does not Tab to links by default, so on Safari use Option+Tab to reach links.
