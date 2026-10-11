@@ -1,7 +1,7 @@
 # Tessera Status
 
 **Last updated:** 2026-10-11
-**Current phase:** Phase 5 Verification (interim, M1 slice) complete. Milestone 1 awaits the owner's exit-gate confirmation.
+**Current phase:** Phase 6 Delivery (readiness of the M1 slice) complete. Milestone 1 awaits the owner's exit-gate confirmation. Nothing is released or published; `v0.1.0` is the M2 exit.
 **Feature slug:** `tessera-v1`
 
 ## Phase tracker
@@ -14,7 +14,7 @@
 | 3 Planning | Complete. 67 tasks, 5 milestones, about 224 hours (human-equivalent). |
 | 4 Implementation | M1 done (23 of 23 tasks). Waiting for the owner to confirm the M1 exit gate before M2 starts. |
 | 5 Verification | **Interim pass on the M1 slice done 2026-10-11.** 2 defects fixed, 0 blocking. Repeat at the M2 exit (with a security review) and final at M5 exit. |
-| 6 Delivery | `v0.1.0` at M2 exit, `v1.0.0` at M5 exit |
+| 6 Delivery | **Delivery package for the M1 slice done 2026-10-11:** deploy, operations, and release docs, tag-driven release workflow, ops check script, four reliability fixes (ADR-008). Conditional sign-off: ready for the owner's own use on loopback or a VPN with backups. Public `v0.1.0` at M2 exit, `v1.0.0` at M5 exit. |
 
 ## Key artifacts
 
@@ -28,7 +28,9 @@
 - SDE running log with findings per task: `.10x/decisions/sde/tessera-v1.md`
 - QA: `.10x/decisions/qa/tessera-v1.md`, report `.10x/reviews/2026-10-11-qa-report.md`
 - Security: `.10x/decisions/security/tessera-v1.md`, review `.10x/reviews/2026-10-11-security-review.md`
-- ADRs: `.10x/adrs/001` to `007`
+- ADRs: `.10x/adrs/001` to `008`
+- DevOps: `.10x/decisions/devops/tessera-v1.md`. SRE: `.10x/decisions/sre/tessera-v1.md`
+- Operator docs: `docs/deploy.md`, `docs/operations.md`, `docs/releasing.md`, `CHANGELOG.md`, `SECURITY.md`
 - Docs: `README.md`, `docs/design.md`, `docs/performance.md`
 
 ## Task list
@@ -88,6 +90,17 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 | Open security findings | S-01 DNS rebinding (Medium), S-02 token vs UI (Medium), S-05 image never built (Low) |
 | Untested | Firefox, Safari, a real screen reader, the Docker image, CI on GitHub, Linux runs of the new scripts |
 
+### Phase 6 delivery results (2026-10-11)
+
+| Check | Result |
+|---|---|
+| Commits | `7ce8c89` delivery package and fixes, plus the state commit that follows it |
+| Tests | 332 unit, 238 integration, 50 browser. Smoke 28, security probe 101 (1 known gap), durability 54, **operations check 26 (new)**, benchmark 1.09 s |
+| Reliability fixes (ADR-008) | Two copies on one data folder: 60 of 60 imports now succeed (was 13 of 60). Older version refuses a newer database. Damaged database gets an actionable message. Clock stepping backwards no longer blocks a card. |
+| Capacity | 313 MB under 140 requests/second for 3 minutes, flat. 5,000 cards plus 200,000 reviews: 9 to 14 ms per call, 1 s start, 0.4 s online backup, 1 s restore. |
+| Release workflow | Policy-tested; version check and notes extraction run locally on 9 cases (found and fixed 2 bugs). **Never run on GitHub.** |
+| Not verified | `docker build` and the image size budget, CI on GitHub, arm64, the `docker compose` wrappers in the guides, Linux runs of the scripts, disk-full, a soak longer than 3 minutes |
+
 ### M2 Card types, Markdown, Claude skill (17 tasks, about 56 hours)
 
 - [ ] M2-00 **Host check against DNS rebinding and the startup warning (security finding S-01).** Do this first. Safe default with no configuration, `TESSERA_ALLOWED_HOSTS` to override. The probe check flips from KNOWN to PASS. (S)
@@ -136,7 +149,9 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 1. **M1 exit gate.** Confirm M1 so M2 can start, or ask for changes. QA conditions: first green CI run on GitHub (needs item 4), and M2-00 scheduled first.
 2. **API token versus the browser UI (blocks M2-12; security finding S-02).** ADR-005 requires the bearer token on every `/api/*` route except `/healthz` and `/api/schema`, but the browser UI calls those routes without a token, so enabling it would lock the UI out. Recommendation: the token covers only external clients, same-origin browser requests (`Sec-Fetch-Site: same-origin`) are exempt, and this ships only after M2-00 because a DNS-rebound page also looks same-origin. Needs your decision, then an ADR-005 amendment.
 3. **LICENSE file.** Permission to download the AGPL-3.0 text from gnu.org, and `AGPL-3.0-only` or `AGPL-3.0-or-later`.
-4. **GitHub remote.** Where should the repo live and when does it go public? Nothing is pushed or published without approval. CI has never run, so the Docker image and the CI e2e job are unverified until it does.
-5. Docker Desktop is optional on the dev machine. Without it, CI is the only image verification.
+4. **GitHub remote.** Where should the repo live and when does it go public? Nothing is pushed or published without approval. CI has never run, so the Docker image, the browser, probe, durability and operations jobs on Linux, and the release workflow are all unverified until it does. This is now the single biggest remaining unknown.
+5. **Try the guides on your own host.** The `docker compose` commands in `docs/operations.md` and `docs/deploy.md` could not be run here. Installing Docker Desktop on the dev machine would let me run them, or run the backup and restore once on the homelab and tell me anything that differs.
+6. Checkpoint gate: continue past M2 only after at least 5 distinct real study days with a Claude-generated deck.
+7. Deferred to v1.1: auto-generated choice distractors, undo last grade.
 6. Checkpoint gate: continue past M2 only after at least 5 distinct real study days with a Claude-generated deck.
 7. Deferred to v1.1: auto-generated choice distractors, undo last grade.

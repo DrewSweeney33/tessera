@@ -423,3 +423,25 @@ Done by the QA and security pass, recorded here so the log stays complete. Repor
 **Mutation check:** 15 deliberate bugs, 14 caught. The CSP `script-src` loosening survived because only the built server shows the CSP. The probe now runs in CI.
 
 **Not changed on purpose:** S-01 (host check) and S-02 (token design) are scheduled as M2-00 and before M2-12. S-02 needs an owner decision.
+
+## Phase 6 delivery fixes (2026-10-11)
+
+Recorded here so the log stays complete. Decisions: ADR-008. Role files: `.10x/decisions/devops/tessera-v1.md`, `.10x/decisions/sre/tessera-v1.md`.
+
+Each of these was found by running a failure against the built server, not by reading code.
+
+**Two copies on one data folder (writes failed).** Two servers on one folder, 60 concurrent imports: 47 failed with "database is locked" and `busy_timeout` did nothing. A deferred transaction that reads first and writes later fails immediately when another process committed in between. `withTx` and the settings seed now begin immediately (`behavior: 'immediate'`), so the write lock is taken up front and `busy_timeout` applies. Result: 60 of 60. A unit-level test proves the lock is held at the start of the transaction; a process-level check proves the outcome. Both are killed by reverting the change.
+
+**Older version opened a newer database.** `runMigrations` only counted migrations it was missing. It now compares the newest applied timestamp with the newest it knows and throws `DatabaseTooNewError` before touching anything. A test inserts a future migration and checks the refusal, the message, and that the file is byte for byte unchanged. (The first version of the byte check failed because a file not yet in WAL mode gets one header byte changed on open. The test database is now put in WAL mode first, as a real one would be.)
+
+**Damaged database.** "file is not a database" now becomes `DatabaseOpenError`: names the file, says it was not changed, says to restore a backup and where backups are. Also covers locked, unwritable, and full. `openSqlite` now closes its handle if the first pragma throws. Truncated-to-half and random-bytes files both tested, bytes unchanged.
+
+**Clock stepping backwards.** A card graded, then the clock set back 3 minutes: the card was offered again (learn-ahead) with `servedAt` earlier than its `lastReview`, so grading was rejected as stale. Reproduced with a failing test first. `buildNext` now stamps an item no earlier than its own last review. Genuine two-tab races are still caught (second test).
+
+**Release workflow shell steps.** Extracted from the YAML and executed on nine cases. Found: `grep` treated the version's dots as wildcards (0.1.0 matched a section for 0x1x0), and a changelog section holding only blank lines passed the empty check. Both fixed, using plain string matching in awk and a real-content check. Backslash escapes were removed on purpose: Windows Git-bash mangles them, so the steps now behave the same everywhere.
+
+**Operations guide checks.** `scripts/ops-check.ts` extracts the backup command from `docs/operations.md` and runs it as written during live writes, restores the result, and checks every message in the troubleshooting table. One check showed the copy-the-live-file warning is understated: the copy of a fresh database had no tables at all. 26 checks, in CI.
+
+**Numbers.** 5,000 cards plus 200,000 review records: 9 to 14 ms per call, 1 s start, 0.4 s online backup. A 3 minute soak at about 140 requests a second: no 5xx, memory flat at 313 MB (earlier docs said 250, corrected).
+
+**Process mistakes worth remembering.** A health fetch with no timeout hung a drill script for three minutes. Review ids shorter than 8 characters are rejected, which made a script report "graded 0". PowerShell here-strings strip backticks from Markdown.

@@ -8,7 +8,7 @@ Tessera is one container with one SQLite file. This page covers running it, reac
 | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Docker  | Docker Engine 24 or newer with the Compose plugin (v2), or Docker Desktop                                                                                             |
 | CPU     | 64-bit x86 or ARM. The image is built for `linux/amd64` and `linux/arm64`, so a Raspberry Pi with a 64-bit OS works                                                   |
-| Memory  | About 250 MB in use. Allow 512 MB                                                                                                                                     |
+| Memory  | About 250 MB in use, up to about 315 MB under heavy load. Allow 512 MB                                                                                                |
 | Disk    | The image is built to stay under 150 MB compressed (the pipeline fails if it does not). The database is about 55 MB for 5,000 cards and five years of heavy reviewing |
 | Browser | A current Chrome, Edge, Firefox 120 or newer, or Safari 17.5 or newer. Only Chrome is tested so far                                                                   |
 
@@ -85,7 +85,7 @@ Edit `compose.yaml`, then run `docker compose up -d`.
 | `TZ`                              | **Set this.** It decides when a study day rolls over (04:00 local time). The default is UTC, which makes the day change at odd hours elsewhere. Use a name like `America/Chicago`. |
 | The left side of the port mapping | If port 3000 is taken, use for example `127.0.0.1:3100:3000`.                                                                                                                      |
 | `LOG_LEVEL`                       | `debug`, `info` (default), `warn`, or `error`.                                                                                                                                     |
-| `mem_limit: 512m`                 | Optional cap, under the service. Tessera uses about half of this.                                                                                                                  |
+| `mem_limit: 512m`                 | Optional cap, under the service. Tessera uses about 60 percent of this at its busiest.                                                                                             |
 
 `TESSERA_API_TOKEN` and `TESSERA_ALLOWED_HOSTS` appear in the file as comments. They are reserved for a later release and do nothing yet.
 

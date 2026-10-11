@@ -39,15 +39,16 @@ The first import dominates because it writes about 11,500 rows to SQLite in one 
 
 The same 5,000 card deck with 200,000 review records added, which is about five years of 100 reviews a day. Same machine and method as above.
 
-| Measure                                       | Result                                           |
-| --------------------------------------------- | ------------------------------------------------ |
-| Database file                                 | 55 MB (52 MB after a backup compacts it)         |
-| GET /api/decks (median, 95th percentile)      | 11 ms, 14 ms                                     |
-| GET /api/study/next (median, 95th percentile) | 9 ms, 9 ms                                       |
-| Memory in use                                 | 200 MB when empty, 247 MB with the large history |
-| Start to healthy                              | 0.6 s empty, 1.0 s with the large history        |
-| Online backup while studying                  | 0.4 s, passes integrity_check                    |
-| Restore from that backup, to healthy          | 1.0 s                                            |
+| Measure                                                                            | Result                                                                                                 |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Database file                                                                      | 55 MB (52 MB after a backup compacts it)                                                               |
+| `GET /api/decks` (median, 95th percentile)                                         | 11 ms, 14 ms                                                                                           |
+| `GET /api/study/next` (median, 95th percentile)                                    | 9 ms, 9 ms                                                                                             |
+| Memory in use                                                                      | 200 MB when empty, 247 MB with the large history, 313 MB under sustained load, flat over 3 minutes     |
+| Sustained load: 6 concurrent clients, 3 minutes, mixed reads, previews, and grades | 24,831 requests (about 140 a second), 0 server errors, median 20 ms, 95th percentile 29 ms, 99th 34 ms |
+| Start to healthy                                                                   | 0.6 s empty, 1.0 s with the large history                                                              |
+| Online backup while studying                                                       | 0.4 s, passes `integrity_check`                                                                        |
+| Restore from that backup, to healthy                                               | 1.0 s                                                                                                  |
 
 History size barely matters for what a learner does each day, because the queue reads indexed due dates and never scans the review log. The statistics screens planned for a later milestone will read the log and need their own measurement.
 

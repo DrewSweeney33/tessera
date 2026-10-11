@@ -33,7 +33,7 @@ Availability is not a target. It is a study tool. If it is down for an hour, not
 
 ## Resource use
 
-Measured on a 5,000 card deck with 200,000 review records: about 200 to 250 MB of memory, a 55 MB database file, a start in about one second. Allow 512 MB. Startup does not depend much on size.
+Measured on a 5,000 card deck with 200,000 review records: about 200 to 250 MB of memory when idle, rising to about 315 MB under sustained heavy traffic and then staying flat (a 3 minute test of 140 requests a second showed no growth). The database file is 55 MB and a start takes about one second. Allow 512 MB.
 
 ## Backups
 

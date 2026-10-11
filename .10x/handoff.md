@@ -2,61 +2,72 @@
 
 ## Current handoff
 
-**From:** QA Engineer and Security Engineer, Phase 5 Verification (interim, M1 slice)
-**To:** SDE for the start of M2, DevOps for the first CI run, and the owner for three decisions
+**From:** DevOps Engineer and SRE, Phase 6 Delivery (readiness of the M1 slice)
+**To:** The owner (decisions and approvals), then the SDE for M2
 **Date:** 2026-10-11
-**Reports:** `.10x/reviews/2026-10-11-qa-report.md`, `.10x/reviews/2026-10-11-security-review.md`
-**Per-feature files:** `.10x/decisions/qa/tessera-v1.md`, `.10x/decisions/security/tessera-v1.md`
+**Per-feature files:** `.10x/decisions/devops/tessera-v1.md`, `.10x/decisions/sre/tessera-v1.md`, `.10x/adrs/008-forward-only-migrations-and-write-locking.md`
 
 ### Result
 
-The M1 slice is sound. No blocking findings. Two defects were found and fixed (Q-01 missing h1 on the study screen, Q-02 oversized chunked body gave 500). `main` is at `bb53e77` plus the state commit. Every gate is green: 319 unit, 232 integration, 50 browser, 28 smoke, 101 security probe checks (1 known open gap), 54 durability checks, axe clean, 0 production audit findings, import of 5,000 cards in about 1 s.
+A tested delivery package exists. **Nothing has been released, tagged, pushed, or published.** `v0.1.0` stays at the M2 exit, as planned. The sign-off is conditional: the M1 slice is ready for the owner's own use behind loopback or a VPN, with a daily snapshot copied off the host. It is not ready for a public release.
+
+Four reliability bugs were found by running failures against the real server and fixed (ADR-008): two copies on one data folder failed 47 of 60 writes, an older version silently opened a newer database, a damaged database gave no guidance, and a backwards clock step could make a card unanswerable.
+
+### What exists now
+
+| Item | Where |
+|---|---|
+| Deploy guide (access options, settings, data, safety) | `docs/deploy.md` |
+| Operations guide (health, logs, backup, restore, upgrade, rollback, every startup message and its fix) | `docs/operations.md` |
+| Release process and first-release checklist | `docs/releasing.md` |
+| Changelog (the `[Unreleased]` section describes the M1 slice) | `CHANGELOG.md` |
+| Vulnerability reporting policy | `SECURITY.md` |
+| Tag-driven release workflow (runs CI first, multi-arch, provenance and SBOM, release notes from the changelog) | `.github/workflows/release.yml` |
+| Script that runs the operations guide's backup command as written and checks every documented message | `npm run ops:check` |
+| Capacity and soak numbers | `docs/performance.md` |
+
+### Tools
+
+`npm run verify`, `npm run build` then `test:e2e`, `smoke`, `security:probe`, `durability`, `ops:check`, `benchmark`. CI runs all of them. The soak and process experiments used for the SRE numbers were scratch scripts and are not in the repo.
 
 ### What to do next, in order
 
-1. **M2-00: host check against DNS rebinding (security S-01).** Medium. With `TESSERA_ALLOWED_HOSTS` unset, accept `localhost`, loopback and other IP literals, and single-label or `.local`, `.lan`, `.home.arpa`, `.internal` names, and answer 421 for other dotted public names. Add the startup warning ADR-005 promises. Flip the probe check "foreign Host header" from `known(...)` to `check(...)`. Tests: unit for the matcher, probe for the real server, a note in the README.
-2. **Owner decision S-02 (token vs UI), then amend ADR-005,** then M2-12.
-3. **Normal M2 work** (M2-01 onward). Keep the layers: new routes go in the probe, new UI states go in the axe spec.
-4. **DevOps:** create the GitHub remote (owner decision) and read the first CI run. Linux has never run `security-probe`, `durability-check`, the e2e job, or the Docker jobs. Fix what breaks before anything else.
+1. **Owner:** create the GitHub repository and approve pushing `main`. Read the first CI run end to end. It is the first time the container, Linux, arm64, the browser job, and the new scripts run. Fix what it shows before any other work. Then rehearse the release workflow with **Run workflow**.
+2. **M2-00 (SDE):** the host check against DNS rebinding (security S-01), with a safe default. Flip the probe check from KNOWN to PASS.
+3. **Owner decision S-02:** how the API token works with the web UI. Then amend ADR-005 and do M2-12.
+4. Continue M2 from M2-01.
+5. **At the M2 exit:** repeat QA and security review, add the image scan, run disk-full and a 12 to 24 hour soak on the homelab (SRE gaps G3, G4), bump the version, move the changelog, tag `v0.1.0`.
 
-### Test tooling now available
+### Residual risks
 
-| Command | What it checks | Needs |
-|---|---|---|
-| `npm run verify` | Types, lint, format, schema drift, unit and integration tests | nothing |
-| `npm run build` then `npm run test:e2e` | 50 Chrome tests, including axe, failure paths, hostile layout | Chrome (or `npx playwright install chromium`) |
-| `npm run smoke` | 28 checks on the built server | a build |
-| `npm run security:probe` | 101 adversarial checks on the built server | a build |
-| `npm run durability` | restarts, SIGKILL during import and after a grade, parallel writes, SQLite integrity | a build |
-| `npm run benchmark` | 5,000 card import and study timings against a 10 s budget | a build |
-| `npx vitest run --testTimeout=90000 --coverage.enabled --coverage.provider=v8 --coverage.include="src/lib/**/*.ts"` | coverage (slows the ESLint layer test, hence the timeout) | nothing |
-
-### Residual risks (from the QA report)
-
-Chromium only. No Docker image built. CI never run. No real screen reader pass. No year-long history benchmark. Typed and choice cards are self-graded until M2-03, M2-04, M2-10.
+Docker image never built. CI and the release workflow never run. Linux and arm64 untested. The `docker compose` wrappers in the guides were not executed. Disk-full not triggered. Deep mid-file corruption would not turn `/healthz` red (backups should be integrity-checked; planned with `GET /api/backup`). Chrome only. No real screen reader pass. Nothing alerts on a stale backup.
 
 ### Lessons to keep applying
 
-- Every security or integrity test gets a negative control (break it, watch the test fail). It found two gaps this phase.
-- Test each layer of a two-layer defence alone.
-- The e2e database persists across tests. Each test imports its own deck.
-- The app is client-rendered. Wait for the card before pressing keys.
-- Windows has no SIGTERM. Graceful shutdown is checked on Linux in CI.
-- Use `git commit -F file` for messages containing double quotes in PowerShell 5.1.
+- Run the failure before writing the runbook. Four of the five most important findings in this phase (overlap, downgrade, damaged file, clock step) were invisible until triggered.
+- Windows Git-bash mangles backslashes in arguments. Write shell steps without backslash escapes so they behave the same everywhere.
+- PowerShell double-quoted here-strings eat backticks. Write Markdown with the Write tool.
+- A mutation that removes one of two redundant conditions proves nothing. Make the mutation decisive.
+- Do not copy a live SQLite file. Use the snapshot command.
 
 ### Open items that need the owner
 
 1. **Confirm the M1 exit gate** so M2 can begin.
-2. **S-02: how should the API token work?** Recommendation in `.10x/status.md`. Needed before M2-12.
-3. **LICENSE file.** Permission to download the AGPL-3.0 text from gnu.org, and `AGPL-3.0-only` or `-or-later`.
-4. **GitHub remote** (location, visibility). Nothing is pushed without approval. This also unblocks the first CI run.
-5. **Docker Desktop** is optional locally.
+2. **GitHub remote** (location, visibility) and approval to push. Unblocks the first CI run, the container, and the release rehearsal.
+3. **S-02:** how the API token should work. Recommendation in `.10x/status.md`.
+4. **LICENSE file:** permission to download the AGPL-3.0 text from gnu.org, and `AGPL-3.0-only` or `-or-later`.
+5. **Try the guides once on your own host**, or install Docker Desktop here so the compose commands can be run.
+6. Later: enable GitHub private vulnerability reporting (needed by `SECURITY.md`), and choose when the repository goes public.
 
 ## Handoff history
 
+### 2026-10-11: QA Engineer and Security Engineer, Phase 5 interim verification, to SDE, DevOps, and the owner
+
+The M1 slice was sound. Two defects fixed (no h1 on the study screen, oversized chunked body gave 500). 14 of 15 injected bugs caught by the tests; the survivor (CSP loosening) is now covered by the security probe in CI. Two medium security items scheduled: S-01 DNS rebinding as new task M2-00, S-02 token versus UI as an owner decision. Reports in `.10x/reviews/2026-10-11-qa-report.md` and `2026-10-11-security-review.md`.
+
 ### 2026-10-10: SDE, end of Milestone 1, to the next session
 
-All 23 M1 tasks done and verified. Backend, UI ("Tessera Desk" design), 20 browser tests, README and docs, benchmark, and CI steps in place. Decisions recorded: ADR-006 (JSON-only UI), ADR-007 (install scripts off), ADR-003 refinement (learn-ahead is a last resort), fonts as static files, `theme-init.js` for no flash, located JSON syntax errors. Open items then: M1 gate confirmation, API token vs UI tension, LICENSE, GitHub remote, Docker Desktop. Full log in `.10x/decisions/sde/tessera-v1.md`.
+All 23 M1 tasks done and verified. Backend, UI ("Tessera Desk" design), 20 browser tests, README and docs, benchmark, and CI steps in place. Decisions recorded: ADR-006 (JSON-only UI), ADR-007 (install scripts off), ADR-003 refinement (learn-ahead is a last resort), fonts as static files, `theme-init.js` for no flash, located JSON syntax errors.
 
 ### 2026-10-10: SDE, mid-Milestone 1, to the next session
 
