@@ -104,6 +104,26 @@ describe('CI workflow', () => {
 		expect(commands).toContain('"ccna-ospf"');
 	});
 
+	it('scans the built image for known vulnerabilities and fails on fixable serious ones', () => {
+		const docker = workflow.jobs['docker']!;
+		const names = docker.steps.map((s) => s.name ?? '');
+		const scan = docker.steps.find((s) => s.uses?.startsWith('aquasecurity/trivy-action@'));
+		expect(scan, 'a scan step').toBeDefined();
+		const options = (scan as unknown as { with: Record<string, unknown>; if?: string }).with;
+		// It scans the image that was just built, before that image is started or trusted.
+		expect(options['image-ref']).toBe('tessera:ci');
+		expect(options['exit-code']).toBe('1');
+		expect(options['ignore-unfixed']).toBe(true);
+		expect(options['severity']).toBe('CRITICAL,HIGH');
+		expect(options['vuln-type']).toBe('os,library');
+		expect(names.indexOf(scan!.name!)).toBeGreaterThan(names.indexOf('Build the image'));
+		expect(names.indexOf(scan!.name!)).toBeLessThan(
+			names.findIndex((n) => n.startsWith('Start the container'))
+		);
+		// One architecture is enough, and the release workflow gets it through the CI workflow it calls.
+		expect((scan as unknown as { if?: string }).if).toBe("matrix.platform == 'linux/amd64'");
+	});
+
 	it('publishes nothing and never logs in to a registry', () => {
 		expect(text).not.toMatch(/docker\/login-action|--push|push: true|packages: write/);
 	});

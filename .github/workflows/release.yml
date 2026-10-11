@@ -49,6 +49,20 @@ jobs:
             exit 1
           fi
 
+      # The files attached to the release next to the image: the deck schema, the Claude skill as a zip, and their
+      # checksums. Built on a rehearsal too, so the step is exercised before a real tag, and checked two ways: against
+      # the checksums, and by a zip program that is not ours reading the skill back.
+      - name: Package the release assets
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          node scripts/package-release-assets.ts --out release-assets --version "${VERSION}"
+          cd release-assets
+          sha256sum -c SHA256SUMS
+          unzip -t "tessera-deck-skill-${VERSION}.zip"
+          unzip -Z1 "tessera-deck-skill-${VERSION}.zip" | grep -qx 'tessera-deck/SKILL.md'
+          ls -l
+
       - name: Set up QEMU for arm64
         uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -105,4 +119,8 @@ jobs:
           grep -q '[^[:space:]]' notes.md || { echo "::error::The changelog section for ${VERSION} is empty."; exit 1; }
           flags=""
           case "${VERSION}" in *-*) flags="--prerelease" ;; esac
-          gh release create "${GITHUB_REF_NAME}" --title "Tessera ${VERSION}" --notes-file notes.md --verify-tag ${flags}
+          # The release carries the schema, the skill zip, and the checksums, so each can be verified after download.
+          gh release create "${GITHUB_REF_NAME}" --title "Tessera ${VERSION}" --notes-file notes.md --verify-tag ${flags} \
+            release-assets/tessera-deck.v1.schema.json \
+            "release-assets/tessera-deck-skill-${VERSION}.zip" \
+            release-assets/SHA256SUMS

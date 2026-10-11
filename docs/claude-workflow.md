@@ -11,7 +11,7 @@ Tessera is built so that Claude can write a deck and you can import it without e
 
 ## Set Claude up once
 
-**With the skill.** This repository contains a Claude skill, [`claude-skill/tessera-deck/SKILL.md`](../claude-skill/tessera-deck/SKILL.md). It teaches Claude the format and how to write good cards. Install it the way your Claude app installs skills, by adding the `tessera-deck` folder. (For Claude Code, that is the `skills` folder in your Claude configuration directory, or `.claude/skills` in a project.)
+**With the skill.** This repository contains a Claude skill, [`claude-skill/tessera-deck/SKILL.md`](../claude-skill/tessera-deck/SKILL.md). It teaches Claude the format and how to write good cards. Each release also attaches it as a zip (`tessera-deck-skill-<version>.zip`), which is the form to upload where a Claude app asks for a skill file. Install it the way your Claude app installs skills, by adding the `tessera-deck` folder. (For Claude Code, that is the `skills` folder in your Claude configuration directory, or `.claude/skills` in a project.)
 
 **Without the skill.** Paste the contents of `SKILL.md` into the chat, or into a project's instructions, before you ask. Claude then has everything the skill has.
 
