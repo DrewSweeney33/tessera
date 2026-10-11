@@ -41,7 +41,7 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 - [x] M1-06 Repositories (M)
 - [x] M1-07 Normalize, hash, planImport (M)
 - [x] M1-08 commitImport, rollback and idempotence tests (M)
-- [ ] M1-09 Scheduler wrapper, conformance fixtures (M)
+- [x] M1-09 Scheduler wrapper, conformance fixtures (M)
 - [ ] M1-10 Study-day helper with DST tests (S)
 - [ ] M1-11 Queue nextItem (M)
 - [ ] M1-12 submitReview (M)

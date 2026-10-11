@@ -1,0 +1,1787 @@
+{
+  "generatedWith": "ts-fsrs@5.4.2",
+  "scenarios": [
+    {
+      "name": "new-card-all-good",
+      "description": "A new card answered Good every time, reviewed exactly when due.",
+      "config": {
+        "targetRetention": 0.9,
+        "learningSteps": [
+          "1m",
+          "10m"
+        ],
+        "relearningSteps": [
+          "10m"
+        ],
+        "maximumIntervalDays": 36500
+      },
+      "start": "2026-10-10T12:00:00.000Z",
+      "steps": [
+        {
+          "reviewAt": "2026-10-10T12:00:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0,
+          "after": {
+            "due": "2026-10-10T12:10:00.000Z",
+            "stability": 2.3065,
+            "difficulty": 2.11810397,
+            "elapsedDays": 0,
+            "scheduledDays": 0,
+            "learningSteps": 1,
+            "reps": 1,
+            "lapses": 0,
+            "phase": 1,
+            "lastReview": "2026-10-10T12:00:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-10T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 1,
+          "after": {
+            "due": "2026-10-12T12:10:00.000Z",
+            "stability": 2.3065,
+            "difficulty": 2.11121424,
+            "elapsedDays": 0,
+            "scheduledDays": 2,
+            "learningSteps": 0,
+            "reps": 2,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-10T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-12T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.90949326,
+          "after": {
+            "due": "2026-10-23T12:10:00.000Z",
+            "stability": 10.97104786,
+            "difficulty": 2.1043314,
+            "elapsedDays": 2,
+            "scheduledDays": 11,
+            "learningSteps": 0,
+            "reps": 3,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-12T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-23T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.89981884,
+          "after": {
+            "due": "2026-12-08T12:10:00.000Z",
+            "stability": 46.31685657,
+            "difficulty": 2.09745544,
+            "elapsedDays": 11,
+            "scheduledDays": 46,
+            "learningSteps": 0,
+            "reps": 4,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-23T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-12-08T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.90047091,
+          "after": {
+            "due": "2027-05-20T12:10:00.000Z",
+            "stability": 162.99981459,
+            "difficulty": 2.09058635,
+            "elapsedDays": 46,
+            "scheduledDays": 163,
+            "learningSteps": 0,
+            "reps": 5,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-12-08T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2027-05-20T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.89999992,
+          "after": {
+            "due": "2028-09-29T12:10:00.000Z",
+            "stability": 497.87655983,
+            "difficulty": 2.08372413,
+            "elapsedDays": 163,
+            "scheduledDays": 498,
+            "learningSteps": 0,
+            "reps": 6,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2027-05-20T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2028-09-29T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.89998297,
+          "after": {
+            "due": "2032-06-08T12:10:00.000Z",
+            "stability": 1347.91860929,
+            "difficulty": 2.07686878,
+            "elapsedDays": 498,
+            "scheduledDays": 1348,
+            "learningSteps": 0,
+            "reps": 7,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2028-09-29T12:10:00.000Z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "new-card-easy",
+      "description": "Easy on a new card skips the learning steps.",
+      "config": {
+        "targetRetention": 0.9,
+        "learningSteps": [
+          "1m",
+          "10m"
+        ],
+        "relearningSteps": [
+          "10m"
+        ],
+        "maximumIntervalDays": 36500
+      },
+      "start": "2026-10-10T12:00:00.000Z",
+      "steps": [
+        {
+          "reviewAt": "2026-10-10T12:00:00.000Z",
+          "grade": 4,
+          "retrievabilityBefore": 0,
+          "after": {
+            "due": "2026-10-18T12:00:00.000Z",
+            "stability": 8.2956,
+            "difficulty": 1,
+            "elapsedDays": 0,
+            "scheduledDays": 8,
+            "learningSteps": 0,
+            "reps": 1,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-10T12:00:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-18T12:00:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.9024733,
+          "after": {
+            "due": "2026-11-26T12:00:00.000Z",
+            "stability": 38.90515015,
+            "difficulty": 1,
+            "elapsedDays": 8,
+            "scheduledDays": 39,
+            "learningSteps": 0,
+            "reps": 2,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-18T12:00:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-11-26T12:00:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.89983262,
+          "after": {
+            "due": "2027-04-28T12:00:00.000Z",
+            "stability": 153.00007099,
+            "difficulty": 1,
+            "elapsedDays": 39,
+            "scheduledDays": 153,
+            "learningSteps": 0,
+            "reps": 3,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-11-26T12:00:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2027-04-28T12:00:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.90000003,
+          "after": {
+            "due": "2028-09-19T12:00:00.000Z",
+            "stability": 509.55023336,
+            "difficulty": 1,
+            "elapsedDays": 153,
+            "scheduledDays": 510,
+            "learningSteps": 0,
+            "reps": 4,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2027-04-28T12:00:00.000Z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "new-card-again-then-good",
+      "description": "Repeated Again keeps a new card in learning.",
+      "config": {
+        "targetRetention": 0.9,
+        "learningSteps": [
+          "1m",
+          "10m"
+        ],
+        "relearningSteps": [
+          "10m"
+        ],
+        "maximumIntervalDays": 36500
+      },
+      "start": "2026-10-10T12:00:00.000Z",
+      "steps": [
+        {
+          "reviewAt": "2026-10-10T12:00:00.000Z",
+          "grade": 1,
+          "retrievabilityBefore": 0,
+          "after": {
+            "due": "2026-10-10T12:01:00.000Z",
+            "stability": 0.212,
+            "difficulty": 6.4133,
+            "elapsedDays": 0,
+            "scheduledDays": 0,
+            "learningSteps": 0,
+            "reps": 1,
+            "lapses": 0,
+            "phase": 1,
+            "lastReview": "2026-10-10T12:00:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-10T12:01:00.000Z",
+          "grade": 1,
+          "retrievabilityBefore": 1,
+          "after": {
+            "due": "2026-10-10T12:02:00.000Z",
+            "stability": 0.08335672,
+            "difficulty": 8.80630447,
+            "elapsedDays": 0,
+            "scheduledDays": 0,
+            "learningSteps": 0,
+            "reps": 2,
+            "lapses": 0,
+            "phase": 1,
+            "lastReview": "2026-10-10T12:01:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-10T12:02:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 1,
+          "after": {
+            "due": "2026-10-10T12:12:00.000Z",
+            "stability": 0.10314065,
+            "difficulty": 8.79272653,
+            "elapsedDays": 0,
+            "scheduledDays": 0,
+            "learningSteps": 1,
+            "reps": 3,
+            "lapses": 0,
+            "phase": 1,
+            "lastReview": "2026-10-10T12:02:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-10T12:12:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 1,
+          "after": {
+            "due": "2026-10-11T12:12:00.000Z",
+            "stability": 0.12584424,
+            "difficulty": 8.77916217,
+            "elapsedDays": 0,
+            "scheduledDays": 1,
+            "learningSteps": 0,
+            "reps": 4,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-10T12:12:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-11T12:12:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.71521352,
+          "after": {
+            "due": "2026-10-13T12:12:00.000Z",
+            "stability": 0.77896147,
+            "difficulty": 8.76561138,
+            "elapsedDays": 1,
+            "scheduledDays": 2,
+            "learningSteps": 0,
+            "reps": 5,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-11T12:12:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-13T12:12:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.82371898,
+          "after": {
+            "due": "2026-10-16T12:12:00.000Z",
+            "stability": 2.5563368,
+            "difficulty": 8.75207414,
+            "elapsedDays": 2,
+            "scheduledDays": 3,
+            "learningSteps": 0,
+            "reps": 6,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-13T12:12:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-16T12:12:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.88863361,
+          "after": {
+            "due": "2026-10-22T12:12:00.000Z",
+            "stability": 5.51868434,
+            "difficulty": 8.73855044,
+            "elapsedDays": 3,
+            "scheduledDays": 6,
+            "learningSteps": 0,
+            "reps": 7,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-16T12:12:00.000Z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "hard-path",
+      "description": "Hard answers stretch the learning steps and lower the growth of intervals.",
+      "config": {
+        "targetRetention": 0.9,
+        "learningSteps": [
+          "1m",
+          "10m"
+        ],
+        "relearningSteps": [
+          "10m"
+        ],
+        "maximumIntervalDays": 36500
+      },
+      "start": "2026-10-10T12:00:00.000Z",
+      "steps": [
+        {
+          "reviewAt": "2026-10-10T12:00:00.000Z",
+          "grade": 2,
+          "retrievabilityBefore": 0,
+          "after": {
+            "due": "2026-10-10T12:06:00.000Z",
+            "stability": 1.2931,
+            "difficulty": 5.11217071,
+            "elapsedDays": 0,
+            "scheduledDays": 0,
+            "learningSteps": 0,
+            "reps": 1,
+            "lapses": 0,
+            "phase": 1,
+            "lastReview": "2026-10-10T12:00:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-10T12:06:00.000Z",
+          "grade": 2,
+          "retrievabilityBefore": 1,
+          "after": {
+            "due": "2026-10-10T12:12:00.000Z",
+            "stability": 1.2931,
+            "difficulty": 6.74045952,
+            "elapsedDays": 0,
+            "scheduledDays": 0,
+            "learningSteps": 0,
+            "reps": 2,
+            "lapses": 0,
+            "phase": 1,
+            "lastReview": "2026-10-10T12:06:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-10T12:12:00.000Z",
+          "grade": 2,
+          "retrievabilityBefore": 1,
+          "after": {
+            "due": "2026-10-10T12:18:00.000Z",
+            "stability": 1.2931,
+            "difficulty": 7.8213935,
+            "elapsedDays": 0,
+            "scheduledDays": 0,
+            "learningSteps": 0,
+            "reps": 3,
+            "lapses": 0,
+            "phase": 1,
+            "lastReview": "2026-10-10T12:12:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-10T12:18:00.000Z",
+          "grade": 2,
+          "retrievabilityBefore": 1,
+          "after": {
+            "due": "2026-10-10T12:24:00.000Z",
+            "stability": 1.2931,
+            "difficulty": 8.53896785,
+            "elapsedDays": 0,
+            "scheduledDays": 0,
+            "learningSteps": 0,
+            "reps": 4,
+            "lapses": 0,
+            "phase": 1,
+            "lastReview": "2026-10-10T12:18:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-10T12:24:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 1,
+          "after": {
+            "due": "2026-10-10T12:34:00.000Z",
+            "stability": 1.33589976,
+            "difficulty": 8.52565725,
+            "elapsedDays": 0,
+            "scheduledDays": 0,
+            "learningSteps": 1,
+            "reps": 5,
+            "lapses": 0,
+            "phase": 1,
+            "lastReview": "2026-10-10T12:24:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-10T12:34:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 1,
+          "after": {
+            "due": "2026-10-11T12:34:00.000Z",
+            "stability": 1.37716224,
+            "difficulty": 8.51235996,
+            "elapsedDays": 0,
+            "scheduledDays": 1,
+            "learningSteps": 0,
+            "reps": 6,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-10T12:34:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-11T12:34:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.92044788,
+          "after": {
+            "due": "2026-10-14T12:34:00.000Z",
+            "stability": 2.75783819,
+            "difficulty": 8.49907597,
+            "elapsedDays": 1,
+            "scheduledDays": 3,
+            "learningSteps": 0,
+            "reps": 7,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-11T12:34:00.000Z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "lapse-and-recover",
+      "description": "A mature card is forgotten, relearned, and graduates again.",
+      "config": {
+        "targetRetention": 0.9,
+        "learningSteps": [
+          "1m",
+          "10m"
+        ],
+        "relearningSteps": [
+          "10m"
+        ],
+        "maximumIntervalDays": 36500
+      },
+      "start": "2026-10-10T12:00:00.000Z",
+      "steps": [
+        {
+          "reviewAt": "2026-10-10T12:00:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0,
+          "after": {
+            "due": "2026-10-10T12:10:00.000Z",
+            "stability": 2.3065,
+            "difficulty": 2.11810397,
+            "elapsedDays": 0,
+            "scheduledDays": 0,
+            "learningSteps": 1,
+            "reps": 1,
+            "lapses": 0,
+            "phase": 1,
+            "lastReview": "2026-10-10T12:00:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-10T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 1,
+          "after": {
+            "due": "2026-10-12T12:10:00.000Z",
+            "stability": 2.3065,
+            "difficulty": 2.11121424,
+            "elapsedDays": 0,
+            "scheduledDays": 2,
+            "learningSteps": 0,
+            "reps": 2,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-10T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-12T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.90949326,
+          "after": {
+            "due": "2026-10-23T12:10:00.000Z",
+            "stability": 10.97104786,
+            "difficulty": 2.1043314,
+            "elapsedDays": 2,
+            "scheduledDays": 11,
+            "learningSteps": 0,
+            "reps": 3,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-12T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-23T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.89981884,
+          "after": {
+            "due": "2026-12-08T12:10:00.000Z",
+            "stability": 46.31685657,
+            "difficulty": 2.09745544,
+            "elapsedDays": 11,
+            "scheduledDays": 46,
+            "learningSteps": 0,
+            "reps": 4,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-23T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-12-08T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.90047091,
+          "after": {
+            "due": "2027-05-20T12:10:00.000Z",
+            "stability": 162.99981459,
+            "difficulty": 2.09058635,
+            "elapsedDays": 46,
+            "scheduledDays": 163,
+            "learningSteps": 0,
+            "reps": 5,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-12-08T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2027-05-20T12:10:00.000Z",
+          "grade": 1,
+          "retrievabilityBefore": 0.89999992,
+          "after": {
+            "due": "2027-05-20T12:20:00.000Z",
+            "stability": 4.71795275,
+            "difficulty": 7.38545788,
+            "elapsedDays": 163,
+            "scheduledDays": 0,
+            "learningSteps": 0,
+            "reps": 6,
+            "lapses": 1,
+            "phase": 3,
+            "lastReview": "2027-05-20T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2027-05-20T12:20:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 1,
+          "after": {
+            "due": "2027-05-25T12:20:00.000Z",
+            "stability": 4.71795275,
+            "difficulty": 7.37330079,
+            "elapsedDays": 0,
+            "scheduledDays": 5,
+            "learningSteps": 0,
+            "reps": 7,
+            "lapses": 1,
+            "phase": 2,
+            "lastReview": "2027-05-20T12:20:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2027-05-25T12:20:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.8959616,
+          "after": {
+            "due": "2027-06-06T12:20:00.000Z",
+            "stability": 12.1364799,
+            "difficulty": 7.36115586,
+            "elapsedDays": 5,
+            "scheduledDays": 12,
+            "learningSteps": 0,
+            "reps": 8,
+            "lapses": 1,
+            "phase": 2,
+            "lastReview": "2027-05-25T12:20:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2027-06-06T12:20:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.90077507,
+          "after": {
+            "due": "2027-07-04T12:20:00.000Z",
+            "stability": 27.70796996,
+            "difficulty": 7.34902307,
+            "elapsedDays": 12,
+            "scheduledDays": 28,
+            "learningSteps": 0,
+            "reps": 9,
+            "lapses": 1,
+            "phase": 2,
+            "lastReview": "2027-06-06T12:20:00.000Z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "late-reviews",
+      "description": "Reviews that happen long after the due date.",
+      "config": {
+        "targetRetention": 0.9,
+        "learningSteps": [
+          "1m",
+          "10m"
+        ],
+        "relearningSteps": [
+          "10m"
+        ],
+        "maximumIntervalDays": 36500
+      },
+      "start": "2026-10-10T12:00:00.000Z",
+      "steps": [
+        {
+          "reviewAt": "2026-10-10T12:00:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0,
+          "after": {
+            "due": "2026-10-10T12:10:00.000Z",
+            "stability": 2.3065,
+            "difficulty": 2.11810397,
+            "elapsedDays": 0,
+            "scheduledDays": 0,
+            "learningSteps": 1,
+            "reps": 1,
+            "lapses": 0,
+            "phase": 1,
+            "lastReview": "2026-10-10T12:00:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-10T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 1,
+          "after": {
+            "due": "2026-10-12T12:10:00.000Z",
+            "stability": 2.3065,
+            "difficulty": 2.11121424,
+            "elapsedDays": 0,
+            "scheduledDays": 2,
+            "learningSteps": 0,
+            "reps": 2,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-10T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-12T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.90949326,
+          "after": {
+            "due": "2026-10-23T12:10:00.000Z",
+            "stability": 10.97104786,
+            "difficulty": 2.1043314,
+            "elapsedDays": 2,
+            "scheduledDays": 11,
+            "learningSteps": 0,
+            "reps": 3,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-12T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-11-02T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.84965553,
+          "after": {
+            "due": "2027-01-06T12:10:00.000Z",
+            "stability": 65.10304868,
+            "difficulty": 2.09745544,
+            "elapsedDays": 21,
+            "scheduledDays": 65,
+            "learningSteps": 0,
+            "reps": 4,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-11-02T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2027-02-05T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.87201602,
+          "after": {
+            "due": "2027-10-30T12:10:00.000Z",
+            "stability": 266.67682365,
+            "difficulty": 2.09058635,
+            "elapsedDays": 95,
+            "scheduledDays": 267,
+            "learningSteps": 0,
+            "reps": 5,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2027-02-05T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2027-11-04T12:10:00.000Z",
+          "grade": 2,
+          "retrievabilityBefore": 0.89863641,
+          "after": {
+            "due": "2029-06-01T12:10:00.000Z",
+            "stability": 574.53328173,
+            "difficulty": 4.73459101,
+            "elapsedDays": 272,
+            "scheduledDays": 575,
+            "learningSteps": 0,
+            "reps": 6,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2027-11-04T12:10:00.000Z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "early-review",
+      "description": "Reviews that happen before the due date.",
+      "config": {
+        "targetRetention": 0.9,
+        "learningSteps": [
+          "1m",
+          "10m"
+        ],
+        "relearningSteps": [
+          "10m"
+        ],
+        "maximumIntervalDays": 36500
+      },
+      "start": "2026-10-10T12:00:00.000Z",
+      "steps": [
+        {
+          "reviewAt": "2026-10-10T12:00:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0,
+          "after": {
+            "due": "2026-10-10T12:10:00.000Z",
+            "stability": 2.3065,
+            "difficulty": 2.11810397,
+            "elapsedDays": 0,
+            "scheduledDays": 0,
+            "learningSteps": 1,
+            "reps": 1,
+            "lapses": 0,
+            "phase": 1,
+            "lastReview": "2026-10-10T12:00:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-10T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 1,
+          "after": {
+            "due": "2026-10-12T12:10:00.000Z",
+            "stability": 2.3065,
+            "difficulty": 2.11121424,
+            "elapsedDays": 0,
+            "scheduledDays": 2,
+            "learningSteps": 0,
+            "reps": 2,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-10T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-12T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.90949326,
+          "after": {
+            "due": "2026-10-23T12:10:00.000Z",
+            "stability": 10.97104786,
+            "difficulty": 2.1043314,
+            "elapsedDays": 2,
+            "scheduledDays": 11,
+            "learningSteps": 0,
+            "reps": 3,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-12T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-23T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.89981884,
+          "after": {
+            "due": "2026-12-08T12:10:00.000Z",
+            "stability": 46.31685657,
+            "difficulty": 2.09745544,
+            "elapsedDays": 11,
+            "scheduledDays": 46,
+            "learningSteps": 0,
+            "reps": 4,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-23T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-12-06T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.90348657,
+          "after": {
+            "due": "2027-05-14T12:10:00.000Z",
+            "stability": 159.32691908,
+            "difficulty": 2.09058635,
+            "elapsedDays": 44,
+            "scheduledDays": 159,
+            "learningSteps": 0,
+            "reps": 5,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-12-06T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2027-05-13T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.90057353,
+          "after": {
+            "due": "2028-09-10T12:10:00.000Z",
+            "stability": 485.9427646,
+            "difficulty": 2.08372413,
+            "elapsedDays": 158,
+            "scheduledDays": 486,
+            "learningSteps": 0,
+            "reps": 6,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2027-05-13T12:10:00.000Z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "retention-95",
+      "description": "A higher target retention gives shorter intervals.",
+      "config": {
+        "targetRetention": 0.95,
+        "learningSteps": [
+          "1m",
+          "10m"
+        ],
+        "relearningSteps": [
+          "10m"
+        ],
+        "maximumIntervalDays": 36500
+      },
+      "start": "2026-10-10T12:00:00.000Z",
+      "steps": [
+        {
+          "reviewAt": "2026-10-10T12:00:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0,
+          "after": {
+            "due": "2026-10-10T12:10:00.000Z",
+            "stability": 2.3065,
+            "difficulty": 2.11810397,
+            "elapsedDays": 0,
+            "scheduledDays": 0,
+            "learningSteps": 1,
+            "reps": 1,
+            "lapses": 0,
+            "phase": 1,
+            "lastReview": "2026-10-10T12:00:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-10T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 1,
+          "after": {
+            "due": "2026-10-11T12:10:00.000Z",
+            "stability": 2.3065,
+            "difficulty": 2.11121424,
+            "elapsedDays": 0,
+            "scheduledDays": 1,
+            "learningSteps": 0,
+            "reps": 2,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-10T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-11T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.9468475,
+          "after": {
+            "due": "2026-10-14T12:10:00.000Z",
+            "stability": 7.31918604,
+            "difficulty": 2.1043314,
+            "elapsedDays": 1,
+            "scheduledDays": 3,
+            "learningSteps": 0,
+            "reps": 3,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-11T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-14T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.94924817,
+          "after": {
+            "due": "2026-10-22T12:10:00.000Z",
+            "stability": 19.8469837,
+            "difficulty": 2.09745544,
+            "elapsedDays": 3,
+            "scheduledDays": 8,
+            "learningSteps": 0,
+            "reps": 4,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-14T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-22T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.94994593,
+          "after": {
+            "due": "2026-11-10T12:10:00.000Z",
+            "stability": 48.23479362,
+            "difficulty": 2.09058635,
+            "elapsedDays": 8,
+            "scheduledDays": 19,
+            "learningSteps": 0,
+            "reps": 5,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-22T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-11-10T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.95089408,
+          "after": {
+            "due": "2026-12-23T12:10:00.000Z",
+            "stability": 106.63445335,
+            "difficulty": 2.08372413,
+            "elapsedDays": 19,
+            "scheduledDays": 43,
+            "learningSteps": 0,
+            "reps": 6,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-11-10T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-12-23T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.94992917,
+          "after": {
+            "due": "2027-03-22T12:10:00.000Z",
+            "stability": 222.11285076,
+            "difficulty": 2.07686878,
+            "elapsedDays": 43,
+            "scheduledDays": 89,
+            "learningSteps": 0,
+            "reps": 7,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-12-23T12:10:00.000Z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "retention-80",
+      "description": "A lower target retention gives longer intervals.",
+      "config": {
+        "targetRetention": 0.8,
+        "learningSteps": [
+          "1m",
+          "10m"
+        ],
+        "relearningSteps": [
+          "10m"
+        ],
+        "maximumIntervalDays": 36500
+      },
+      "start": "2026-10-10T12:00:00.000Z",
+      "steps": [
+        {
+          "reviewAt": "2026-10-10T12:00:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0,
+          "after": {
+            "due": "2026-10-10T12:10:00.000Z",
+            "stability": 2.3065,
+            "difficulty": 2.11810397,
+            "elapsedDays": 0,
+            "scheduledDays": 0,
+            "learningSteps": 1,
+            "reps": 1,
+            "lapses": 0,
+            "phase": 1,
+            "lastReview": "2026-10-10T12:00:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-10T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 1,
+          "after": {
+            "due": "2026-10-18T12:10:00.000Z",
+            "stability": 2.3065,
+            "difficulty": 2.11121424,
+            "elapsedDays": 0,
+            "scheduledDays": 8,
+            "learningSteps": 0,
+            "reps": 2,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-10T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-18T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.79574728,
+          "after": {
+            "due": "2027-01-02T12:10:00.000Z",
+            "stability": 22.78405258,
+            "difficulty": 2.1043314,
+            "elapsedDays": 8,
+            "scheduledDays": 76,
+            "learningSteps": 0,
+            "reps": 3,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-18T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2027-01-02T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.79944081,
+          "after": {
+            "due": "2028-06-10T12:10:00.000Z",
+            "stability": 158.3022468,
+            "difficulty": 2.09745544,
+            "elapsedDays": 76,
+            "scheduledDays": 525,
+            "learningSteps": 0,
+            "reps": 4,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2027-01-02T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2028-06-10T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.79998632,
+          "after": {
+            "due": "2036-01-21T12:10:00.000Z",
+            "stability": 838.53318817,
+            "difficulty": 2.09058635,
+            "elapsedDays": 525,
+            "scheduledDays": 2781,
+            "learningSteps": 0,
+            "reps": 5,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2028-06-10T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2036-01-21T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.79998447,
+          "after": {
+            "due": "2068-06-19T12:10:00.000Z",
+            "stability": 3570.05670947,
+            "difficulty": 2.08372413,
+            "elapsedDays": 2781,
+            "scheduledDays": 11838,
+            "learningSteps": 0,
+            "reps": 6,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2036-01-21T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2068-06-19T12:10:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.80000131,
+          "after": {
+            "due": "2168-05-26T12:10:00.000Z",
+            "stability": 12711.97685966,
+            "difficulty": 2.07686878,
+            "elapsedDays": 11838,
+            "scheduledDays": 36500,
+            "learningSteps": 0,
+            "reps": 7,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2068-06-19T12:10:00.000Z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "custom-steps",
+      "description": "Custom learning and relearning steps including hours and a day.",
+      "config": {
+        "targetRetention": 0.9,
+        "learningSteps": [
+          "5m",
+          "30m",
+          "1d"
+        ],
+        "relearningSteps": [
+          "15m",
+          "1h"
+        ],
+        "maximumIntervalDays": 36500
+      },
+      "start": "2026-10-10T12:00:00.000Z",
+      "steps": [
+        {
+          "reviewAt": "2026-10-10T12:00:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0,
+          "after": {
+            "due": "2026-10-10T12:30:00.000Z",
+            "stability": 2.3065,
+            "difficulty": 2.11810397,
+            "elapsedDays": 0,
+            "scheduledDays": 0,
+            "learningSteps": 1,
+            "reps": 1,
+            "lapses": 0,
+            "phase": 1,
+            "lastReview": "2026-10-10T12:00:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-10T12:30:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 1,
+          "after": {
+            "due": "2026-10-11T12:30:00.000Z",
+            "stability": 2.3065,
+            "difficulty": 2.11121424,
+            "elapsedDays": 0,
+            "scheduledDays": 1,
+            "learningSteps": 2,
+            "reps": 2,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-10T12:30:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-11T12:30:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.9468475,
+          "after": {
+            "due": "2026-10-18T12:30:00.000Z",
+            "stability": 7.31918604,
+            "difficulty": 2.1043314,
+            "elapsedDays": 1,
+            "scheduledDays": 7,
+            "learningSteps": 0,
+            "reps": 3,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-11T12:30:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-18T12:30:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.90303395,
+          "after": {
+            "due": "2026-11-19T12:30:00.000Z",
+            "stability": 31.70341833,
+            "difficulty": 2.09745544,
+            "elapsedDays": 7,
+            "scheduledDays": 32,
+            "learningSteps": 0,
+            "reps": 4,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-18T12:30:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-11-19T12:30:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.89935902,
+          "after": {
+            "due": "2027-03-17T12:30:00.000Z",
+            "stability": 117.76748527,
+            "difficulty": 2.09058635,
+            "elapsedDays": 32,
+            "scheduledDays": 118,
+            "learningSteps": 0,
+            "reps": 5,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-11-19T12:30:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2027-03-17T12:30:00.000Z",
+          "grade": 1,
+          "retrievabilityBefore": 0.89986444,
+          "after": {
+            "due": "2027-03-17T12:45:00.000Z",
+            "stability": 4.19915216,
+            "difficulty": 7.38545788,
+            "elapsedDays": 118,
+            "scheduledDays": 0,
+            "learningSteps": 0,
+            "reps": 6,
+            "lapses": 1,
+            "phase": 3,
+            "lastReview": "2027-03-17T12:30:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2027-03-17T12:45:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 1,
+          "after": {
+            "due": "2027-03-17T13:45:00.000Z",
+            "stability": 4.19915216,
+            "difficulty": 7.37330079,
+            "elapsedDays": 0,
+            "scheduledDays": 0,
+            "learningSteps": 1,
+            "reps": 7,
+            "lapses": 1,
+            "phase": 3,
+            "lastReview": "2027-03-17T12:45:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2027-03-17T13:45:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 1,
+          "after": {
+            "due": "2027-03-21T13:45:00.000Z",
+            "stability": 4.19915216,
+            "difficulty": 7.36115586,
+            "elapsedDays": 0,
+            "scheduledDays": 4,
+            "learningSteps": 0,
+            "reps": 8,
+            "lapses": 1,
+            "phase": 2,
+            "lastReview": "2027-03-17T13:45:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2027-03-21T13:45:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.90330319,
+          "after": {
+            "due": "2027-03-31T13:45:00.000Z",
+            "stability": 10.45864077,
+            "difficulty": 7.34902307,
+            "elapsedDays": 4,
+            "scheduledDays": 10,
+            "learningSteps": 0,
+            "reps": 9,
+            "lapses": 1,
+            "phase": 2,
+            "lastReview": "2027-03-21T13:45:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2027-03-31T13:45:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.90305109,
+          "after": {
+            "due": "2027-04-24T13:45:00.000Z",
+            "stability": 23.93110967,
+            "difficulty": 7.33690242,
+            "elapsedDays": 10,
+            "scheduledDays": 24,
+            "learningSteps": 0,
+            "reps": 10,
+            "lapses": 1,
+            "phase": 2,
+            "lastReview": "2027-03-31T13:45:00.000Z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mixed-grades",
+      "description": "A realistic mix of all four grades.",
+      "config": {
+        "targetRetention": 0.9,
+        "learningSteps": [
+          "1m",
+          "10m"
+        ],
+        "relearningSteps": [
+          "10m"
+        ],
+        "maximumIntervalDays": 36500
+      },
+      "start": "2026-10-10T12:00:00.000Z",
+      "steps": [
+        {
+          "reviewAt": "2026-10-10T12:00:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0,
+          "after": {
+            "due": "2026-10-10T12:10:00.000Z",
+            "stability": 2.3065,
+            "difficulty": 2.11810397,
+            "elapsedDays": 0,
+            "scheduledDays": 0,
+            "learningSteps": 1,
+            "reps": 1,
+            "lapses": 0,
+            "phase": 1,
+            "lastReview": "2026-10-10T12:00:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-10T12:10:00.000Z",
+          "grade": 2,
+          "retrievabilityBefore": 1,
+          "after": {
+            "due": "2026-10-10T12:16:00.000Z",
+            "stability": 2.3065,
+            "difficulty": 4.75285849,
+            "elapsedDays": 0,
+            "scheduledDays": 0,
+            "learningSteps": 1,
+            "reps": 2,
+            "lapses": 0,
+            "phase": 1,
+            "lastReview": "2026-10-10T12:10:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-10T12:16:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 1,
+          "after": {
+            "due": "2026-10-12T12:16:00.000Z",
+            "stability": 2.3065,
+            "difficulty": 4.743334,
+            "elapsedDays": 0,
+            "scheduledDays": 2,
+            "learningSteps": 0,
+            "reps": 3,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-10T12:16:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-12T12:16:00.000Z",
+          "grade": 4,
+          "retrievabilityBefore": 0.90949326,
+          "after": {
+            "due": "2026-10-26T12:16:00.000Z",
+            "stability": 13.72899634,
+            "difficulty": 2.97202955,
+            "elapsedDays": 2,
+            "scheduledDays": 14,
+            "learningSteps": 0,
+            "reps": 4,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-12T12:16:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-26T12:16:00.000Z",
+          "grade": 1,
+          "retrievabilityBefore": 0.89865146,
+          "after": {
+            "due": "2026-10-26T12:26:00.000Z",
+            "stability": 1.68606235,
+            "difficulty": 7.67518227,
+            "elapsedDays": 14,
+            "scheduledDays": 0,
+            "learningSteps": 0,
+            "reps": 5,
+            "lapses": 1,
+            "phase": 3,
+            "lastReview": "2026-10-26T12:16:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-26T12:26:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 1,
+          "after": {
+            "due": "2026-10-28T12:26:00.000Z",
+            "stability": 1.71171911,
+            "difficulty": 7.66273546,
+            "elapsedDays": 0,
+            "scheduledDays": 2,
+            "learningSteps": 0,
+            "reps": 6,
+            "lapses": 1,
+            "phase": 2,
+            "lastReview": "2026-10-26T12:26:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-28T12:26:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.88895501,
+          "after": {
+            "due": "2026-11-02T12:26:00.000Z",
+            "stability": 4.85054233,
+            "difficulty": 7.65030109,
+            "elapsedDays": 2,
+            "scheduledDays": 5,
+            "learningSteps": 0,
+            "reps": 7,
+            "lapses": 1,
+            "phase": 2,
+            "lastReview": "2026-10-28T12:26:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-11-02T12:26:00.000Z",
+          "grade": 4,
+          "retrievabilityBefore": 0.89790157,
+          "after": {
+            "due": "2026-11-20T12:26:00.000Z",
+            "stability": 17.72839352,
+            "difficulty": 6.85036958,
+            "elapsedDays": 5,
+            "scheduledDays": 18,
+            "learningSteps": 0,
+            "reps": 8,
+            "lapses": 1,
+            "phase": 2,
+            "lastReview": "2026-11-02T12:26:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-11-20T12:26:00.000Z",
+          "grade": 2,
+          "retrievabilityBefore": 0.89895205,
+          "after": {
+            "due": "2026-12-23T12:26:00.000Z",
+            "stability": 32.65371637,
+            "difficulty": 7.89435692,
+            "elapsedDays": 18,
+            "scheduledDays": 33,
+            "learningSteps": 0,
+            "reps": 9,
+            "lapses": 1,
+            "phase": 2,
+            "lastReview": "2026-11-20T12:26:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-12-23T12:26:00.000Z",
+          "grade": 3,
+          "retrievabilityBefore": 0.89927364,
+          "after": {
+            "due": "2027-02-24T12:26:00.000Z",
+            "stability": 63.45239716,
+            "difficulty": 7.88169093,
+            "elapsedDays": 33,
+            "scheduledDays": 63,
+            "learningSteps": 0,
+            "reps": 10,
+            "lapses": 1,
+            "phase": 2,
+            "lastReview": "2026-12-23T12:26:00.000Z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "maximum-interval-cap",
+      "description": "Intervals never exceed the configured maximum.",
+      "config": {
+        "targetRetention": 0.9,
+        "learningSteps": [
+          "1m",
+          "10m"
+        ],
+        "relearningSteps": [
+          "10m"
+        ],
+        "maximumIntervalDays": 90
+      },
+      "start": "2026-10-10T12:00:00.000Z",
+      "steps": [
+        {
+          "reviewAt": "2026-10-10T12:00:00.000Z",
+          "grade": 4,
+          "retrievabilityBefore": 0,
+          "after": {
+            "due": "2026-10-18T12:00:00.000Z",
+            "stability": 8.2956,
+            "difficulty": 1,
+            "elapsedDays": 0,
+            "scheduledDays": 8,
+            "learningSteps": 0,
+            "reps": 1,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-10T12:00:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-10-18T12:00:00.000Z",
+          "grade": 4,
+          "retrievabilityBefore": 0.9024733,
+          "after": {
+            "due": "2026-12-23T12:00:00.000Z",
+            "stability": 65.62422648,
+            "difficulty": 1,
+            "elapsedDays": 8,
+            "scheduledDays": 66,
+            "learningSteps": 0,
+            "reps": 2,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-10-18T12:00:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2026-12-23T12:00:00.000Z",
+          "grade": 4,
+          "retrievabilityBefore": 0.89960725,
+          "after": {
+            "due": "2027-03-25T12:00:00.000Z",
+            "stability": 396.77501923,
+            "difficulty": 1,
+            "elapsedDays": 66,
+            "scheduledDays": 92,
+            "learningSteps": 0,
+            "reps": 3,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2026-12-23T12:00:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2027-03-25T12:00:00.000Z",
+          "grade": 4,
+          "retrievabilityBefore": 0.96890929,
+          "after": {
+            "due": "2027-06-25T12:00:00.000Z",
+            "stability": 843.61945177,
+            "difficulty": 1,
+            "elapsedDays": 92,
+            "scheduledDays": 92,
+            "learningSteps": 0,
+            "reps": 4,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2027-03-25T12:00:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2027-06-25T12:00:00.000Z",
+          "grade": 4,
+          "retrievabilityBefore": 0.98445948,
+          "after": {
+            "due": "2027-09-25T12:00:00.000Z",
+            "stability": 1259.8355105,
+            "difficulty": 1,
+            "elapsedDays": 92,
+            "scheduledDays": 92,
+            "learningSteps": 0,
+            "reps": 5,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2027-06-25T12:00:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2027-09-25T12:00:00.000Z",
+          "grade": 4,
+          "retrievabilityBefore": 0.98939468,
+          "after": {
+            "due": "2027-12-26T12:00:00.000Z",
+            "stability": 1655.8157675,
+            "difficulty": 1,
+            "elapsedDays": 92,
+            "scheduledDays": 92,
+            "learningSteps": 0,
+            "reps": 6,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2027-09-25T12:00:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2027-12-26T12:00:00.000Z",
+          "grade": 4,
+          "retrievabilityBefore": 0.99185489,
+          "after": {
+            "due": "2028-03-27T12:00:00.000Z",
+            "stability": 2037.35920578,
+            "difficulty": 1,
+            "elapsedDays": 92,
+            "scheduledDays": 92,
+            "learningSteps": 0,
+            "reps": 7,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2027-12-26T12:00:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2028-03-27T12:00:00.000Z",
+          "grade": 4,
+          "retrievabilityBefore": 0.99334276,
+          "after": {
+            "due": "2028-06-27T12:00:00.000Z",
+            "stability": 2407.81479367,
+            "difficulty": 1,
+            "elapsedDays": 92,
+            "scheduledDays": 92,
+            "learningSteps": 0,
+            "reps": 8,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2028-03-27T12:00:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2028-06-27T12:00:00.000Z",
+          "grade": 4,
+          "retrievabilityBefore": 0.99434558,
+          "after": {
+            "due": "2028-09-27T12:00:00.000Z",
+            "stability": 2769.32807118,
+            "difficulty": 1,
+            "elapsedDays": 92,
+            "scheduledDays": 92,
+            "learningSteps": 0,
+            "reps": 9,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2028-06-27T12:00:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2028-09-27T12:00:00.000Z",
+          "grade": 4,
+          "retrievabilityBefore": 0.99507023,
+          "after": {
+            "due": "2028-12-28T12:00:00.000Z",
+            "stability": 3123.38056768,
+            "difficulty": 1,
+            "elapsedDays": 92,
+            "scheduledDays": 92,
+            "learningSteps": 0,
+            "reps": 10,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2028-09-27T12:00:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2028-12-28T12:00:00.000Z",
+          "grade": 4,
+          "retrievabilityBefore": 0.99561996,
+          "after": {
+            "due": "2029-03-30T12:00:00.000Z",
+            "stability": 3471.05244642,
+            "difficulty": 1,
+            "elapsedDays": 92,
+            "scheduledDays": 92,
+            "learningSteps": 0,
+            "reps": 11,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2028-12-28T12:00:00.000Z"
+          }
+        },
+        {
+          "reviewAt": "2029-03-30T12:00:00.000Z",
+          "grade": 4,
+          "retrievabilityBefore": 0.99605225,
+          "after": {
+            "due": "2029-06-30T12:00:00.000Z",
+            "stability": 3813.16287784,
+            "difficulty": 1,
+            "elapsedDays": 92,
+            "scheduledDays": 92,
+            "learningSteps": 0,
+            "reps": 12,
+            "lapses": 0,
+            "phase": 2,
+            "lastReview": "2029-03-30T12:00:00.000Z"
+          }
+        }
+      ]
+    }
+  ]
+}
