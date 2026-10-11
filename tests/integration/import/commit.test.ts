@@ -343,6 +343,25 @@ describe('commitImport: cloze numbers over time', () => {
 		expect(getState(handle.db, pk, 2)).toMatchObject({ archived: false, reps: 4, stability: 9 });
 		expect(getState(handle.db, pk, 3)?.archived).toBe(true);
 	});
+
+	it('creates an item for the outer and the inner number of a nested blank', () => {
+		commit(makeDeck([cloze('nest', 'Run {{c1::the {{c2::show}} command}} now.')]));
+		const pk = getCardByKey(handle.db, 'd1', 'nest')!.pk;
+		expect(listStatesForCards(handle.db, [pk]).map((s) => s.ordinal)).toEqual([1, 2]);
+	});
+
+	it('keeps progress when an edit nests an existing blank inside a new one', () => {
+		commit(makeDeck([cloze('a', 'Use {{c1::show ip route}} often.')]));
+		const pk = getCardByKey(handle.db, 'd1', 'a')!.pk;
+		updateState(handle.db, pk, 1, { reps: 6, stability: 12 });
+
+		const result = commit(
+			makeDeck([cloze('a', 'Use {{c2::the {{c1::show ip route}} command}} often.')])
+		);
+		expect(result.counts.updated).toBe(1);
+		expect(getState(handle.db, pk, 1)).toMatchObject({ archived: false, reps: 6, stability: 12 });
+		expect(getState(handle.db, pk, 2)).toMatchObject({ archived: false, reps: 0 });
+	});
 });
 
 describe('commitImport: cards missing from the file', () => {

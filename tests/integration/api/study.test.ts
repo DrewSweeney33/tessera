@@ -303,3 +303,29 @@ describe('a whole session through the API', () => {
 		expect(graduated.next.done).toBe(true);
 	});
 });
+
+describe('nested cloze blanks through the study API', () => {
+	it('serves the outer and the inner number as separate items, and buries the sibling after one', async () => {
+		importDeck([cloze('nest', 'Run {{c1::the {{c2::show}} command}} now.')]);
+
+		const first = await next();
+		expect(first.body.counts).toEqual({ learning: 0, review: 0, new: 2 });
+		expect(first.body.item).toMatchObject({
+			type: 'cloze',
+			ordinal: 1,
+			content: { text: 'Run {{c1::the {{c2::show}} command}} now.' }
+		});
+
+		// Answering the outer blank buries the inner one until the next study day.
+		const saved = await review(answer(first.body.item, 4, { deckId: 'ccna' }));
+		expect(saved.response.status).toBe(200);
+		const after = await next();
+		expect(after.body.done).toBe(true);
+		expect(after.body.counts).toEqual({ learning: 0, review: 0, new: 0 });
+
+		// The next study day it comes back as the inner number.
+		clock.advance(24 * 60 * MIN);
+		const tomorrow = await next();
+		expect(tomorrow.body.item).toMatchObject({ type: 'cloze', ordinal: 2 });
+	});
+});

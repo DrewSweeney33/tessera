@@ -209,6 +209,23 @@ describe('POST /api/import: problems', () => {
 		expect(deckCount()).toBe(0);
 	});
 
+	it('refuses a cloze card with an unclosed blank, says where, and writes nothing', async () => {
+		const { response, body } = await importDeck(
+			deck([
+				{ id: 'good', type: 'cloze', text: 'The {{c1::DR}} wins.' },
+				{ id: 'bad', type: 'cloze', text: 'First line\nThe {{c1::BDR never closed' }
+			])
+		);
+		expect(response.status).toBe(422);
+		expect(body.error.details.errors).toHaveLength(1);
+		expect(body.error.details.errors[0]).toMatchObject({
+			path: 'cards[1].text',
+			code: 'unclosed_cloze'
+		});
+		expect(body.error.details.errors[0].message).toContain('line 2, column 5');
+		expect(deckCount()).toBe(0);
+	});
+
 	it('returns 422 with a located syntax error for broken JSON', async () => {
 		const { response, body } = await importDeck('{\n  "tessera": 1,\n}');
 		expect(response.status).toBe(422);

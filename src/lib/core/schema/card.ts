@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { validateCloze } from '../cloze.ts';
 import {
 	CLOZE_MARKER_PATTERN,
 	ID_MESSAGE,
@@ -61,17 +62,30 @@ export const BasicCardSchema = z.strictObject({
 	...common
 });
 
-export const ClozeCardSchema = z.strictObject({
-	type: z.literal('cloze'),
-	text: text(
-		'text',
-		'Text with one or more {{c1::answer}} markers. Each marker number is reviewed separately.'
-	).regex(CLOZE_MARKER_PATTERN, {
-		message: 'text needs at least one cloze marker such as {{c1::answer}}'
-	}),
-	extra: text('extra', 'Optional extra information shown after the answer.').optional(),
-	...common
-});
+export const ClozeCardSchema = z
+	.strictObject({
+		type: z.literal('cloze'),
+		text: text(
+			'text',
+			'Text with one or more {{c1::answer}} markers. Each marker number is reviewed separately.'
+		).regex(CLOZE_MARKER_PATTERN, {
+			message: 'text needs at least one cloze marker such as {{c1::answer}}'
+		}),
+		extra: text('extra', 'Optional extra information shown after the answer.').optional(),
+		...common
+	})
+	.superRefine((card, ctx) => {
+		// A marker that is never closed, has a bad number, or has no answer would study as nonsense, so the
+		// deck is refused with the position, and Claude can fix it in one round trip.
+		for (const issue of validateCloze(card.text)) {
+			ctx.addIssue({
+				code: 'custom',
+				message: issue.message,
+				path: ['text'],
+				params: { errorCode: issue.code }
+			});
+		}
+	});
 
 export const TypedCardSchema = z.strictObject({
 	type: z.literal('typed'),
