@@ -59,4 +59,4 @@ Then the M1 exit gate: write the milestone summary into `.10x/decisions/*`, upda
 
 ## Environment
 
-Windows 11, Node 24.15.0, no Docker locally, git repo at `C:\Dev\tessera`, branch `main`, about 30 commits.
+Windows 11, Node 24.15.0, no Docker locally, git repo at `C:\Dev\tessera`, branch `main`, 22 commits before this one.
