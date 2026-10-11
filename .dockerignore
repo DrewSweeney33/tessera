@@ -1,0 +1,25 @@
+# Keep the build context small and keep local state and secrets out of the image.
+.git
+.gitattributes
+.gitignore
+.10x
+.vscode
+.svelte-kit
+node_modules
+build
+tests
+scripts
+docs
+test-results
+playwright-report
+data
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+.env
+.env.*
+Dockerfile
+.dockerignore
+compose.yaml
+README.md

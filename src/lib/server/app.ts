@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { checkDataDir } from './boot-check.ts';
 import { getConfig, type Config } from './config.ts';
 import { systemClock, type Clock } from './clock.ts';
 import { openDatabase, type Db, type DatabaseHandle } from './db/index.ts';
@@ -36,6 +37,7 @@ export function createApp(options: CreateAppOptions = {}): AppContext {
 	const config = options.config ?? getConfig();
 	const clock = options.clock ?? systemClock;
 	const log = options.log ?? createLogger({ level: config.logLevel, clock });
+	checkDataDir(config.dataDir);
 	const database = openDatabase({
 		dataDir: config.dataDir,
 		clock,
@@ -67,6 +69,7 @@ export function getApp(): AppContext {
 
 export function closeApp(): void {
 	if (!current) return;
+	current.log.info('shutting down, closing the database');
 	current.database.close();
 	current = undefined;
 }

@@ -1,0 +1,32 @@
+# Tessera has no login. This file publishes the port on loopback only (127.0.0.1) on purpose.
+# To reach it from other machines, put a reverse proxy with authentication in front of it, or
+# change the port mapping below to "3000:3000" ONLY on a network you fully trust. See ADR-005.
+services:
+  tessera:
+    build: .
+    image: tessera:local
+    init: true
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:3000:3000'
+    environment:
+      TZ: UTC
+      # Optional. Protects /api/* (except /healthz and /api/schema) with a bearer token. 24+ characters.
+      # TESSERA_API_TOKEN: change-me-to-a-long-random-value
+      # Optional. Only answer requests whose Host header is listed (defends against DNS rebinding).
+      # TESSERA_ALLOWED_HOSTS: localhost:3000,tessera.lan
+      # Behind a TLS-terminating reverse proxy, uncomment so SvelteKit sees the real protocol and host.
+      # PROTOCOL_HEADER: x-forwarded-proto
+      # HOST_HEADER: x-forwarded-host
+    volumes:
+      - tessera-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  tessera-data:

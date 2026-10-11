@@ -1,6 +1,6 @@
 # ADR-004: Container and Base Image
 
-**Status:** Accepted
+**Status:** Accepted. The "no compiler needed" claim is refined by ADR-007: installs must run with `ignore-scripts=true`.
 **Date:** 2026-10-10
 **Feature:** tessera-v1
 **Author:** 10x-Team (Architect + Staff Engineer)

@@ -169,7 +169,7 @@ Each entry records what was built, deviations from the plan or ADRs, and tech de
 - `server/api/{import,decks,health,schema}.ts` as plain functions over the app context. Thin `+server.ts` files for `GET /healthz`, `GET /api/schema`, `GET /api/decks`, `POST /api/import`.
 - `POST /api/import`: `dry_run` and `archive_missing` flags, `filename`, code fences accepted, 422 with path-level errors, 413 for over 5 MB, 400 for bad flags, 415 for non-JSON (Markdown arrives in M2-08). Dry run returns counts plus every non-unchanged card with changed fields.
 - CSP configured as a `sveltekit({ csp })` option in `vite.config.ts`.
-- Tests: `tests/unit/http` (23), `tests/integration/api` (hooks, handlers). `scripts/smoke.ts` (`npm run smoke`) starts the real production build and runs 25 checks. CI will run the same script against the Docker image.
+- Tests: `tests/unit/http` (23), `tests/integration/api` (hooks, handlers). `scripts/smoke.ts` (`npm run smoke`) starts the real production build and runs 23 checks. CI will run the same script against the Docker image.
 
 **Findings that changed the design (see ADR-006):**
 
@@ -184,3 +184,19 @@ Each entry records what was built, deviations from the plan or ADRs, and tech de
 | Deck metadata on re-import | A revised file that omits `description` or `tags` no longer erases them. Explicit values, including empty ones, update. Found by an API test. `upsertDeck` and the plan now treat omitted fields as unchanged. |
 
 **Tech debt:** request logging does not yet record the API token state or host check (M2-12). `/api/decks` has card counts only. Due and new counts arrive in M1-17.
+
+## M1-20 Container (2026-10-10)
+
+**Built:** `Dockerfile` (two stages on `node:24-trixie-slim`, non-root `node` user, `/data` volume, Node-based healthcheck, `BODY_SIZE_LIMIT=5M`), `.dockerignore`, `compose.yaml` (loopback port, `init`, read-only root, `cap_drop: ALL`, `no-new-privileges`, named volume, proxy header hints), `server/boot-check.ts` (writability check with an actionable message, called before the database opens), shutdown logging, `tests/unit/deploy/container-policy.test.ts` (13 policy tests), `tests/integration/boot/boot-check.test.ts`. ADR-007 added.
+
+**Docker is not installed on this machine, so the image has not been built.** What was verified instead:
+
+- Policy tests lock the ADR-004 and ADR-005 decisions (base image, non-root, copied files, healthcheck without curl, loopback publish, hardening flags, no committed token).
+- **Runtime-stage simulation:** a folder holding only `build/`, `drizzle/`, `package.json`, `package-lock.json`, and `.npmrc`, with `npm ci --omit=dev`, starts the server and passes the full 23-check smoke test. Production `node_modules` is 45.6 MB (26 top-level packages), the server bundle is 1.6 MB, and dev tools are absent.
+- Not verifiable here: Linux behavior, arm64, `HEALTHCHECK`, signal handling, `read_only` with the real volume, and the image size. CI (M1-21) is where those are proven.
+
+**Finding that overturned an ADR-004 claim (ADR-007):** a clean `npm ci` tries to compile `better-sqlite3` with `node-gyp` because the lockfile does not record `gypfile: false` and the package contains a `binding.gyp`. In the slim image that would fail. Fixed by `ignore-scripts=true` in `.npmrc`. A from-scratch `npm ci` followed by the full `verify` gate now passes.
+
+**Deviations:** none from the plan. Graceful shutdown cannot be exercised on Windows (signals terminate the process). The `sveltekit:shutdown` handler that closes the database and logs is in place, and CI will confirm it with `docker stop` and the container logs.
+
+**Tech debt:** no pruning of `<dataDir>/backups`. `compose.yaml` builds locally and tags `tessera:local`. A GHCR image reference is added in M2-15.

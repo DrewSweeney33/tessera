@@ -52,7 +52,7 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 - [ ] M1-17 Home deck list (S)
 - [ ] M1-18 Study API routes (S)
 - [ ] M1-19 Study UI for basic cards (M)
-- [ ] M1-20 Dockerfile, compose, boot check, shutdown (M)
+- [x] M1-20 Dockerfile, compose, boot check, shutdown (M). Image not built locally (no Docker), runtime stage simulated. ADR-007 added.
 - [ ] M1-21 CI workflow with Docker smoke test (M)
 - [ ] M1-22 e2e happy path and 5,000-card benchmark (M)
 - [ ] M1-23 README quickstart, example deck (S)
