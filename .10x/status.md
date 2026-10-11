@@ -1,7 +1,7 @@
 # Tessera Status
 
 **Last updated:** 2026-10-11
-**Current phase:** Phase 4 Implementation, Milestone 2 in progress (started 2026-10-11). The repository is live on GitHub (public) with CI green on Linux. M2-00 to M2-08 are done. No release exists; `v0.1.0` is the M2 exit.
+**Current phase:** Phase 4 Implementation, Milestone 2 in progress (started 2026-10-11). The repository is live on GitHub (public) with CI green on Linux. M2-00 to M2-10 are done. No release exists; `v0.1.0` is the M2 exit.
 **Feature slug:** `tessera-v1`
 
 ## Phase tracker
@@ -12,7 +12,7 @@
 | 1 Strategy | Complete. Verdict: build, with a checkpoint after M2. |
 | 2 Design | Complete. 7 ADRs accepted (005 to 007 added during implementation). |
 | 3 Planning | Complete. 67 tasks, 5 milestones, about 224 hours (human-equivalent). |
-| 4 Implementation | M1 done (23 of 23 tasks), exit gate accepted by the owner 2026-10-11 ("start Milestone 2"). M2 in progress: M2-00 to M2-08 done (M2-00 to M2-04 pushed; M2-05 to M2-08 committed locally, awaiting the owner's approval to push), M2-09 next. |
+| 4 Implementation | M1 done (23 of 23 tasks), exit gate accepted by the owner 2026-10-11 ("start Milestone 2"). M2 in progress: M2-00 to M2-10 done (M2-00 to M2-08 pushed; M2-09 and M2-10 committed locally, awaiting the owner's approval to push), M2-11 next. |
 | 5 Verification | **Interim pass on the M1 slice done 2026-10-11.** 2 defects fixed, 0 blocking. Repeat at the M2 exit (with a security review) and final at M5 exit. |
 | 6 Delivery | **Delivery package for the M1 slice done 2026-10-11:** deploy, operations, and release docs, tag-driven release workflow, ops check script, four reliability fixes (ADR-008). Conditional sign-off: ready for the owner's own use on loopback or a VPN with backups. Public `v0.1.0` at M2 exit, `v1.0.0` at M5 exit. |
 
@@ -124,8 +124,8 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 - [x] M2-06 Markdown parser fields and inference (M). Done 2026-10-11. Type inferred from labels (Cloze, Q+Choices, Q+Answer, Q+A), `Type:` overrides, `[x]` choice marker, comma lists with `\,` escape, validator errors mapped back to lines through a source map, error list capped at 50.
 - [x] M2-07 Serializers and equivalence properties (M). Done 2026-10-11. `serializeJson`, `serializeMarkdown` (reports what the Markdown format cannot hold instead of writing a lossy file). Property tests (fast-check, seeded) prove: JSON round trip exact, Markdown round trip equal after normalization, both formats parse to the same deck, writing is a fixpoint. Run with 7 other seeds at 3,000 runs each: no counterexample.
 - [x] M2-08 Markdown import API and UI (S). Done 2026-10-11. `/api/import` takes `text/markdown` (client states the format, server never guesses), history records `markdown`. `core/parse/detect.ts` picks the format on the import page from the text (file name only breaks a tie). Same deck as JSON and Markdown gives identical plans and is unchanged when imported after the other. Probe gained 16 Markdown checks (alias bomb, deep nesting, tags, `__proto__`, flood, size).
-- [ ] M2-09 Import preview detail (M)
-- [ ] M2-10 Study UI for cloze, typed, choice (M)
+- [x] M2-09 Import preview detail (M). Done 2026-10-11. The plan carries old and new text per changed field and how many review items a retype erases. Warnings: `type_changed`, `ids_changed` (a new card has exactly the content of a card missing from the file), `mostly_replaced` (half the deck missing, 3 or more new cards, and no id match). Archived cards are not counted as missing. API reply cut at 300 chars per side, diffs for the first 50 changed cards, 200 missing cards listed. The page shows a Show what changes section, a Progress starts over notice, and a Not in this file list. Preview and import give identical counts and warnings (tested). 20 injected bugs, all caught.
+- [x] M2-10 Study UI for cloze, typed, choice (M). Done 2026-10-11. Typed: answer box with focus, Enter checks it (`matchTyped`), the right or wrong result and what was typed are shown, Good or Again is suggested and focused, I do not know suggests Again. Choice: options shuffled by a seed that includes the review count (stable on refresh), keys 1 to 9, right and chosen options marked with words as well as colour, explanation shown. The learner can always pick any grade, Space and Enter give the suggestion. Choice text renders without links so no control sits inside a button. The render-failure badge already existed. 11 injected bugs in the new module, all caught after one test gap was closed. Axe clean in both themes.
 - [ ] M2-11 Mermaid and Shiki under the CSP (M)
 - [ ] M2-12 API token and allowed hosts (M). **Design decided in ADR-009 (token covers external clients only; same-origin browser requests are exempt). Needs M2-00 done first.** Allowed hosts moves to M2-00.
 - [ ] M2-13 Claude skill, deck-format docs, golden decks (M)

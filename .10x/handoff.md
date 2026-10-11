@@ -2,32 +2,36 @@
 
 ## Current handoff
 
-**From:** SDE, Milestone 2 (M2-05 to M2-08, the Markdown deck format)
-**To:** The owner (approve the push), then the SDE for M2-09
+**From:** SDE, Milestone 2 (M2-09 and M2-10, import preview detail and the study screen for typed and choice cards)
+**To:** The owner (approve the push), then the SDE for M2-11
 **Date:** 2026-10-11
-**Per-feature file:** `.10x/decisions/sde/tessera-v1.md` (section "M2-05 to M2-08")
+**Per-feature file:** `.10x/decisions/sde/tessera-v1.md` (section "M2-09 and M2-10")
 
 ### Result
 
-Decks can be written and imported in Markdown as well as JSON, through the same validator. Reader, writer, format detection, the `text/markdown` import route, and the import page are done. Property tests prove both formats round trip and agree; a mutation check (66 injected bugs) caught everything except one equivalent mutant after tests were added for the 19 gaps it found. The probe gained 16 Markdown hostile-input checks. Gates on a fresh build: verify (658 unit, 269 integration), 61 e2e, smoke, probe, durability, ops, licenses, audit all pass.
+The import preview now shows old and new text, warns about retypes and about ids that look changed, and lists missing cards. Typed cards have an answer box and matching, choice cards shuffle and mark, both suggest a grade and let the learner pick any. Gates on a fresh build: verify (673 unit, 290 integration), 87 e2e, smoke, probe (156), durability, ops, licenses, audit all pass. Mutation checks caught all injected bugs after one test gap was closed.
 
 ### State of git
 
-M2-05 to M2-08 are committed locally and **not pushed**; they need the owner's approval (outside the CI-fix standing approval). `bf2bf7c` and earlier are on GitHub.
+M2-05 to M2-08 are on GitHub. M2-09 and M2-10 are committed locally and **not pushed**; they need the owner's approval.
 
 ### Next
 
-1. Owner: approve pushing the M2-05 to M2-08 commits.
-2. M2-09 import preview detail, M2-10 study UI for cloze, typed, choice (uses `typed-match`, `choice`, `clozeSides`), M2-11 Mermaid and Shiki under the CSP, M2-12 API token (ADR-009), M2-13 Claude skill, `docs/deck-format.md`, golden decks (the author-facing documentation of the Markdown format belongs here), M2-14 e2e for all card types plus Firefox and WebKit, M2-16 gate (QA, security review, `v0.1.0` only after approval).
+1. Owner: approve pushing M2-09 and M2-10. Also worth trying: import a revised deck on the real app and tell me whether the id-change and mostly-replaced warnings fire at sensible times (the thresholds are guesses).
+2. M2-11 Mermaid and Shiki under the CSP, M2-12 API token (ADR-009), M2-13 Claude skill, `docs/deck-format.md`, golden decks, M2-14 e2e for everything plus Firefox and WebKit, M2-16 gate (QA, security review, `v0.1.0` only after approval).
 
 ### Things to know
 
-- `detect.ts` is for the import page only. The server never guesses the format.
-- Markdown cannot hold every JSON deck (text starting with spaces, unclosed code fences, a blank line inside a choice). `serializeMarkdown` says why instead of writing a lossy file.
-- Property tests are seeded (`FC_SEED`, `FC_RUNS` environment variables) so a failure reproduces.
-- Open items from before are unchanged (compose wrappers unverified on a real host, registry push unexercised, disk-full and long soak untested, Firefox and Safari untested).
+- Good, Hard, and Again keep a new card in a learning step and it returns at once when nothing else is due. Only Easy ends the session for that card. Tests must account for it.
+- Choice options render as inline text with links removed. Code blocks inside an option are shown inline.
+- Space and Enter after an attempt give the suggested grade, which is Again after a wrong answer. The hint line says so.
+- Earlier open items are unchanged (compose wrappers unverified on a real host, registry push unexercised, disk-full and long soak untested, Firefox, Safari and screen readers untested).
 
 ## Handoff history
+
+### 2026-10-11: SDE, M2-05 to M2-08, to the owner
+
+Markdown deck format (reader, writer, detection, import route and page). Property tests and a 66-bug mutation check. See the SDE log section "M2-05 to M2-08".
 
 ### 2026-10-11: DevOps Engineer and SRE, Phase 6 Delivery (readiness of the M1 slice), to the owner and the SDE for M2
 

@@ -2,7 +2,7 @@
 
 Self-hosted flashcards that Claude can write for you. Ask Claude for a deck, paste it in, study it with FSRS spaced repetition, and re-import a revised deck later without losing your progress.
 
-**Status:** early development, milestone 1 of 5. You can import decks, study them, and run it in Docker. Markdown deck import, typed-answer checking, leech handling, cram mode, and statistics are still to come. The plan lives in [`.10x/`](.10x/).
+**Status:** early development, milestone 2 of 5 under way. You can import decks, study them, and run it in Docker. Mermaid diagrams, leech handling, cram mode, and statistics are still to come. The plan lives in [`.10x/`](.10x/).
 
 ## What works today
 
@@ -11,7 +11,7 @@ Self-hosted flashcards that Claude can write for you. Ask Claude for a deck, pas
 - **Re-import safely.** Cards are matched by their `id`. Re-importing a revised deck updates the text and keeps your review history. Importing the same file again changes nothing.
 - **Study with FSRS** (the same family of algorithm used by Anki). Four grades, intervals shown on the buttons, daily new and review limits, and cloze blanks that are scheduled separately.
 - **Keyboard first.** Space shows the answer, 1 to 4 grade it, H shows a hint.
-- **Four card types** in the format: basic, cloze, typed answer, and multiple choice. For now typed and choice cards are graded by you after the answer is shown.
+- **Four card types** in the format: basic, cloze, typed answer, and multiple choice. Typed cards check what you type (case, spacing, and a final full stop are ignored), choice cards shuffle their options, and both suggest a grade that you can always change.
 - **Light and dark themes**, usable on a phone.
 
 ## Quickstart with Docker

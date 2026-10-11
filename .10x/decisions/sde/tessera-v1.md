@@ -505,3 +505,32 @@ The Markdown format of spec section 6.2, read into the same plain object a JSON 
 **Tests added:** parse-markdown 90, serialize 24, detect 12, 14 API integration tests, 9 browser tests (`tests/e2e/import-markdown.spec.ts`). Totals: 658 unit, 269 integration, 61 e2e, probe 156 checks, smoke, durability, ops, licenses and `npm audit` clean.
 
 **Not done here:** documentation of the format for authors is M2-13 (`docs/deck-format.md` and the Claude skill). Export is not exposed in the UI yet; the serializers exist for it.
+
+## M2-09 and M2-10 Import preview detail and the study screen for typed and choice cards (2026-10-11)
+
+**M2-09, what the preview now says.** The import plan (`server/import/plan.ts`) gives each updated card its changes as old and new text (`changes`), and each retyped card the number of review items that have history and will be erased (`progressLost`). Three new warnings, all computed from the same plan that the commit re-runs, so the preview cannot differ from the import:
+
+- `type_changed`: names up to five cards, says how many review items lose history, or that none was studied.
+- `ids_changed`: a new card whose content hash equals that of an active card missing from the file is that card under a new id. Each missing card is matched at most once. The message names the first pair and says what happens to the old cards (kept, or archived when the option is on).
+- `mostly_replaced`: at least half of a deck of three or more active cards is missing, and the file adds three or more new cards, and no id match was found. Covers a rewritten deck where the text also changed.
+
+Cards that are already archived are not counted as missing. Thresholds are guesses, not measurements. They are tested at their edges, but whether half and three are the right numbers for a real revised deck needs real use.
+
+The API summary keeps the reply small: text cut at 300 characters with a `cut` flag, old and new text for the first 50 changed cards only (the page shows 50), at most 200 missing cards listed (`counts.absent` has the full number). The page shows a Show what changes section per card (Before and After labelled in words, not only by colour), a Progress starts over notice, and a Not in this file list that says whether the cards will be archived.
+
+**M2-10, how typed and choice cards work.** `ui/study-card.ts` is pure and unit tested. It wires `core/typed-match.ts` and `core/choice.ts` to a study item and returns an outcome with a suggested grade. The page:
+
+- Typed: the answer box takes focus when the card appears. Enter checks it. The result, what was typed, the answer, and the accepted alternatives are shown, and the suggested grade button gets focus. "I don't know" shows the answer and suggests Again. Letters and digits typed in the box never trigger shortcuts.
+- Choice: the options are shuffled with `choiceSeed` (card, blank, and review count), so a refresh keeps the order and the next review reshuffles. Keys 1 to 9 choose. The right option and a wrong choice are marked with words ("Right answer", "Your answer") as well as colour. The explanation is shown. After the answer the options are disabled.
+- Both: the suggestion is shown in words and highlighted. The learner can press any of 1 to 4. Space and Enter give the suggested grade (Good after a right answer, Again after a wrong one), and the hint line says which. The typed text is sent with the review (`typedAnswer`, already stored by the server and never logged).
+- Choice text renders inline with links removed (`renderInlineMarkdownWithoutLinks`), so no link is nested inside a button.
+- `cardSides` for a choice card is now only the question and the explanation, because the page shows the options itself.
+- The render-failure fallback badge named in the task already existed in `Markdown.svelte` and is covered by an existing browser test.
+
+**Behaviour to know about.** Good, Hard, and Again leave a new card in a learning step, and with nothing else due it is offered again straight away (existing behaviour, ADR-003). Only Easy graduates it. A typed or choice card therefore returns with a fresh attempt after the first grade. The browser tests were wrong about this twice before they were fixed.
+
+**Mutation checks.** M2-09: 20 injected bugs in the plan and summary code, all caught on the first run. M2-10: 11 in `study-card.ts`, 10 caught, and the survivor (choices shown unshuffled while grading used the shuffled order) exposed that my test used one seed whose shuffle may be the identity. A test over 30 review counts now covers it, and all 11 are caught. The page itself (focus, keys, markup) is covered by the browser tests, not by mutation.
+
+**Tests added.** 12 plan tests (preview.test.ts), 6 API tests (import-preview), 5 plus 2 browser tests for the preview, 15 unit tests for `study-card`, 3 for link-free choice text, 17 browser tests for the four card types (keyboard, override, reload, links, axe in both themes, 320px). Totals: 673 unit, 290 integration, 87 e2e, probe 156, smoke, durability, ops, licenses, audit clean.
+
+**Not done.** Mermaid and code highlighting are M2-11. A choice option with a code block or a list is shown as inline text. `docs/deck-format.md` and the Claude skill are M2-13. There is no screen reader test (QA gap carried over).
