@@ -69,14 +69,21 @@ describe('cardSides', () => {
 		expect(sides.back).toContain('Also accepted: `sh ip route`');
 	});
 
-	it('lists the choices and marks the correct one in the answer', () => {
+	it('gives a choice card only its question and explanation, since the screen shows the options', () => {
 		const sides = cardSides({
 			type: 'choice',
 			ordinal: 0,
 			content: { front: 'Which?', choices: ['A', 'B', 'C'], correct: 1, explanation: 'Because.' }
 		});
-		expect(sides.front).toBe('Which?\n\n1. A\n2. B\n3. C');
-		expect(sides.back).toBe('**2. B**\n\nBecause.');
+		expect(sides.front).toBe('Which?');
+		expect(sides.back).toBe('Because.');
+		expect(
+			cardSides({
+				type: 'choice',
+				ordinal: 0,
+				content: { front: 'Which?', choices: ['A', 'B'], correct: 0 }
+			}).back
+		).toBe('');
 	});
 
 	it('does not crash on malformed stored content', () => {

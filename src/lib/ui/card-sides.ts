@@ -14,9 +14,9 @@ function text(value: unknown): string {
 	return typeof value === 'string' ? value : '';
 }
 
-// Splits a card into the question and the answer. Every card type is self-graded for now: the
-// learner reads the question, recalls, reveals, and grades. Typed and multiple choice interaction
-// arrives in a later milestone.
+// Splits a card into the question and the answer. For a typed card the study screen adds an answer box,
+// and for a choice card it shows the options itself (shuffled), so the choice question here is only the
+// question and the answer side is only the explanation.
 export function cardSides(item: Pick<StudyItemDto, 'type' | 'content' | 'ordinal'>): CardSides {
 	const c = item.content;
 	const hint = text(c['hint']) || undefined;
@@ -49,14 +49,10 @@ export function cardSides(item: Pick<StudyItemDto, 'type' | 'content' | 'ordinal
 		}
 
 		case 'choice': {
-			const choices = Array.isArray(c['choices']) ? (c['choices'] as unknown[]).map(String) : [];
-			const correct = typeof c['correct'] === 'number' ? c['correct'] : -1;
-			const list = choices.map((choice, index) => `${index + 1}. ${choice}`).join('\n');
-			const explanation = text(c['explanation']);
 			return withHint({
 				kind: 'Multiple choice',
-				front: `${text(c['front'])}\n\n${list}`,
-				back: `**${correct + 1}. ${choices[correct] ?? ''}**${explanation ? `\n\n${explanation}` : ''}`
+				front: text(c['front']),
+				back: text(c['explanation'])
 			});
 		}
 	}

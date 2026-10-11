@@ -1,14 +1,27 @@
 <script lang="ts">
-	import { renderInlineMarkdown, renderMarkdown } from './markdown.ts';
+	import {
+		renderInlineMarkdown,
+		renderInlineMarkdownWithoutLinks,
+		renderMarkdown
+	} from './markdown.ts';
 
-	let { source, inline = false }: { source: string; inline?: boolean } = $props();
+	// `links: false` is for text inside a button. It implies inline.
+	let {
+		source,
+		inline = false,
+		links = true
+	}: { source: string; inline?: boolean; links?: boolean } = $props();
 
 	// If rendering fails, the raw text is shown so the card can still be read and graded.
 	const rendered = $derived.by(() => {
 		try {
 			return {
 				ok: true as const,
-				html: inline ? renderInlineMarkdown(source) : renderMarkdown(source)
+				html: !links
+					? renderInlineMarkdownWithoutLinks(source)
+					: inline
+						? renderInlineMarkdown(source)
+						: renderMarkdown(source)
 			};
 		} catch {
 			return { ok: false as const };
@@ -18,7 +31,7 @@
 
 {#if rendered.ok}
 	<!-- The only place {@html} is allowed. The string is sanitized by renderMarkdown (ADR-005). -->
-	<div class="md" class:md--inline={inline}>{@html rendered.html}</div>
+	<div class="md" class:md--inline={inline || !links}>{@html rendered.html}</div>
 {:else}
 	<div class="md md--failed">
 		<p class="md__badge" role="status">This card could not be formatted. Showing the raw text.</p>

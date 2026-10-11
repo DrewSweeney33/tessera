@@ -87,10 +87,10 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
 });
 
 // Exported so the second layer can be tested on its own with raw HTML that never passes marked.
-export function sanitizeHtml(html: string): string {
+export function sanitizeHtml(html: string, alsoForbid: readonly string[] = []): string {
 	return DOMPurify.sanitize(html, {
 		USE_PROFILES: { html: true },
-		FORBID_TAGS: FORBIDDEN_TAGS,
+		FORBID_TAGS: [...FORBIDDEN_TAGS, ...alsoForbid],
 		FORBID_ATTR: FORBIDDEN_ATTRIBUTES,
 		ALLOW_DATA_ATTR: false,
 		ALLOWED_URI_REGEXP: SAFE_URL
@@ -106,4 +106,10 @@ export function renderMarkdown(source: string): string {
 // The same, for a single line of text with no paragraph wrapper.
 export function renderInlineMarkdown(source: string): string {
 	return sanitizeHtml(marked.parseInline(source, { async: false }));
+}
+
+// Inline text for use inside a button, where a link would be a control nested in a control. The link's
+// text is kept and the link itself is dropped.
+export function renderInlineMarkdownWithoutLinks(source: string): string {
+	return sanitizeHtml(marked.parseInline(source, { async: false }), ['a']);
 }

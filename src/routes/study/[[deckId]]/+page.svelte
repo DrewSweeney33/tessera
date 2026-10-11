@@ -13,6 +13,13 @@
 	import { cardSides } from '#lib/ui/card-sides.ts';
 	import { newId } from '#lib/ui/id.ts';
 	import Markdown from '#lib/ui/Markdown.svelte';
+	import {
+		checkChoice,
+		checkTyped,
+		choiceView,
+		typedAnswers,
+		type Outcome
+	} from '#lib/ui/study-card.ts';
 
 	type Phase = 'loading' | 'front' | 'back' | 'submitting' | 'done' | 'error';
 
@@ -41,10 +48,20 @@
 	let shownAt = 0;
 	let pending: ReviewRequest | undefined;
 
+	// A typed card's answer box, and what an attempt at a typed or choice card turned out to be.
+	let typedInput = $state('');
+	let outcome = $state<Outcome | undefined>();
+
 	let cardEl = $state<HTMLElement>();
-	let goodButton = $state<HTMLButtonElement>();
+	let typedEl = $state<HTMLInputElement>();
+	let gradesEl = $state<HTMLElement>();
 
 	const sides = $derived(item ? cardSides(item) : undefined);
+	const choices = $derived(item?.type === 'choice' ? choiceView(item) : undefined);
+	const typed = $derived(item?.type === 'typed' ? typedAnswers(item) : undefined);
+	// The grade Space and Enter give: the suggestion after an attempt, otherwise Good.
+	const defaultGrade = $derived<Grade>(outcome?.suggestedGrade ?? 3);
+	const defaultName = $derived(GRADE_INFO.find((info) => info.grade === defaultGrade)!.name);
 	const total = $derived(answered[1] + answered[2] + answered[3] + answered[4]);
 	const deckLabel = $derived(item?.deckTitle ?? 'All decks');
 
@@ -60,9 +77,13 @@
 		reviewId = newId();
 		shownAt = performance.now();
 		showHint = false;
+		typedInput = '';
+		outcome = undefined;
 		phase = 'front';
 		await tick();
-		cardEl?.focus();
+		// A typed card starts in its answer box, so the learner can type straight away.
+		if (item.type === 'typed') typedEl?.focus();
+		else cardEl?.focus();
 	}
 
 	async function load() {
@@ -77,11 +98,29 @@
 		}
 	}
 
-	async function reveal() {
-		if (phase !== 'front') return;
+	// Shows the answer. For a typed or choice card that was not attempted, the result is "no answer given",
+	// which suggests Again. The learner can still pick any grade.
+	async function reveal(attempt?: Outcome) {
+		if (phase !== 'front' || !item) return;
+		outcome =
+			attempt ??
+			(item.type === 'typed'
+				? checkTyped(item, typedInput)
+				: choices
+					? checkChoice(choices, undefined)
+					: undefined);
 		phase = 'back';
 		await tick();
-		goodButton?.focus();
+		gradesEl?.querySelector<HTMLButtonElement>(`.grade--${defaultGrade}`)?.focus();
+	}
+
+	function checkAnswer() {
+		if (item?.type === 'typed') void reveal(checkTyped(item, typedInput));
+	}
+
+	function pick(position: number) {
+		if (phase !== 'front' || !choices) return;
+		void reveal(checkChoice(choices, position));
 	}
 
 	async function submit(request: ReviewRequest) {
@@ -114,6 +153,7 @@
 			grade: value,
 			servedAt: item.servedAt,
 			durationMs: Math.min(3_600_000, Math.round(performance.now() - shownAt)),
+			...(outcome?.typed ? { typedAnswer: outcome.typed.slice(0, 2000) } : {}),
 			...(deckId ? { deckId } : {})
 		});
 	}
@@ -131,7 +171,11 @@
 		const onControl = Boolean(target?.closest('button, a'));
 
 		if (phase === 'front') {
-			if ((event.key === ' ' || event.key === 'Enter') && !onControl) {
+			const choiceKey = choices && /^[1-9]$/.test(event.key) ? Number(event.key) - 1 : -1;
+			if (choiceKey >= 0 && choices && choiceKey < choices.shown.length) {
+				event.preventDefault();
+				pick(choiceKey);
+			} else if ((event.key === ' ' || event.key === 'Enter') && !onControl) {
 				event.preventDefault();
 				void reveal();
 			} else if (event.key.toLowerCase() === 'h' && sides?.hint) {
@@ -144,7 +188,7 @@
 				grade(found.grade);
 			} else if ((event.key === ' ' || event.key === 'Enter') && !onControl) {
 				event.preventDefault();
-				grade(3);
+				grade(defaultGrade);
 			}
 		}
 	}
@@ -228,6 +272,61 @@
 				<Markdown source={sides.front} />
 			</div>
 
+			{#if typed && (phase === 'front' || phase === 'back' || phase === 'submitting')}
+				{#if phase === 'front'}
+					<form
+						class="typed"
+						onsubmit={(event) => {
+							event.preventDefault();
+							checkAnswer();
+						}}
+					>
+						<label for="typed-answer">Your answer</label>
+						<input
+							id="typed-answer"
+							class="field"
+							type="text"
+							autocomplete="off"
+							autocapitalize="off"
+							spellcheck="false"
+							bind:value={typedInput}
+							bind:this={typedEl}
+						/>
+						<div class="typed__actions">
+							<button type="submit" class="btn btn--primary">Check answer <kbd>Enter</kbd></button>
+							<button type="button" class="btn" onclick={() => reveal()}> I don’t know </button>
+						</div>
+					</form>
+				{/if}
+			{/if}
+
+			{#if choices}
+				<ol class="choices" aria-label="Choices">
+					{#each choices.shown as choice, position (position)}
+						{@const chosen = outcome?.position === position}
+						{@const right = phase !== 'front' && position === choices.correctPosition}
+						<li>
+							<button
+								type="button"
+								class="choice"
+								class:choice--right={right}
+								class:choice--wrong={phase !== 'front' && chosen && !right}
+								disabled={phase !== 'front'}
+								onclick={() => pick(position)}
+							>
+								<kbd>{position + 1}</kbd>
+								<span class="choice__text"><Markdown source={choice.text} links={false} /></span>
+								{#if right}
+									<span class="choice__mark">✓ Right answer</span>
+								{:else if phase !== 'front' && chosen}
+									<span class="choice__mark">✗ Your answer</span>
+								{/if}
+							</button>
+						</li>
+					{/each}
+				</ol>
+			{/if}
+
 			{#if sides.hint && phase === 'front'}
 				{#if showHint}
 					<p class="hint"><strong>Hint.</strong> {sides.hint}</p>
@@ -245,30 +344,49 @@
 			{#if phase === 'back' || phase === 'submitting'}
 				<div class="card__back" aria-live="polite">
 					<hr />
-					<Markdown source={sides.back} />
+					{#if outcome}
+						<p class="result" class:result--right={outcome.correct}>
+							<strong>{outcome.summary}</strong>
+						</p>
+					{/if}
+					{#if outcome?.typed}
+						<p class="yours">You typed: <code>{outcome.typed}</code></p>
+					{/if}
+					{#if sides.back}
+						<Markdown source={sides.back} />
+					{/if}
 				</div>
 			{/if}
 		</section>
 
 		{#if phase === 'front'}
-			<div class="reveal">
-				<button type="button" class="btn btn--primary btn--wide" onclick={reveal}>
-					Show answer <kbd>Space</kbd>
-				</button>
-			</div>
+			{#if !typed && !choices}
+				<div class="reveal">
+					<button type="button" class="btn btn--primary btn--wide" onclick={() => reveal()}>
+						Show answer <kbd>Space</kbd>
+					</button>
+				</div>
+			{:else if choices}
+				<div class="reveal">
+					<button type="button" class="btn" onclick={() => reveal()}>I don’t know</button>
+					<p class="muted keys">
+						Press <kbd>1</kbd> to <kbd>{choices.shown.length}</kbd> to choose.
+					</p>
+				</div>
+			{/if}
 		{:else}
-			<div class="grades" role="group" aria-label="How well did you remember it?">
+			<div
+				class="grades"
+				role="group"
+				aria-label="How well did you remember it?"
+				bind:this={gradesEl}
+			>
 				{#each GRADE_INFO as info (info.grade)}
 					<button
 						type="button"
 						class="btn grade grade--{info.grade}"
+						class:grade--suggested={outcome !== undefined && info.grade === defaultGrade}
 						disabled={phase === 'submitting'}
-						bind:this={
-							() => (info.grade === 3 ? goodButton : undefined),
-							(node) => {
-								if (info.grade === 3) goodButton = node ?? undefined;
-							}
-						}
 						onclick={() => grade(info.grade)}
 					>
 						<kbd>{info.key}</kbd>
@@ -278,8 +396,15 @@
 					</button>
 				{/each}
 			</div>
+			{#if outcome}
+				<p class="suggest">
+					Suggested: <strong>{defaultName}</strong>. {outcome.correct
+						? 'It was right.'
+						: 'It was not right.'} You can pick any grade.
+				</p>
+			{/if}
 			<p class="muted keys">
-				Press <kbd>1</kbd> to <kbd>4</kbd> to answer, or <kbd>Space</kbd> for Good.
+				Press <kbd>1</kbd> to <kbd>4</kbd> to answer, or <kbd>Space</kbd> for {defaultName}.
 			</p>
 		{/if}
 	{/if}
@@ -378,6 +503,116 @@
 		margin: var(--space-5) 0;
 		border: 0;
 		border-block-start: 1px solid var(--color-rule-strong);
+	}
+
+	.typed {
+		display: grid;
+		gap: var(--space-3);
+		margin-block-start: var(--space-4);
+		font-family: var(--font-body);
+		font-size: var(--text-base);
+	}
+
+	.typed label {
+		font-weight: 600;
+	}
+
+	.typed__actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-3);
+	}
+
+	.choices {
+		display: grid;
+		gap: var(--space-3);
+		margin: var(--space-4) 0 0;
+		padding: 0;
+		list-style: none;
+		font-family: var(--font-body);
+		font-size: var(--text-base);
+	}
+
+	.choice {
+		display: flex;
+		align-items: baseline;
+		flex-wrap: wrap;
+		gap: var(--space-2) var(--space-3);
+		width: 100%;
+		min-height: var(--hit);
+		padding: var(--space-3) var(--space-4);
+		border: 1px solid var(--color-rule-strong);
+		border-radius: var(--radius);
+		background: var(--color-paper);
+		color: var(--color-ink);
+		font: inherit;
+		text-align: start;
+		cursor: pointer;
+	}
+
+	.choice:hover:not(:disabled) {
+		border-color: var(--color-accent);
+	}
+
+	.choice:focus-visible {
+		outline: 2px solid var(--color-focus);
+		outline-offset: 2px;
+	}
+
+	.choice:disabled {
+		cursor: default;
+		color: var(--color-ink);
+		opacity: 1;
+	}
+
+	.choice__text {
+		flex: 1 1 10rem;
+		min-width: 0;
+	}
+
+	.choice--right {
+		border-width: 2px;
+		border-color: var(--color-accent);
+		background: var(--color-accent-soft);
+	}
+
+	.choice--wrong {
+		border-width: 2px;
+		border-color: var(--color-again);
+		background: var(--color-error-soft);
+	}
+
+	.choice__mark {
+		margin-inline-start: auto;
+		font-size: var(--text-sm);
+		font-weight: 600;
+	}
+
+	.result {
+		margin-block-end: var(--space-3);
+		font-family: var(--font-body);
+		font-size: var(--text-base);
+	}
+
+	.result--right strong {
+		color: var(--color-accent);
+	}
+
+	.yours {
+		margin-block-end: var(--space-3);
+		color: var(--color-muted);
+		font-family: var(--font-body);
+		font-size: var(--text-base);
+	}
+
+	.suggest {
+		margin-block-start: var(--space-3);
+		font-size: var(--text-sm);
+	}
+
+	.grade--suggested {
+		border-color: var(--color-accent);
+		box-shadow: inset 0 0 0 1px var(--color-accent);
 	}
 
 	.hint {

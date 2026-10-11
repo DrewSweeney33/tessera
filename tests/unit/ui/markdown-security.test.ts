@@ -1,6 +1,11 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { renderInlineMarkdown, renderMarkdown, sanitizeHtml } from '#lib/ui/markdown.ts';
+import {
+	renderInlineMarkdown,
+	renderInlineMarkdownWithoutLinks,
+	renderMarkdown,
+	sanitizeHtml
+} from '#lib/ui/markdown.ts';
 import { XSS_CORPUS } from '../../e2e/xss-corpus.ts';
 
 // ADR-005 has two layers: marked is configured so raw HTML never becomes markup, then DOMPurify
@@ -180,5 +185,30 @@ describe('inline rendering', () => {
 	it('has no paragraph wrapper and is equally safe', () => {
 		expect(renderInlineMarkdown('**bold** text')).toBe('<strong>bold</strong> text');
 		expect(dangers(renderInlineMarkdown('<img src=x onerror=1> [x](javascript:1)'))).toEqual([]);
+	});
+});
+
+describe('renderInlineMarkdownWithoutLinks (text inside a button)', () => {
+	it('keeps the words of a link and drops the link', () => {
+		const html = renderInlineMarkdownWithoutLinks('see [the RFC](https://example.com/rfc) now');
+		expect(html).toBe('see the RFC now');
+		expect(html).not.toContain('<a');
+	});
+
+	it('still formats code and emphasis, and still refuses markup', () => {
+		const html = renderInlineMarkdownWithoutLinks(
+			'run `show ip route` **now** <script>alert(1)</script>'
+		);
+		expect(html).toContain('<code>show ip route</code>');
+		expect(html).toContain('<strong>now</strong>');
+		expect(html).not.toContain('<script');
+	});
+
+	it('leaves no control inside a button for any item in the attack corpus', () => {
+		for (const sample of XSS_CORPUS) {
+			const host = document.createElement('div');
+			host.innerHTML = renderInlineMarkdownWithoutLinks(sample.markdown);
+			expect(host.querySelector('a, button, input, script, iframe'), sample.markdown).toBeNull();
+		}
 	});
 });
