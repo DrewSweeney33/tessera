@@ -11,8 +11,10 @@ export interface ImportError {
 	message: string;
 	// Values or field names that would have been accepted, when that is a short list.
 	allowed?: readonly (string | number)[];
-	// 1-based line number, set by the Markdown parser.
+	// 1-based line number, set by the parsers for syntax problems.
 	line?: number;
+	// 1-based column number, set for JSON syntax problems.
+	column?: number;
 }
 
 type Issue = z.ZodError['issues'][number];
@@ -200,14 +202,25 @@ function mapIssue(issue: Issue, input: unknown): ImportError[] {
 	}
 }
 
-function comparePaths(a: Path, b: Path): number {
+// Orders object keys by the schema's own field order (tessera, deck, cards; type, front, back...)
+// so errors read top to bottom like the document. Unknown keys sort after known ones.
+function compareSegments(parent: Path, x: PropertyKey, y: PropertyKey, input: unknown): number {
+	if (typeof x === 'number' && typeof y === 'number') return x - y;
+	const order = allowedFieldsAt(input, parent) ?? [];
+	const rank = (key: PropertyKey) => {
+		const index = order.indexOf(String(key));
+		return index === -1 ? order.length : index;
+	};
+	return rank(x) - rank(y) || (String(x) < String(y) ? -1 : 1);
+}
+
+function comparePaths(a: Path, b: Path, input: unknown): number {
 	const length = Math.min(a.length, b.length);
 	for (let i = 0; i < length; i++) {
 		const x = a[i]!;
 		const y = b[i]!;
 		if (x === y) continue;
-		if (typeof x === 'number' && typeof y === 'number') return x - y;
-		return String(x) < String(y) ? -1 : 1;
+		return compareSegments(a.slice(0, i), x, y, input);
 	}
 	return a.length - b.length;
 }
@@ -217,7 +230,7 @@ function comparePaths(a: Path, b: Path): number {
 export function toImportErrors(issues: readonly Issue[], input: unknown): ImportError[] {
 	const ordered = issues
 		.map((issue, index) => ({ issue, index }))
-		.sort((a, b) => comparePaths(a.issue.path, b.issue.path) || a.index - b.index);
+		.sort((a, b) => comparePaths(a.issue.path, b.issue.path, input) || a.index - b.index);
 
 	const all = ordered.flatMap(({ issue }) => mapIssue(issue, input));
 	if (all.length <= LIMITS.maxReportedErrors) return all;

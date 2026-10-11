@@ -1,0 +1,6 @@
+[
+  { "path": "title", "code": "unknown_field" },
+  { "path": "deck.colour", "code": "unknown_field" },
+  { "path": "cards[0].front", "code": "unknown_field" },
+  { "path": "cards[0].answer", "code": "unknown_field" }
+]

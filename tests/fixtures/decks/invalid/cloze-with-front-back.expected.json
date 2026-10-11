@@ -1,0 +1,5 @@
+[
+  { "path": "cards[0].front", "code": "unknown_field" },
+  { "path": "cards[0].back", "code": "unknown_field" },
+  { "path": "cards[0].text", "code": "required" }
+]

@@ -1,0 +1,6 @@
+{
+  "tessera": 1,
+  "title": "Flat deck",
+  "deck": { "id": "flat", "title": "Flat", "colour": "red" },
+  "cards": [{ "type": "cloze", "text": "The {{c1::sky}} is blue.", "front": "extra", "answer": "x" }]
+}

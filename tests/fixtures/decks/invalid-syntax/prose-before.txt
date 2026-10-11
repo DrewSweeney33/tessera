@@ -1,0 +1,3 @@
+Here is your deck on OSPF:
+
+{ "tessera": 1, "deck": { "id": "x", "title": "X" }, "cards": [] }

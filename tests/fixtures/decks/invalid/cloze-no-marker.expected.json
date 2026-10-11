@@ -1,0 +1,4 @@
+[
+  { "path": "cards[0].text", "code": "invalid_format" },
+  { "path": "cards[1].text", "code": "invalid_format" }
+]

@@ -1,0 +1,9 @@
+{
+  "tessera": 1,
+  "deck": { "id": "choices", "title": "Choices" },
+  "cards": [
+    { "type": "choice", "front": "One option?", "choices": ["only"], "correct": 0 },
+    { "type": "choice", "front": "Out of range?", "choices": ["a", "b"], "correct": 3 },
+    { "type": "choice", "front": "Duplicates?", "choices": ["same", "Same", "other"], "correct": 2 }
+  ]
+}

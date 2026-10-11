@@ -1,0 +1,8 @@
+{
+  "tessera": 1,
+  "deck": { "id": "Bad Deck", "title": "IDs" },
+  "cards": [
+    { "id": "ok-id", "type": "basic", "front": "a", "back": "b" },
+    { "id": "Has Space", "type": "basic", "front": "c", "back": "d" }
+  ]
+}

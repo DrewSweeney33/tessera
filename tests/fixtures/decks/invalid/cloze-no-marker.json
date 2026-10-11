@@ -1,0 +1,8 @@
+{
+  "tessera": 1,
+  "deck": { "id": "cloze", "title": "Cloze" },
+  "cards": [
+    { "type": "cloze", "text": "The DR is elected by priority." },
+    { "type": "cloze", "text": "Zero {{c0::based}} marker." }
+  ]
+}

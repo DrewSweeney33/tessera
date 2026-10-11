@@ -1,0 +1,4 @@
+[
+  { "path": "deck.id", "code": "invalid_format" },
+  { "path": "cards[1].id", "code": "invalid_format" }
+]

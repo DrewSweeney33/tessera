@@ -1,0 +1,9 @@
+{
+  "tessera": 1,
+  "deck": { "id": "dupes", "title": "Duplicates" },
+  "cards": [
+    { "id": "same", "type": "basic", "front": "a", "back": "b" },
+    { "id": "other", "type": "basic", "front": "c", "back": "d" },
+    { "id": "same", "type": "basic", "front": "e", "back": "f" }
+  ]
+}

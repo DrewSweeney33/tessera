@@ -1,0 +1,5 @@
+{
+  "tessera": "1",
+  "deck": { "id": "types", "title": 42 },
+  "cards": [{ "type": "basic", "front": ["Q"], "back": true }]
+}

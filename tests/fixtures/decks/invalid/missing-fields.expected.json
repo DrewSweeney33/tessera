@@ -1,0 +1,5 @@
+[
+  { "path": "deck.title", "code": "required" },
+  { "path": "cards[0].back", "code": "required" },
+  { "path": "cards[1].answer", "code": "required" }
+]

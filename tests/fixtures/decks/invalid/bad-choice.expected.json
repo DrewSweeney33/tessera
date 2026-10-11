@@ -1,0 +1,5 @@
+[
+  { "path": "cards[0].choices", "code": "too_few" },
+  { "path": "cards[1].correct", "code": "out_of_range" },
+  { "path": "cards[2].choices[1]", "code": "duplicate_choice" }
+]

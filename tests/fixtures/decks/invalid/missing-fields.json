@@ -1,0 +1,8 @@
+{
+  "tessera": 1,
+  "deck": { "id": "net-basics" },
+  "cards": [
+    { "type": "basic", "front": "What does DHCP stand for?" },
+    { "type": "typed", "front": "Which port does HTTPS use?" }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "tessera": 1,
+  "deck": { "id": "no-ids", "title": "Cards without ids" },
+  "cards": [
+    { "type": "basic", "front": "Capital of France?", "back": "Paris" },
+    { "type": "cloze", "text": "The {{c1::mitochondria}} is the powerhouse of the cell." },
+    { "type": "typed", "front": "Chemical symbol for gold?", "answer": "Au" },
+    { "type": "choice", "front": "Largest planet?", "choices": ["Mars", "Jupiter", "Venus"], "correct": 1 }
+  ]
+}

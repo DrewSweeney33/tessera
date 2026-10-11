@@ -1,0 +1,5 @@
+{
+  "tessera": 0,
+  "deck": { "id": "old", "title": "Old format" },
+  "cards": [{ "type": "basic", "front": "Q", "back": "A" }]
+}

@@ -61,3 +61,28 @@ Each entry records what was built, deviations from the plan or ADRs, and tech de
 - A missing `tessera` field reports `required` with a clear fix, rather than `unsupported_version`.
 
 **Tech debt:** none.
+
+## M1-04 parseJson and golden fixtures (2026-10-10)
+
+**Built:** `core/parse/json.ts` (`parseJson`), `ImportError.column`, error sorting by schema field order, 4 valid and 10 invalid golden decks plus 7 syntax-error samples under `tests/fixtures/decks/`, and `tests/unit/schema/parse-json.test.ts`. 30 new tests, 93 total.
+
+**Behavior:**
+
+| Input | Result |
+|---|---|
+| JSON wrapped in a code fence | Accepted. The fence is stripped and syntax error line numbers stay relative to the original text. |
+| UTF-8 byte order mark, CRLF | Accepted. |
+| Empty or whitespace only | `empty` |
+| Over 5 MB | `payload_too_large`, checked before parsing |
+| Text that does not start with `{` or `[` | `not_json`, or `not_json_is_markdown` when it starts with `---` |
+| Cut off output | `truncated_json` with advice to ask Claude again in smaller decks |
+| Other syntax errors | `invalid_json` with line, column, and a hint for the usual cause (trailing comma, single quotes, comments, missing comma, unterminated string) |
+
+**Findings worth keeping:**
+
+- **Truncation shows up two ways.** V8 reports "Unexpected end of JSON input" when output stops inside a value, but reports "Expected double-quoted property name" at the end of the text when it stops right after a comma. The second is the common LLM truncation shape. The parser treats any error positioned at or after the end of the text as truncation. Found because the golden fixture was written the realistic way.
+- **Prettier rewrites `﻿` escapes in regex literals into the raw invisible character**, which ESLint then rejects as irregular whitespace. Use `charCodeAt(0) === 0xfeff` instead.
+- **Fixture convention:** `invalid/<name>.json` pairs with `<name>.expected.json`, an exact ordered list of `{path, code}`. Tests compare the whole list, so extra or reordered errors fail. Syntax fixtures are `.txt` with `{code, line?, column?}`.
+- **Sorting bug fixed.** Errors were ordered alphabetically by object key, which put `cards` errors before `deck` errors. They now follow the schema field order (tessera, deck, cards; type, front, back, ...). A parent path sorts before its children.
+
+**Tech debt:** none.

@@ -1,0 +1,6 @@
+[
+  { "path": "tessera", "code": "unsupported_version" },
+  { "path": "deck.title", "code": "wrong_type" },
+  { "path": "cards[0].front", "code": "wrong_type" },
+  { "path": "cards[0].back", "code": "wrong_type" }
+]

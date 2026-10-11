@@ -1,0 +1,5 @@
+{
+  "tessera": 1,
+  "deck": { "id": "mistake", "title": "Common mistake" },
+  "cards": [{ "type": "cloze", "front": "The {{c1::DR}} is elected", "back": "by priority" }]
+}
