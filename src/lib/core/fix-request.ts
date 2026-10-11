@@ -1,8 +1,15 @@
 import type { FieldErrorDto } from './api-types.ts';
+import type { DeckFormat } from './parse/detect.ts';
 
 // The message pasted back to Claude when a deck fails to import. It names the exact fields and
 // says what to preserve, so one round trip fixes the deck (the core promise of Tessera).
-export function buildFixRequest(errors: readonly FieldErrorDto[], origin: string): string {
+// `format` is the one the deck was written in, so the corrected deck comes back in the same one and the line
+// numbers below still mean something.
+export function buildFixRequest(
+	errors: readonly FieldErrorDto[],
+	origin: string,
+	format: DeckFormat = 'json'
+): string {
 	const lines = errors.map((error, index) => {
 		const where =
 			error.line !== undefined
@@ -13,11 +20,18 @@ export function buildFixRequest(errors: readonly FieldErrorDto[], origin: string
 		return `${index + 1}. ${where} [${error.code}]: ${error.message}${allowed}`;
 	});
 
+	const schema = `${origin.replace(/\/$/, '')}/api/schema`;
+	const markdown = format === 'markdown';
+
 	return [
-		'My Tessera deck failed to import. Please fix the problems below and reply with the complete corrected deck as JSON only, in a single code block.',
+		markdown
+			? 'My Tessera deck failed to import. Please fix the problems below and reply with the complete corrected deck in the Tessera Markdown format, nothing else, in a single code block. Use four backticks for the outer fence if the deck contains code blocks.'
+			: 'My Tessera deck failed to import. Please fix the problems below and reply with the complete corrected deck as JSON only, in a single code block.',
 		'',
 		'Keep every card "id" unchanged so my review history is preserved. Do not add fields the format does not define.',
-		`The format is described by the JSON Schema at ${origin.replace(/\/$/, '')}/api/schema`,
+		markdown
+			? `The fields are described by the JSON Schema at ${schema}. The Markdown format uses the same fields: a block at the top with tessera, id, and title, then a "## card-id" heading for each card with labels such as Q:, A:, Answer:, Cloze:, and Choices:.`
+			: `The format is described by the JSON Schema at ${schema}`,
 		'',
 		'Problems:',
 		...lines

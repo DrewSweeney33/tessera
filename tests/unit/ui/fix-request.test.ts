@@ -14,6 +14,27 @@ describe('buildFixRequest', () => {
 		expect(text).toContain('http://192.168.1.20:3000/api/schema');
 	});
 
+	it('asks for the corrected deck in Markdown when the deck was Markdown, and keeps the rest', () => {
+		const text = buildFixRequest(
+			[{ path: 'cards[0]', code: 'cannot_infer_type', message: 'no answer', line: 12 }],
+			origin,
+			'markdown'
+		);
+		expect(text).toContain('in the Tessera Markdown format');
+		expect(text).toContain('four backticks for the outer fence');
+		expect(text).not.toContain('as JSON only');
+		expect(text).toContain('Keep every card "id" unchanged');
+		expect(text).toContain('http://192.168.1.20:3000/api/schema');
+		expect(text).toContain('## card-id');
+		expect(text).toContain('1. line 12 [cannot_infer_type]: no answer');
+	});
+
+	it('asks for JSON when nothing says otherwise', () => {
+		const errors = [{ path: 'cards[0].back', code: 'required', message: 'back is required' }];
+		expect(buildFixRequest(errors, origin)).toBe(buildFixRequest(errors, origin, 'json'));
+		expect(buildFixRequest(errors, origin, 'json')).toContain('as JSON only');
+	});
+
 	it('numbers each problem with its path, code, and message', () => {
 		const text = buildFixRequest(
 			[

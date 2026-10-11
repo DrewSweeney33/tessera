@@ -358,6 +358,95 @@ describe('working out the card type', () => {
 	});
 });
 
+describe('a label indented under a choice', () => {
+	// A formatter or a model can indent the lines after a list. Reading them as part of the last choice would
+	// change the deck without a word, so they are refused and the error says what to do.
+	const choices = (...after: string[]) =>
+		md('## a', 'Q: q', 'Choices:', '- one', '- [x] two', ...after);
+
+	it.each([
+		'Explanation: because',
+		'Source: Ch 4',
+		'Tags: x',
+		'Hint: h',
+		'Q: again',
+		'explanation: lower'
+	])('refuses "%s" indented two spaces and says which line', (label) => {
+		const result = errors(choices(`  ${label}`));
+		expect(result).toHaveLength(1);
+		expect(result[0]).toMatchObject({
+			code: 'label_in_choice',
+			path: 'cards[0].choices',
+			line: 12
+		});
+		expect(result[0]!.message).toContain('indented');
+		expect(result[0]!.message).toContain('backslash');
+	});
+
+	it('refuses one indented with a tab, and a one space indent is refused as not a choice at all', () => {
+		expect(errors(choices('\tExplanation: x'))[0]).toMatchObject({ code: 'label_in_choice' });
+		expect(errors(choices(' Explanation: x'))[0]).toMatchObject({ code: 'invalid_choice_line' });
+	});
+
+	it('names the label in the message', () => {
+		expect(errors(choices('  Explanation: because'))[0]!.message).toContain('(Explanation:)');
+	});
+
+	it('reads the same label at the start of the line as a field, as always', () => {
+		expect(cardsOf(choices('Explanation: because'))[0]).toMatchObject({
+			choices: ['one', 'two'],
+			explanation: 'because'
+		});
+	});
+
+	it('keeps an escaped one as text of the choice, with one backslash removed', () => {
+		expect(cardsOf(choices('  \\Explanation: part of the choice'))[0]).toMatchObject({
+			choices: ['one', 'two\nExplanation: part of the choice']
+		});
+		expect(cardsOf(choices('  \\\\Source: two backslashes'))[0]).toMatchObject({
+			choices: ['one', 'two\n\\Source: two backslashes']
+		});
+	});
+
+	it('leaves deeper indentation and other indented text alone', () => {
+		expect(
+			cardsOf(choices('    Explanation: code', '  ## not a card', '  - a nested bullet'))[0]
+		).toMatchObject({
+			choices: ['one', 'two\n  Explanation: code\n## not a card\n- a nested bullet']
+		});
+	});
+
+	it('reports every one, not only the first', () => {
+		const result = errors(choices('  Explanation: x', '  Source: y'));
+		expect(result.map((e) => [e.code, e.line])).toEqual([
+			['label_in_choice', 12],
+			['label_in_choice', 13]
+		]);
+	});
+
+	it('is what a formatter does to a deck, so the example in the docs says not to run one', () => {
+		const formatted = [
+			'---',
+			'tessera: 1',
+			'id: d',
+			'title: D',
+			'---',
+			'',
+			'## a',
+			'',
+			'Q: q',
+			'Choices:',
+			'',
+			'- one',
+			'- [x] two',
+			'  Explanation: because',
+			'  Tags: x',
+			''
+		].join('\n');
+		expect(errors(formatted).map((e) => e.code)).toEqual(['label_in_choice', 'label_in_choice']);
+	});
+});
+
 describe('Choices', () => {
 	const choice = (...items: string[]) => md('## a', 'Q: q', 'Choices:', ...items);
 

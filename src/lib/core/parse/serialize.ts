@@ -1,7 +1,13 @@
 import { stringify } from 'yaml';
 import { err, ok, type Result } from '../result.ts';
 import type { Card, Deck } from '../schema/index.ts';
-import { advanceFence, escapeLine, joinList, type FenceState } from './markdown-syntax.ts';
+import {
+	advanceFence,
+	escapeChoiceLine,
+	escapeLine,
+	joinList,
+	type FenceState
+} from './markdown-syntax.ts';
 
 // Writing a deck back out, in either format, so that reading it again gives the same deck. This is what the
 // export feature and a revised deck from Claude both rely on. The property tests check the round trip.
@@ -160,7 +166,7 @@ function choiceLines(
 			return;
 		}
 		const marker = index === card.correct ? '[x] ' : /^\[[ xX]\](?:\s|$)/.test(first) ? '[ ] ' : '';
-		out.push(`- ${marker}${first}`, ...rest.map((line) => `  ${line}`));
+		out.push(`- ${marker}${first}`, ...rest.map((line) => `  ${escapeChoiceLine(line)}`));
 		// Fences are tracked on the text of the choice, as the reader does, not on the bullet and indent.
 		for (const content of [first, ...rest]) fence = advanceFence(fence, content);
 	});

@@ -357,6 +357,24 @@ describe('how text is written', () => {
 		expect(text).toContain('- one\n- [ ] [x] looks like a mark\n- [x] three');
 	});
 
+	it('escapes a choice line that looks like a label, so it reads back as the same text', () => {
+		const card = {
+			id: 'a',
+			type: 'choice',
+			front: 'q',
+			choices: [
+				'first\nExplanation: not a field\n\\Source: has a backslash\n## not a card',
+				'other'
+			],
+			correct: 1
+		};
+		const text = write(card);
+		expect(text).toContain(
+			'- first\n  \\Explanation: not a field\n  \\\\Source: has a backslash\n  ## not a card\n'
+		);
+		expect(mustParseMarkdown(text).cards[0]).toMatchObject({ choices: card.choices });
+	});
+
 	it('writes a multi-line choice with an indented continuation', () => {
 		const text = write({
 			id: 'a',

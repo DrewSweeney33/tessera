@@ -19,6 +19,8 @@ const DRAW_TIMEOUT_MS = 8_000;
 
 // ---- Highlighting
 
+// The languages that get colour, by the name Shiki uses. The documentation lists exactly these, and a test
+// keeps the two in step.
 const LANGUAGES: Record<string, () => Promise<unknown>> = {
 	bash: () => import('shiki/langs/bash.mjs'),
 	c: () => import('shiki/langs/c.mjs'),
@@ -68,6 +70,10 @@ const ALIASES: Record<string, string> = {
 	docker: 'dockerfile',
 	conf: 'ini'
 };
+
+// For the documentation tests: what the highlighter knows, and the short names it accepts.
+export const HIGHLIGHT_LANGUAGES: readonly string[] = Object.keys(LANGUAGES);
+export const LANGUAGE_ALIASES: Readonly<Record<string, string>> = ALIASES;
 
 // The grammar name for a fence's language, or undefined when there is none to use.
 export function languageFor(info: string): string | undefined {

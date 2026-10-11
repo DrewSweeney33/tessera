@@ -8,6 +8,7 @@ import {
 	advanceFence,
 	choiceContent,
 	isEscapedSpecial,
+	isIndentedLabel,
 	matchHeading,
 	matchLabel,
 	splitList,
@@ -356,7 +357,20 @@ function readChoices(
 		}
 		if (/^(?: {2}|\t)/.test(row) && choices.length > 0) {
 			// Whitespace inside a choice is kept. Only the end of the whole choice is trimmed, below.
-			choices[choices.length - 1] += `\n${row.replace(/^(?: {1,2}|\t)/, '')}`;
+			const content = row.replace(/^(?: {1,2}|\t)/, '');
+			if (isIndentedLabel(content)) {
+				errors.push(
+					problem(
+						`cards[${cardIndex}].choices`,
+						'label_in_choice',
+						`This line looks like a field label (${content.slice(0, content.indexOf(':') + 1)}) but it is indented, so it would be read as part of the choice above. Start it at the beginning of the line, with no indent, or put a backslash in front of it if it really is part of the choice.`,
+						lineNo
+					)
+				);
+				return;
+			}
+			choices[choices.length - 1] +=
+				`\n${isEscapedSpecial(content) ? unescapeLine(content) : content}`;
 			return;
 		}
 		errors.push(

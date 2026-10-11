@@ -98,6 +98,18 @@ export function choiceContent(line: string): string {
 	return item ? item[2]! : line.replace(/^(?: {1,2}|\t)/, '');
 }
 
+// An indented line under a choice continues that choice. A line there that reads as a field label ("Explanation:")
+// is almost always a mistake: a formatter or a model indented what should start a field, and reading it as part
+// of the choice would silently change the deck. So it is an error, unless it is escaped like any other line that
+// looks like a label. The same one backslash is removed when reading and added when writing.
+export function isIndentedLabel(content: string): boolean {
+	return matchLabel(content) !== undefined;
+}
+
+export function escapeChoiceLine(content: string): string {
+	return isIndentedLabel(content) || isEscapedSpecial(content) ? `\\${content}` : content;
+}
+
 // ---- Comma separated lists (Tags, Accept)
 
 // Splits on commas and line breaks. "\," is a literal comma and "\\" a literal backslash. Items are

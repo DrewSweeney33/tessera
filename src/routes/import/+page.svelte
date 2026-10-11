@@ -30,9 +30,9 @@
 	const tooLarge = $derived(new Blob([text]).size > MAX_BYTES);
 	const canPreview = $derived(text.trim().length > 0 && !tooLarge && busy === undefined);
 	const canImport = $derived(plan !== undefined && !stale && busy === undefined && !result);
-	const fixRequest = $derived(buildFixRequest(errors, location.origin));
 	// JSON or Markdown, worked out from the text, so nobody has to say which they pasted.
 	const format = $derived(detectFormat(text, filename));
+	const fixRequest = $derived(buildFixRequest(errors, location.origin, format));
 
 	function clearOutcome() {
 		plan = undefined;
