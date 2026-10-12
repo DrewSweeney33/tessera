@@ -167,3 +167,11 @@ Structured JSON logs (level via `LOG_LEVEL`) with request id, route, status, dur
 ## 11. Brainy findings (competitive input)
 
 Read from the public repository page on 2026-10-10: Brainy is a Tauri desktop application (the repo contains `src-tauri` and `vite.config.ts`), licensed AGPL-3.0, distributed through GitHub releases, Flatpak, Snap, and Nix. No Docker files. It advertises AI card generation from uploaded PDFs and notes, FSRS scheduling, and sync. **The repository is archived by its owner and read-only.** No import format is documented. Nothing in it changes this design. It strengthens the strategic case, since the closest open source competitor is desktop-only and no longer maintained. Source code internals were not inspected beyond the repository listing.
+
+## 0.1.1 and the live-image test harness (2026-10-11)
+
+Spec: `.10x/specs/2026-10-11-v0.1.1-and-live-test-design.md`. ADR: `.10x/adrs/012-live-image-test-harness.md`.
+
+- **B-1.** The data folder preparation (`openDatabase` in `src/lib/server/db/index.ts`) also creates `<dataDir>/backups`. A path that exists as a file is a clear start-up error. No schema, API, or ADR-008 change: ADR-008 already says backups live there.
+- **Harness boundaries.** One script on the developer's machine, one throwaway compose project on a Docker host over SSH, the existing `--base` scripts for application tests. Safety rules are enforced in code (marker file, port and volume refusals, dry run, teardown in `finally`).
+- **Failure modes.** Harness touches the live instance (refused by rule, tested with a negative control); leftover test project (teardown at the next start); disk-full test on a real disk (tmpfs volume with a size limit).
