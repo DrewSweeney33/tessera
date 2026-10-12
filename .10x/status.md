@@ -145,6 +145,13 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 
 - [ ] M5-01 to M5-09, see EM file section 8. Re-plan at M4 exit.
 
+## Backlog (not scheduled)
+
+Added 2026-10-11 at the owner's request. Neither blocks use of 0.1.0.
+
+- [ ] **B-1 Create `/data/backups` at startup (target 0.1.1).** Found on the first homelab deploy (CT123, 2026-10-11). The folder is created only by `src/lib/server/db/migrate.ts` when a backup is taken before a database upgrade, so on a fresh install the manual backup command in `docs/operations.md` fails with `SQLITE_CANTOPEN`, and the integrity check with "directory does not exist". Chosen fix (owner, option 2): create the folder when the server starts, and fix the guide's wording. Add a test that runs the documented backup and check commands against a fresh data folder (this is what would have caught it), and cover it in `scripts/ops-check.ts` and the container job. Workaround until then: `docker compose exec tessera mkdir -p /data/backups`.
+- [ ] **B-2 Easy testing against the live Docker image.** `scripts/smoke.ts`, `security-probe.ts`, and `benchmark.ts` already accept `--base <url>`, but they import decks and grade cards, so they must never point at an instance that holds real study history. Idea from the owner: make it simple to check a running container on the homelab. Proposed shape: a second compose project (own port and own volume, thrown away after) on the LXC, and one documented command that runs the scripts against it. Decide how to run the scripts there (they need Node and the repository, while the LXC has only Docker) and whether to keep an AI assistant off the production LXC (it holds the real review history and the docker group is root-equivalent).
+
 ## Verified facts (2026-10-10)
 
 - `ts-fsrs` 5.4.2 (MIT), FSRS-6, defaults learning steps 1m and 10m.
@@ -160,7 +167,7 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 
 1. ~~M1 exit gate.~~ Accepted by the owner on 2026-10-11 when they asked to start Milestone 2.
 2. **Merge Dependabot pull request #2** (`setup-node` 7.1.0). Verified safe, awaiting the owner's click.
-3. **Try the guides on your own host.** The `docker compose` commands in `docs/operations.md` and `docs/deploy.md` could not be run here. Installing Docker Desktop on the dev machine would let me run them, or run the backup and restore once on the homelab and tell me anything that differs.
+3. **Try the guides on your own host.** Started 2026-10-11: Tessera 0.1.0 runs on the homelab (CT123, 192.168.30.102, `https://tessera.sweentech.com` through NPM); import and grading worked, and the first backup attempt found B-1 (see the backlog). The `docker compose` commands in `docs/operations.md` and `docs/deploy.md` could not be run here. Installing Docker Desktop on the dev machine would let me run them, or run the backup and restore once on the homelab and tell me anything that differs.
 4. **Before the first real tag:** the repository's default workflow permission is "read repository contents and packages", which is fine because the release job asks for `packages: write` and `contents: write` itself. This can only be proven by a real tag.
 5. Checkpoint gate: continue past M2 only after at least 5 distinct real study days with a Claude-generated deck.
 6. Deferred to v1.1: auto-generated choice distractors, undo last grade.
