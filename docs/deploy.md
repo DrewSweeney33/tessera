@@ -31,6 +31,53 @@ curl -s http://127.0.0.1:3000/healthz
 
 A healthy server answers `{"ok":true,"version":"...","dbOk":true}`.
 
+### Without the source: run the published image
+
+You do not need the repository or a build. Every release publishes a ready image for `linux/amd64` and `linux/arm64`. Make a folder, put this in `compose.yaml` there, and run `docker compose up -d`:
+
+<!-- published-image-compose -->
+
+```yaml
+services:
+  tessera:
+    image: ghcr.io/drewsweeney33/tessera:0.1.0
+    init: true
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:3000:3000'
+    environment:
+      TZ: UTC
+    volumes:
+      - tessera-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # One log line is written for every request, and Docker keeps logs forever by default.
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+volumes:
+  tessera-data:
+```
+
+This is the repository's own `compose.yaml` with the image in place of the build, so it is just as locked down. Change `TZ` to your time zone (for example `America/Chicago`), and read [Reaching it from your phone or another computer](#reaching-it-from-your-phone-or-another-computer) before you change the port line.
+
+**Pin an exact version**, as in the example, and move it on yourself. The registry also has a `latest` tag and a `0.1` tag that follow new releases, but a tag that moves can change under you at the next `docker compose pull`. To update, change the number, then:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+The server takes a backup of the database before it upgrades the database layout, so an update is safe to try. See [operations.md](operations.md) for upgrades and rollback.
+
 ## Reaching it from your phone or another computer
 
 **Tessera has no login.** Anyone who can reach the port can read and change everything, so the way you reach it matters more than any setting. `compose.yaml` publishes the port on `127.0.0.1` only, so out of the box only the machine it runs on can use it. Pick one of these to go further, in this order of preference.

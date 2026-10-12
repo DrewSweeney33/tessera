@@ -4,6 +4,10 @@ All notable changes to Tessera are written here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Added
+
+- The deployment guide shows how to run the published image with no source or build, as a hardened compose file with a pinned version. A test keeps the example as locked down as the repository's own `compose.yaml`.
+
 ### Changed
 
 - The container's logs are now rotated (three files of 10 MB) in the sample `compose.yaml`. Tessera logs one line per request, and Docker keeps logs forever by default. If you wrote your own compose file, add a `logging` section (see the operations guide).
