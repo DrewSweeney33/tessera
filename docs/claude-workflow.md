@@ -67,7 +67,7 @@ Claude can state something wrong with confidence, and a flashcard that teaches a
 
 ## Changing a deck
 
-Keep the file you imported. To change a deck:
+Keep the file you imported, or get the deck back out of Tessera (see "Without the web page" below). To change a deck:
 
 1. Give Claude the deck and say what to change: "add five cards about X", "make card `ospf-hello` clearer", "the answer to `ospf-dr` is wrong, it should be ...".
 2. Tell it to **keep every existing id** and to reply with the whole deck.
@@ -85,6 +85,15 @@ curl -X POST -H "Content-Type: text/markdown" --data-binary @deck.md "http://tes
 
 Leave off `?dry_run=true` to save it. If you set an API token, add `-H "Authorization: Bearer YOUR_TOKEN"`. Both are described in [deploy.md](deploy.md).
 
+To get a deck back out, ask for its export. The deck's id is the one on the home page. The file name comes from the id, and `format=md` gives Markdown instead of JSON:
+
+```bash
+curl -OJ "http://tessera.lan:3000/api/decks/ccna-ospf/export"
+curl -OJ "http://tessera.lan:3000/api/decks/ccna-ospf/export?format=md"
+```
+
+The export has every card with its id, type, text, tags, and order, so importing it again changes nothing. Cards you removed are not in it. A deck in the Trash cannot be exported. If a deck has content that Markdown cannot hold (a card that starts with spaces, for example), the Markdown export says so and names the card, and the JSON export always works.
+
 ## Good cards
 
 The skill asks Claude for these. You can ask for them too.
@@ -99,4 +108,4 @@ The skill asks Claude for these. You can ask for them too.
 
 ## What is not here yet
 
-Tessera cannot export a deck yet, so keep the file you imported. A weak-spot report, which would let you hand Claude the cards you keep getting wrong and ask for better ones, is planned for a later version.
+There is no button for exporting a deck in the web page yet, only the route above. A weak-spot report, which would let you hand Claude the cards you keep getting wrong and ask for better ones, is planned for a later version.

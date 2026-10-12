@@ -4,6 +4,10 @@ All notable changes to Tessera are written here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Added
+
+- A deck can be exported: `GET /api/decks/:id/export` sends the deck as a JSON download, or as Markdown with `?format=md`. The file has every card with its id, type, text, tags, and order, so importing it again changes nothing and creates nothing. Cards you removed and decks in the Trash are not in it, and a Markdown export of content that format cannot hold says which card and points to JSON. This is the first step of editing decks in the web page. There is no export button in the page yet.
+
 ## [0.1.1] - 2026-10-12
 
 Fixes found by running 0.1.0 on a real homelab Docker host, and a tool for testing the real image on your own host.

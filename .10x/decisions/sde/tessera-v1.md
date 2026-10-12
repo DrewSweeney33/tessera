@@ -693,3 +693,15 @@ Spec: `.10x/specs/2026-10-11-v0.1.1-and-live-test-design.md`. ADR: `.10x/adrs/01
 ## 0.1.1 released (2026-10-12)
 
 `v0.1.1` is published (stable release, image `ghcr.io/drewsweeney33/tessera:0.1.1`, with `0.1` and `latest` moved to it). The release candidate went first and the final image passed the live-image harness on the real host again: 63 passed, 0 failed, 1 skipped. See the QA report addendum. The owner's live instance on CT123 is still on 0.1.0 until the owner upgrades it (steps in the handoff). Later the same night the owner added library management requests to the plan (ADR-013 and ADR-014 proposed, tasks L-01 to L-10). Nothing from them is built.
+
+## L-01 export (2026-10-12)
+
+Milestone L (library management) started on the owner's go-ahead (ADR-013 and ADR-014 accepted). Order: L-01, L-03, L-02, L-04, L-05, L-06, L-07, L-08, L-10, then L-09. Each task test-first, committed on its own.
+
+**Built.** `exportDeck` (`src/lib/server/export/deck.ts`) reads a deck back as a deck document: stored card `{ type, id: key, ...content, tags, source }` in position order, archived cards left out, a deck in the Trash or unknown gives nothing (one 404 for both). `renderDeckExport` writes JSON or Markdown with a safe file name (the deck id) and says which card blocks a Markdown export. `handleExportDeck` and the route `src/routes/api/decks/[id]/export/+server.ts` send it as a download with `Cache-Control: no-store`. A card imported without an id is exported under its stored `h-` key, so exporting and importing again keeps it.
+
+**Checked.** The round trip on every golden deck and on generated decks of all four card types; a trip through JSON text and through Markdown text; mutation check of 13 planted bugs (12 caught; the other, content spread before `type`, cannot matter because stored content never has a `type` key). The security probe gained 27 checks (242 in all) including token and path-variant cases.
+
+**Found and decided on the way.** A `DELETE` that carries a body answers 400 from the framework, not 405. The probe accepts 400, 403, or 405 as a refusal, as its older cross-site check already did. Not a defect: nothing is executed.
+
+**Not done.** No export button in the page (the editor and the Backups page bring it). The guide says so.

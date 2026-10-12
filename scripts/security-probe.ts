@@ -574,6 +574,21 @@ try {
 				'the token is judged before the content type, so a caller learns nothing about the API',
 				(await status('/api/import', { 'content-type': 'application/xml' }, 'POST')) === 401
 			);
+			// A deck export carries the whole deck, so it needs the token like every other API route.
+			check(
+				'a deck export is refused without the token',
+				(await status('/api/decks/probe-token/export')) === 401
+			);
+			check(
+				'and a path variant of it is refused too',
+				(await status('/api/%64ecks/probe-token/%65xport')) === 401
+			);
+			const tokenExport = await send({ path: '/api/decks/probe-token/export', headers: withToken });
+			check(
+				'a deck export works with the token',
+				tokenExport.status === 200 && JSON.parse(tokenExport.text).deck.id === 'probe-token',
+				`got ${tokenExport.status}`
+			);
 
 			for (const path of ['/healthz', '/api/schema', '/', '/import']) {
 				check(`${path} stays open`, (await status(path)) === 200);
@@ -961,6 +976,101 @@ try {
 		`${Math.round(took)} ms, status ${nasty.status}`
 	);
 	check('the server answers right after', (await send({ path: '/healthz' })).status === 200);
+
+	// ---- 4b. Deck export (ADR-013)
+	console.log('\n# Export');
+	const exportMarker = 'ZQXJ-EXPORT-PROBE-5512';
+	await post(
+		'/api/import',
+		deck('probe-export', [basic('a', `Question ${exportMarker}`, 'Answer'), basic('b')])
+	);
+	const exported = await send({ path: '/api/decks/probe-export/export' });
+	check(
+		'a deck export is a JSON download with a safe file name',
+		exported.status === 200 &&
+			String(exported.headers['content-type']).startsWith('application/json') &&
+			exported.headers['content-disposition'] === 'attachment; filename="probe-export.json"',
+		`${exported.status} ${exported.headers['content-disposition']}`
+	);
+	check(
+		'it is not cached and not sniffed',
+		exported.headers['cache-control'] === 'no-store' &&
+			exported.headers['x-content-type-options'] === 'nosniff'
+	);
+	check(
+		'it holds the deck that was imported',
+		JSON.parse(exported.text).cards.length === 2 && exported.text.includes(exportMarker)
+	);
+	check(
+		'it carries no cross-origin permission',
+		!('access-control-allow-origin' in exported.headers)
+	);
+	const exportedMarkdown = await send({ path: '/api/decks/probe-export/export?format=md' });
+	check(
+		'the Markdown export is a Markdown download',
+		exportedMarkdown.status === 200 &&
+			String(exportedMarkdown.headers['content-type']).startsWith('text/markdown') &&
+			exportedMarkdown.headers['content-disposition'] === 'attachment; filename="probe-export.md"'
+	);
+	const again = await post('/api/import', exported.text);
+	check(
+		'importing the export again changes nothing',
+		again.status === 200 && JSON.parse(again.text).result?.changed === false,
+		again.text.slice(0, 100)
+	);
+	for (const id of [
+		'..%2f..%2fpackage.json',
+		'%2e%2e%2fetc%2fpasswd',
+		'no-such-deck',
+		'UPPER',
+		'a%20b',
+		'%00',
+		'x'.repeat(100),
+		'%3Cscript%3E'
+	]) {
+		const r = await send({ path: `/api/decks/${id}/export` });
+		check(
+			`an export of "${id.slice(0, 24)}" is a 404 that leaks nothing and echoes nothing`,
+			r.status === 404 &&
+				!r.text.includes('"dependencies"') &&
+				!r.text.includes('root:x:') &&
+				!r.text.includes('<script') &&
+				!/node_modules|\.ts:\d+/.test(r.text),
+			`${r.status} ${r.text.slice(0, 80)}`
+		);
+	}
+	for (const format of ['csv', 'apkg', '..%2fx', 'json%0d%0aX-Evil%3a%201', '%00']) {
+		const r = await send({ path: `/api/decks/probe-export/export?format=${format}` });
+		check(
+			`export format "${format.slice(0, 20)}" is refused`,
+			r.status === 400 && !('x-evil' in r.headers),
+			`got ${r.status}`
+		);
+	}
+	for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
+		const r = await send({
+			method,
+			path: '/api/decks/probe-export/export',
+			headers: JSON_HEADERS,
+			body: '{}'
+		});
+		// 405 for a method the route does not have, or 403 or 400 from the framework's own checks (a DELETE that
+		// carries a body is a 400). Any of them is a refusal, and nothing was done.
+		check(
+			`${method} on the export route is refused`,
+			[400, 403, 405].includes(r.status),
+			`got ${r.status}`
+		);
+	}
+	const foreign = await send({
+		path: '/api/decks/probe-export/export',
+		headers: { host: 'attacker.example' }
+	});
+	check(
+		'an export asked for under a foreign host name is refused (421)',
+		foreign.status === 421 && !foreign.text.includes(exportMarker),
+		`got ${foreign.status}`
+	);
 
 	// ---- 5. Path traversal and error leakage
 	console.log('\n# Paths and errors');

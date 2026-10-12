@@ -137,7 +137,7 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 
 Manual deck creation, editing, practice again and start over, deck deletion (Trash), and backups from the GUI. Stories US-11 to US-16 in the PM file, delivery plan in the EM file ("Library management, added to the plan"), design in **ADR-013 and ADR-014, both Proposed and waiting for the owner**. **Started 2026-10-12.** The owner accepted ADR-013 and ADR-014 and said "next milestone", which overrides the checkpoint gate (see the CTO file). Order: L-01, L-03, L-02, L-04, L-05, L-06, L-07, L-08, L-10, then L-09.
 
-- [ ] L-01 `exportDeck` and the export route (pulled forward from M3-06) (M)
+- [x] L-01 `exportDeck` and the export route (pulled forward from M3-06) (M). Done 2026-10-12. `src/lib/server/export/` and `GET /api/decks/:id/export?format=json|md`. 34 new tests: the round trip (export, then import again, changes nothing and creates nothing) on every golden deck, both file formats, cards without ids, and generated decks (property test). 13 deliberate bugs, 12 caught, the 13th equivalent. 27 new probe checks (242 total): traversal and bad ids, bad formats, wrong methods, foreign host, token and path variants. No UI button yet (comes with the editor and the Backups page).
 - [ ] L-02 Create a deck: empty deck in the planner, create route, "New deck" form (M)
 - [ ] L-03 Snapshot-before-destructive-action helper (S)
 - [ ] L-04 Card editor component for the four types with live preview (M)
