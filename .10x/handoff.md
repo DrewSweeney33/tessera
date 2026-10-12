@@ -2,39 +2,56 @@
 
 ## Current handoff
 
-**From:** SDE, QA, and DevOps, the 0.1.1 work and the live-image harness
-**To:** The owner (approve the final 0.1.1 after the real-host run), then the SDE for M3
-**Date:** 2026-10-11
-**Per-feature file:** `.10x/decisions/sde/tessera-v1.md` (section "0.1.1"), `.10x/specs/2026-10-11-v0.1.1-and-live-test-design.md`, `.10x/adrs/012-live-image-test-harness.md`, `docs/testing-on-your-host.md`
+**From:** The team (SDE, QA, DevOps, PM, EM), after the overnight run of 2026-10-12
+**To:** The owner (a few decisions and one upgrade), then the SDE
+**Date:** 2026-10-12
+**Per-feature files:** `.10x/reviews/2026-10-12-qa-report-0.1.1.md`, `.10x/decisions/sde/tessera-v1.md` (sections "0.1.1" and "0.1.1 released"), `.10x/decisions/engineering-manager/tessera-v1.md` ("M3 re-plan" and "Library management"), `.10x/decisions/product-manager/tessera-v1.md` (US-11 to US-16), `.10x/adrs/013-*.md` and `014-*.md`
 
-### Result
+### What happened overnight
 
-0.1.0 is released and runs on the homelab (CT123, `https://tessera.sweentech.com`). Testing the real image on that host found real things, and 0.1.1 fixes them: the backups folder missing on a fresh install (B-1), a generic 500 when the data disk is full (now a plain 507), the Svelte logo in the browser tab (now Tessera's mark), unrotated container logs, and a deploy guide that only showed building from source. The new live-image harness (`npm run live:test`) runs the real image as a throwaway test instance on a Docker host over SSH and never touches the instance the owner uses. The security probe's remote mode no longer skips about 90 checks silently.
-
-### State of git
-
-All 0.1.1 work is pushed (`5c20def`, version `0.1.1-rc.1`). CI on that commit decides the next step. The owner approved a release candidate: tag `v0.1.1-rc.1` once CI is green. A candidate publishes only the exact image tag `ghcr.io/drewsweeney33/tessera:0.1.1-rc.1` (never `latest` or `0.1`) and a GitHub pre-release. The final `0.1.1` still needs the owner's approval.
+- **0.1.1 is released** (stable, `v0.1.1`, image `ghcr.io/drewsweeney33/tessera:0.1.1`, with `0.1` and `latest` moved to it). It fixes what the first real deploy and the live-image harness found: the backups folder on a fresh install, a plain 507 answer when the data disk is full, Tessera's own tab icon, log rotation, and a deploy guide for the published image. It also ships the harness. The final image passed the harness on your real host again: 63 passed, 0 failed, 1 skipped.
+- **Your live Tessera on CT123 is still on 0.1.0.** I did not touch it. The upgrade is yours (steps below).
+- **M3 stays held at the checkpoint gate** (the CTO's rule: continue past M2 only after you have studied on 5 separate days with a Claude-generated deck). The M3 re-plan is written and the competitor re-check is done. It found Flash, a self-hosted FSRS app that Claude drives over MCP. Details are in the CTO file.
+- **Your library management requests are in the plan, not built:** user stories US-11 to US-16, ADR-013 (editing, deleting, and resetting decks) and ADR-014 (backups and restore from the GUI), both **Proposed**, and tasks L-01 to L-10 (about 38 hours, about 32 net).
 
 ### Needs the owner
 
-1. **After the candidate is published:** the harness runs against that exact image, soak included. If it is green, say "release 0.1.1" and I bump the version, rename the changelog section, push, wait for CI, and tag.
-2. **Upgrade CT123 when 0.1.1 is out:** change the image tag in `/opt/tessera/compose.yaml`, `docker compose pull`, `docker compose up -d`. On 0.1.0 the manual backup needs `docker compose exec tessera mkdir -p /data/backups` once.
-3. **Port 3000 on CT123 is reachable from the LAN directly** (confirmed from the owner's PC), which skips NPM's "Internal Only" Access List. An OPNsense rule that lets only NPM reach 192.168.30.102:3000 would close it. Not an application change.
-4. **About 544 MB of Docker build cache is left on CT123** from the build that hung. Read-only first: `docker builder du`. To remove it: `docker builder prune -f` (it is cache only).
-5. Still open from the M2 exit, unchanged: use the skill in a real Claude conversation (R-9), a screen reader pass (R-3), try it on a phone (R-10), accept or reject security findings S-10 and S-04, a multi-day soak (R-8). The disk-full risk (R-7) is now tested on the real host and handled.
+1. **Upgrade CT123 to 0.1.1.** On the LXC as `andrew`. 0.1.1 has no database change, so no migration runs.
 
-### Next
+   ```bash
+   cd /opt/tessera
+   sed -i 's#tessera:0.1.0#tessera:0.1.1#' compose.yaml
+   grep image compose.yaml
+   docker compose pull
+   docker compose up -d
+   docker compose ps
+   curl -s http://192.168.30.102:3000/healthz
+   ```
 
-M3 (leeches, weak spots, export, settings) after 0.1.1. Every release from now on gets a harness run recorded in its QA report (ADR-012).
+   `/healthz` should say version 0.1.1. The backups folder now appears on its own. To go back, change the tag to `0.1.0` and run `docker compose up -d`. The compose file on CT123 already has log rotation.
+2. **Read and answer the five questions at the end of the product requirements** ("Owner requests added to the plan"): what "retrain after completion" means (the team assumed both practice again and start over), Trash before permanent delete, hand edits versus re-import, restore from the GUI now or later, and the order (library management before the weak-spot work is recommended). Then accept or change ADR-013 and ADR-014.
+3. **Tell the team the checkpoint is met, or override it**, so the next milestone can start. The recommended next group is library management (L-01 to L-10), which is also what you need for daily use.
+4. **List the other features you want.** The product file has a candidate list to cross out or promote.
+5. **Optional cleanup on CT123**, all of it low risk: about 544 MB of Docker build cache from a hung build (`docker builder prune -f`, after `docker builder du` to look), and the cached candidate image (`docker rmi ghcr.io/drewsweeney33/tessera:0.1.1-rc.1`). The old 0.1.0 image can go after you have upgraded and are happy.
+6. **Port 3000 on CT123 is reachable from the LAN directly**, which skips NPM's Access List. An OPNsense rule that lets only NPM (192.168.30.93) reach 192.168.30.102:3000 would close it.
+7. **Still open from the M2 exit:** use the skill in a real Claude conversation (R-9), a screen reader pass (R-3), a phone check (R-10), accept or reject security findings S-10 and S-04, a multi-day soak (R-8), and a daily backup copy to another machine.
+
+### Next, once you decide
+
+Write nothing until you say so. Then: accept or change ADR-013 and ADR-014, start with L-01 (`exportDeck`), and keep each group test-first with a harness run on the real host in its QA report (ADR-012).
 
 ### Things to know
 
-- The harness's test folder is `~/tessera-test` in the SSH user's home and its Compose project is `tessera-test`. It refuses to use the live port or a live folder with that name, and always tears down.
-- Building the image on CT123 hung in `npm prune` (a slow route to the npm registry from that container, cause not found). Use a published image with `--image`; `--build` now cancels a hung build after 15 minutes.
-- `docker kill` is a manual stop to Docker, so it does not restart the container. The harness simulates a crash by killing the server process inside it.
-- The runtime image has no npm, corepack, or yarn (removed on purpose). A failed image scan only reports findings that have a fix.
+- The harness (`npm run live:test`, guide `docs/testing-on-your-host.md`) works only in `~/tessera-test` on the host and never touches `/opt/tessera`. Building the image on CT123 hangs (a slow route to the npm registry from that container), so test published images, or release candidates, with `--image`.
+- A release candidate (`v0.1.1-rc.1`, for example) publishes only its exact tag and a pre-release, so it is the safe way to test unreleased code on the real host before a final release.
+- The arm64 CI job runs under emulation and once stalled for over 20 minutes. A docs-only push replaced that run. A native ARM runner would remove it, and the owner has not asked for the change.
+- The runtime image has no npm, corepack, or yarn (removed on purpose). A failed image scan reports only findings that have a fix.
 
 ## Handoff history
+
+### 2026-10-11: SDE, QA, and DevOps, the 0.1.1 work, to the owner
+
+0.1.1 built and tested: the backups folder, a plain disk-full answer, the tab icon, log rotation, the published-image guide, and the live-image harness. Release candidate `v0.1.1-rc.1` passed the harness on the real host. See `.10x/reviews/2026-10-12-qa-report-0.1.1.md`.
 
 ### 2026-10-11: QA and Security, Milestone 2 exit, to the owner
 

@@ -689,3 +689,7 @@ Spec: `.10x/specs/2026-10-11-v0.1.1-and-live-test-design.md`. ADR: `.10x/adrs/01
 **Not done.** The 0.1.1 fixes have not yet been run on the real host. The release candidate `v0.1.1-rc.1` exists for that. No soak has run on the real host yet.
 
 **Tech debt.** The harness is not covered by CI (CI has no homelab). Only its pure parts, its refusals, and the probe's remote mode are.
+
+## 0.1.1 released (2026-10-12)
+
+`v0.1.1` is published (stable release, image `ghcr.io/drewsweeney33/tessera:0.1.1`, with `0.1` and `latest` moved to it). The release candidate went first and the final image passed the live-image harness on the real host again: 63 passed, 0 failed, 1 skipped. See the QA report addendum. The owner's live instance on CT123 is still on 0.1.0 until the owner upgrades it (steps in the handoff). Later the same night the owner added library management requests to the plan (ADR-013 and ADR-014 proposed, tasks L-01 to L-10). Nothing from them is built.
