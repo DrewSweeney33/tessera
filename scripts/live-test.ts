@@ -487,8 +487,8 @@ async function main(): Promise<void> {
 		`${before.status} / ${after.status}`
 	);
 
-	// ---- 5. A hard kill, then a graceful stop
-	heading('A hard kill after a saved grade, and a graceful stop');
+	// ---- 5. A crash, a hard kill, and a graceful stop
+	heading('A crash, a hard kill, and a graceful stop');
 	await postJson(url('main'), '/api/import', deck('live-keep', 3));
 	const next = await http(url('main'), '/api/study/next?deckId=live-keep');
 	const item = next.body?.['item'];
@@ -502,45 +502,65 @@ async function main(): Promise<void> {
 	});
 	const saved = await postJson(url('main'), '/api/study/review', review(item?.servedAt ?? ''));
 	check('a grade was acknowledged', saved.status === 200, saved.text.slice(0, 100));
+	const stillThere = async () =>
+		(await postJson(url('main'), '/api/study/review', review(new Date().toISOString()))).body?.[
+			'result'
+		]?.['replayed'] === true;
+
+	// (a) A crash: the server process dies by itself. Docker counts that as a failure and restarts the container.
 	const restartsBefore = Number(
-		remote(`docker inspect --format '{{.RestartCount}}' ${id}`).stdout.trim()
+		remote("docker inspect --format '{{.RestartCount}}' " + id).stdout.trim()
 	);
-	remote(`docker kill -s KILL ${id}`);
+	remote(
+		'docker exec ' +
+			id +
+			' sh -c \'for d in /proc/[0-9]*; do if [ "$(cat $d/comm 2>/dev/null)" = node ]; then kill -9 ${d#/proc/}; fi; done\''
+	);
 	let restarted = false;
-	for (let i = 0; i < 40 && !restarted; i++) {
+	for (let i = 0; i < 60 && !restarted; i++) {
 		await sleep(1500);
 		const state = remote(
-			`docker inspect --format '{{.RestartCount}} {{.State.Health.Status}}' ${id}`
+			"docker inspect --format '{{.RestartCount}} {{.State.Health.Status}}' " + id
 		)
 			.stdout.trim()
 			.split(' ');
 		restarted = Number(state[0]) > restartsBefore && state[1] === 'healthy';
 	}
-	check('Docker restarted the killed container and it became healthy', restarted);
-	const replayed = await postJson(
-		url('main'),
-		'/api/study/review',
-		review(new Date().toISOString())
-	);
 	check(
-		'the acknowledged grade survived the kill (replayed)',
-		replayed.body?.['result']?.['replayed'] === true,
-		replayed.text.slice(0, 100)
+		'after the server process was killed, Docker restarted the container and it became healthy',
+		restarted
 	);
+	check('the acknowledged grade survived the crash (replayed)', await stillThere());
+
+	// (b) An explicit hard kill. Docker treats "docker kill" as a manual stop and does not restart it, by design.
+	remote('docker kill -s KILL ' + id);
+	await sleep(3000);
+	const afterKill = remote(
+		"docker inspect --format '{{.State.Running}} {{.State.ExitCode}}' " + id
+	).stdout.trim();
+	check(
+		'an explicit docker kill leaves it stopped (Docker does not restart a manual stop)',
+		afterKill === 'false 137',
+		afterKill
+	);
+	remote('docker start ' + id);
+	check('it started again and is healthy', await waitHealthy('main'));
+	check('the acknowledged grade survived the hard kill too', await stillThere());
+
+	// (c) A graceful stop.
 	const stopStart = Date.now();
-	remote(`docker stop -t 20 ${id}`, { timeoutMs: 60_000 });
+	remote('docker stop -t 20 ' + id, { timeoutMs: 60_000 });
 	const stopSeconds = (Date.now() - stopStart) / 1000;
-	const exit = remote(`docker inspect --format '{{.State.ExitCode}}' ${id}`).stdout.trim();
-	check('a graceful stop exits cleanly (code 0)', exit === '0', `exit ${exit}`);
-	check('and does not wait for the kill timeout', stopSeconds < 15, `${stopSeconds.toFixed(1)} s`);
+	const exit = remote("docker inspect --format '{{.State.ExitCode}}' " + id).stdout.trim();
+	check('a graceful stop exits cleanly (code 0)', exit === '0', 'exit ' + exit);
+	check('and does not wait for the kill timeout', stopSeconds < 15, stopSeconds.toFixed(1) + ' s');
 	check(
 		'the shutdown was logged',
-		remote(`docker logs --tail 40 ${id} 2>&1`).stdout.includes('shutting down')
+		remote('docker logs --tail 40 ' + id + ' 2>&1').stdout.includes('shutting down')
 	);
-	remote(`docker start ${id}`);
-	check('it started again and is healthy', await waitHealthy('main'));
-	const again = await postJson(url('main'), '/api/study/review', review(new Date().toISOString()));
-	check('the grade survived the stop too', again.body?.['result']?.['replayed'] === true);
+	remote('docker start ' + id);
+	check('it started again and is healthy after the stop', await waitHealthy('main'));
+	check('the grade survived the stop too', await stillThere());
 
 	// ---- 6. A full disk (a small memory-backed volume, never the host's disk)
 	heading('A full disk, on an 8 MB memory-backed volume');
@@ -569,6 +589,11 @@ async function main(): Promise<void> {
 		check(
 			'with an answer, not a dropped connection',
 			(firstError?.status ?? 0) >= 400,
+			String(firstError?.status)
+		);
+		check(
+			'it is HTTP 507, the status for a full disk',
+			firstError?.status === 507,
 			String(firstError?.status)
 		);
 		check(
