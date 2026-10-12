@@ -6,6 +6,8 @@ import { handleHealth } from '#lib/server/api/health.ts';
 import { handleSchema } from '#lib/server/api/schema.ts';
 import { handleListDecks } from '#lib/server/api/decks.ts';
 import { handleImport } from '#lib/server/api/import.ts';
+import { cards, cardState } from '#lib/server/db/schema.ts';
+import { eq } from 'drizzle-orm';
 import { listImportHistory } from '#lib/server/repos/index.ts';
 import { fakeClock } from '../../helpers/fake-clock.ts';
 import { makeTempDir, type TempDir } from '../../helpers/temp-dir.ts';
@@ -455,8 +457,34 @@ describe('GET /api/decks', () => {
 	it('starts empty', async () => {
 		expect(await handleListDecks(app).json()).toEqual({
 			decks: [],
-			totals: { learning: 0, review: 0, new: 0 }
+			totals: { learning: 0, review: 0, new: 0 },
+			openLeeches: 0
 		});
+	});
+
+	it('counts the leeches that still need attention, and not suspended ones', async () => {
+		await importDeck(
+			deck([
+				{ id: 'a', type: 'basic', front: 'Q a', back: 'A a' },
+				{ id: 'b', type: 'basic', front: 'Q b', back: 'A b' },
+				{ id: 'c', type: 'basic', front: 'Q c', back: 'A c' }
+			])
+		);
+		const pk = (key: string) => app.db.select().from(cards).where(eq(cards.key, key)).get()!.pk;
+		for (const key of ['a', 'b']) {
+			app.db
+				.update(cardState)
+				.set({ leech: true, lapses: 9 })
+				.where(eq(cardState.cardPk, pk(key)))
+				.run();
+		}
+		expect((await handleListDecks(app).json()).openLeeches).toBe(2);
+		app.db
+			.update(cards)
+			.set({ suspended: true })
+			.where(eq(cards.pk, pk('b')))
+			.run();
+		expect((await handleListDecks(app).json()).openLeeches).toBe(1);
 	});
 
 	it('lists decks with their active card counts', async () => {

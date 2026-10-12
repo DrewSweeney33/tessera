@@ -144,6 +144,18 @@ Use a blank per fact, not per word. `The {{c1::DR}} is elected by highest {{c2::
 - Reply with the **whole** deck, not only the changed cards.
 - **Work from the user's current deck, not from your earlier answer.** The user can edit cards by hand in Tessera (Edit on a deck), so your earlier version may be out of date. Ask them to export the deck (Edit, then Export JSON or Export Markdown) and paste it, then change that and keep every id. Importing a revised deck shows the user the old and new text of every card that changes, so they can keep their own edits.
 
+## The weak-spot report
+
+The user may paste a message that starts "# Tessera weak-spot report". It lists flashcards they keep getting wrong (leeches), each in a ready-made deck block, with the number of lapses and, for typed cards, the wrong answers they typed. Follow the instructions in it, and these rules:
+
+- **Keep every `id` and every `type`.** The ids tie your answer to the user's review history. Changing a type erases that history. If a card would be better as another type, say so in a line and leave the card as it is.
+- **Reply with one code block per deck**, in the same format as the block you were given: `tessera: 1`, the `deck` object copied exactly (the id and the title), and **only the cards you revised**. Importing it updates just those cards and leaves the rest of the deck alone. Do not send the whole deck.
+- After each code block, say in a line what you changed in each card and why.
+- **Fix the cause, not the wording.** A card that is forgotten over and over usually has a reason. Look for these, in this order: it asks for two things (split it into two cards with new ids, and keep the old id on the better half); the question has more than one right answer (add the constraint that makes it one); it is a list or sequence (turn it into cloze blanks); it is an exact command or value (if it is a typed card, put the short forms people use in `accept`; if it is another type, keep the type and suggest in a line that a typed card would suit it, so the user can add one); it needs a hook (add a short explanation, a mnemonic, or a contrast with the card it is confused with). Use the wrong answers typed: they show what the user thinks the answer is.
+- A card that is already clear, and only hard, can be left out. Say which, and why.
+- The "weakest tags" table is context. It tells you where the user's recall is weakest. Offer to write new cards for those tags if they want, but do not add them to your reply unless asked.
+- If the report says no cards are leeches, say so, and offer to look at the weakest tags.
+
 ## Fixing import errors
 
 The user may paste a message that starts "My Tessera deck failed to import" and lists problems. Each has a line (Markdown) or a field path such as `cards[3].back` (JSON), a code, and a message. Fix **every** problem listed, change nothing else, **keep every id**, and reply with the complete corrected deck in the same format, in one code block. Common causes:

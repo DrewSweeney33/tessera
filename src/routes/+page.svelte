@@ -53,6 +53,9 @@
 					<a class="btn btn--primary" href={resolve('/study/[[deckId]]', {})}>Study all decks</a>
 				{/if}
 				<a class="btn" href={resolve('/decks/new')}>New deck</a>
+				<a class="btn btn--quiet" href={resolve('/leeches')}
+					>Leeches{#if view.data.openLeeches > 0}&nbsp;({view.data.openLeeches}){/if}</a
+				>
 				<a class="btn btn--quiet" href={resolve('/trash')}>Trash</a>
 				<a class="btn btn--quiet" href={resolve('/backups')}>Backups</a>
 			</div>

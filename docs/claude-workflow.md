@@ -119,6 +119,28 @@ This is different from practising a deck again without affecting the schedule, w
 
 For scripts: `POST /api/decks/:id/start-over` with `{"confirmTitle": "..."}`.
 
+## When cards keep failing: the weak-spot loop
+
+Some cards you will keep getting wrong. After a card has lapsed eight times Tessera flags it as a **leech**. It is never hidden or suspended by itself: the point is to fix it.
+
+Open **Leeches** from the deck list (it shows how many need attention). Each leech is shown as a card, with the deck, how many times you lapsed, when you last reviewed it, and, for typed cards, the wrong answers you typed. For each one you can:
+
+- **Edit deck** to fix the card yourself.
+- **Reset** it when you have fixed it: the flag and the lapse count go, the schedule and history stay.
+- **Set aside** to take it out of your study sessions until you **Put back**.
+
+**Copy the weak-spot report for Claude** puts one block of text on your clipboard (or shows it to copy, if the browser refuses). Paste it into a chat with Claude, with the Tessera skill installed or its contents pasted. It contains:
+
+- the instruction to Claude: rewrite these so they are easier to learn, keep every `id` and `type`, and reply with only the cards it changed
+- your leech cards, grouped by deck, each deck as a ready-made deck block in the import format, with the lapses and the wrong answers you typed
+- your weakest tags (from your reviews of cards you had already learned, over the last 90 days, with at least ten reviews each)
+
+Claude answers with a deck block holding the revised cards. **Import it as usual.** Because every card keeps its id, the revised cards replace the old text and keep everything you studied. The preview shows the old and new text of each, so you can check it. A leech you have rewritten stays flagged until you **Reset** it, or until you do well on it. Cards that are not in Claude's answer are left alone.
+
+The report holds at most 40 cards and about 60,000 characters, worst first, and says how many it left out. Fix those, import, and copy the report again. A card is never cut in half.
+
+For scripts: `GET /api/report/weak-spots` (add `?format=json` for JSON, `&deckId=` for one deck), `GET /api/leeches`, `POST /api/leeches/:cardPk/:ordinal/reset`, `POST /api/cards/:cardPk/suspend` and `/unsuspend`.
+
 ## Delete a deck: the Trash
 
 Press **Move to Trash** at the top of a deck's editor. The deck leaves your deck list and your study sessions, but nothing is deleted: its cards, its schedule, and everything you studied wait in the Trash. Open **Trash** from the deck list to see them.
@@ -144,4 +166,4 @@ The skill asks Claude for these. You can ask for them too.
 
 ## What is not here yet
 
-Practising a deck again without changing its schedule, and backups from the web page, are planned for the next version. A weak-spot report, which would let you hand Claude the cards you keep getting wrong and ask for better ones, is planned for a later version.
+Practising a deck again without changing its schedule, and backups from the web page, are planned for the next version. Statistics and a settings page are planned for a later version.

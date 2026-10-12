@@ -6,6 +6,7 @@ import { readBodyText } from '../http/body.ts';
 import { errorResponse } from '../http/errors.ts';
 import { jsonResponse } from '../http/response.ts';
 import { countActiveCardsByDeck, listDecks } from '../repos/index.ts';
+import { countLeeches } from '../leeches/index.ts';
 import { countQueue } from '../study/index.ts';
 
 const MAX_CREATE_BODY_BYTES = 16 * 1024;
@@ -37,7 +38,8 @@ export function handleListDecks(app: AppContext): Response {
 
 	const body: DecksResponse = {
 		decks: listDecks(app.db).map((deck) => summarize(app, deck, cardCounts.get(deck.id) ?? 0)),
-		totals: countQueue(app.db, { scope: {}, now, timeZone })
+		totals: countQueue(app.db, { scope: {}, now, timeZone }),
+		openLeeches: countLeeches(app.db)
 	};
 	return jsonResponse(body);
 }

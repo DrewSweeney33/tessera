@@ -246,10 +246,46 @@ export interface DeleteBackupResponse {
 	deleted: string;
 }
 
+// A review item the learner keeps failing (US-6, ADR-015). `ordinal` is 0 for a card and the blank number for a
+// cloze card. `wrongAnswers` are the wrong answers typed, newest first, at most five.
+export interface LeechDto {
+	cardPk: number;
+	ordinal: number;
+	deckId: string;
+	deckTitle: string;
+	key: string;
+	type: 'basic' | 'cloze' | 'typed' | 'choice';
+	content: Record<string, unknown>;
+	tags: string[];
+	source: string | null;
+	lapses: number;
+	reps: number;
+	lastReviewedAt: string | null;
+	suspended: boolean;
+	wrongAnswers: string[];
+}
+
+export interface WeakTagDto {
+	tag: string;
+	reviews: number;
+	retention: number;
+	lapseRate: number;
+	cards: number;
+}
+
+export interface LeechesResponse {
+	leeches: LeechDto[];
+	weakTags: WeakTagDto[];
+	// Leeches that are not suspended, so still need attention.
+	openCount: number;
+}
+
 export interface DecksResponse {
 	decks: DeckSummaryDto[];
 	// What a session across every deck would serve right now.
 	totals: QueueCounts;
+	// Leeches that are flagged and not suspended, so the deck list can point at them.
+	openLeeches: number;
 }
 
 export interface ImportCountsDto {

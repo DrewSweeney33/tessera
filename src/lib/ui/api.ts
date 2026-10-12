@@ -9,6 +9,7 @@ import type {
 	DeleteDeckResponse,
 	FieldErrorDto,
 	GetDeckResponse,
+	LeechesResponse,
 	ImportResponse,
 	NextResponse,
 	RestoreDeckResponse,
@@ -91,6 +92,14 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 	return body as T;
 }
 
+// A text answer (the weak-spot report), for pasting.
+export async function fetchText(path: string): Promise<string> {
+	const response = await send(path);
+	const text = await response.text();
+	if (!response.ok) throw failureOf(response, parseBody(text));
+	return text;
+}
+
 // A file the server sends as a download (a deck export, a backup), with the name it suggests.
 export async function fetchFile(path: string): Promise<{ blob: Blob; filename: string }> {
 	const response = await send(path);
@@ -121,6 +130,26 @@ export const api = {
 			headers: JSON_HEADERS,
 			body: JSON.stringify(request)
 		}),
+
+	leeches: (deckId?: string) =>
+		call<LeechesResponse>(`/api/leeches${deckId ? `?deckId=${encodeURIComponent(deckId)}` : ''}`),
+
+	resetLeech: (cardPk: number, ordinal: number) =>
+		call<{ reset: true }>(`/api/leeches/${cardPk}/${ordinal}/reset`, {
+			method: 'POST',
+			headers: JSON_HEADERS,
+			body: '{}'
+		}),
+
+	setSuspended: (cardPk: number, suspended: boolean) =>
+		call<{ suspended: boolean }>(`/api/cards/${cardPk}/${suspended ? 'suspend' : 'unsuspend'}`, {
+			method: 'POST',
+			headers: JSON_HEADERS,
+			body: '{}'
+		}),
+
+	weakSpotReport: (deckId?: string) =>
+		fetchText(`/api/report/weak-spots${deckId ? `?deckId=${encodeURIComponent(deckId)}` : ''}`),
 
 	backups: () => call<BackupsResponse>('/api/backups'),
 

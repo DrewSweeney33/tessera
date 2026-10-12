@@ -7,3 +7,4 @@ export * from './import-history.ts';
 export * from './study-queries.ts';
 export * from './deck-resets.ts';
 export * from './summary.ts';
+export * from './leeches.ts';

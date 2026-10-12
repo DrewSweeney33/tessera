@@ -774,3 +774,18 @@ Milestone L (library management) started on the owner's go-ahead (ADR-013 and AD
 **Checked.** See the QA report and the security review (S-11, S-12 are the two accepted risks). Real host: 106 passed, 0 failed.
 
 **Not done.** The published release candidate run, the version number and tag (the owner's), the weak-spot work and the rest of M3 (held behind the library work by the owner's order), and "Practice again" (cram) from US-14.
+
+## M3 the weak-spot loop (2026-10-12)
+
+**Built.** ADR-015 first (accepted on the owner's "Lets continue"). `repos/leeches.ts` (leech rows with their card, a count, wrong typed answers, per-card review stats), `leeches/index.ts` (`listLeeches`, `countLeeches`, `resetLeech`, `setCardSuspended`, `weakTags`), `leeches/report.ts`, the pure `core/weak-spots.ts` (builds the Markdown and the JSON), `api/leeches.ts` with five routes, the `/leeches` page, a Leeches link and count on the deck list (`openLeeches` in `GET /api/decks`), the skill's weak-spot section, the guide, README, changelog.
+
+**Decisions.**
+1. **The report holds ready-to-edit deck blocks, only of the leech cards.** Import leaves cards it does not mention alone, so Claude's block of revised cards updates just those, with ids kept. The instruction comes first; the stats go on a line before each block; wrong answers are JSON-quoted so nothing typed can look like a line of the report.
+2. **Nothing is cut.** At most 40 cards and 60,000 characters, worst first; a card that does not fit whole is left out and counted, and a card too large on its own is named. The property test shows every shown block validates and shown + omitted + too large = all.
+3. **Reset clears the flag and the lapse count and nothing else.** Suspend is per card (the column is on `cards`), so every blank of a cloze card goes with it. Neither needs a snapshot because neither destroys anything.
+4. **Weak tags use review-phase reviews only** (`pre_phase = 2`), over 90 days, at least ten reviews, ranked by retention, then more reviews, then name, at most ten.
+5. **A suspended card is left out of the report** (the learner has dealt with it) but stays on the page so it can be put back.
+
+**Found on the way.** The leech helper for browser tests moves a card to the review phase, so "new" counts do not move when it is set aside (the test watches the sum of the three counts). `getByLabel('Show')` also matched a button whose label held the deck title "show"; the tests use an exact match. Planted bugs showed two gaps (tie-breaking by recency and repeated wrong answers beyond the limit), both now tested.
+
+**Not done.** M3-09 (a settings page) and M3-10 (interleave). The 90-day window and the ten-review minimum are fixed, not settings.

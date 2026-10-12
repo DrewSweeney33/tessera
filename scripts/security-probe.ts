@@ -675,6 +675,28 @@ try {
 				'and so is a path variant of it',
 				(await status('/api/backups/manual-x.db/%72estore', JSON_HEADERS, 'POST')) === 401
 			);
+			check('the leech list is refused without the token', (await status('/api/leeches')) === 401);
+			check(
+				'the weak-spot report is refused without the token',
+				(await status('/api/report/weak-spots')) === 401
+			);
+			check(
+				'suspending a card is refused without the token',
+				(await status('/api/cards/1/suspend', JSON_HEADERS, 'POST')) === 401
+			);
+			check(
+				'resetting a leech is refused without the token',
+				(await status('/api/leeches/1/0/reset', JSON_HEADERS, 'POST')) === 401
+			);
+			check(
+				'and a path variant of the report is refused too',
+				(await status('/api/%72eport/weak-spots')) === 401
+			);
+			check(
+				'the leech list and the report work with the token',
+				(await status('/api/leeches', withToken)) === 200 &&
+					(await status('/api/report/weak-spots', withToken)) === 200
+			);
 			const tokenBackup = await send({
 				method: 'POST',
 				path: '/api/backups',
@@ -2030,6 +2052,195 @@ try {
 			(await restoreStillUp())
 	);
 	await send({ method: 'DELETE', path: `/api/backups/${restoreName}`, headers: JSON_HEADERS });
+
+	// ---- 4g. Leeches and the weak-spot report (US-6, ADR-015)
+	console.log('\n# Leeches and the weak-spot report');
+	const leechMarker = 'ZQXJ-LEECH-PROBE-3190';
+	await post('/api/import', deck('probe-leech', [basic('l1', leechMarker, 'A'), basic('l2')]));
+	const leechList = await send({ path: '/api/leeches' });
+	const leechBody = leechList.status === 200 ? JSON.parse(leechList.text) : undefined;
+	check(
+		'the leech list answers with the leeches, the weakest tags, and a count',
+		leechList.status === 200 &&
+			Array.isArray(leechBody?.leeches) &&
+			Array.isArray(leechBody?.weakTags) &&
+			typeof leechBody?.openCount === 'number' &&
+			(leechList.headers['content-type'] ?? '').startsWith('application/json') &&
+			!('access-control-allow-origin' in leechList.headers),
+		`${leechList.status}`
+	);
+	check(
+		'the deck list says how many leeches need attention',
+		typeof JSON.parse((await send({ path: '/api/decks' })).text).openLeeches === 'number'
+	);
+	for (const id of ['nope', 'UPPER', 'a%20b', '..%2f..%2fpackage.json', '%00', 'x'.repeat(100)]) {
+		const a = await send({ path: `/api/leeches?deckId=${id}` });
+		const b = await send({ path: `/api/report/weak-spots?deckId=${id}` });
+		check(
+			`a deck filter of "${id.slice(0, 24)}" is a 404 on the list and on the report, and leaks nothing`,
+			a.status === 404 &&
+				b.status === 404 &&
+				!/node_modules|\.ts:\d+|root:x:|"dependencies"/.test(a.text + b.text),
+			`${a.status} / ${b.status}`
+		);
+	}
+
+	for (const [cardPk, ordinal] of [
+		['abc', '0'],
+		['-1', '0'],
+		['1.5', '0'],
+		['1e3', '0'],
+		['99999999999999999999', '0'],
+		['0', '0'],
+		['999999', '0'],
+		['1', 'x'],
+		['1', '9999'],
+		['%3Cscript%3E', '0']
+	]) {
+		const r = await post(`/api/leeches/${cardPk}/${ordinal}/reset`, {});
+		const s = await post(`/api/cards/${cardPk}/suspend`, {});
+		check(
+			`reset and suspend of card "${cardPk}" blank "${ordinal}" are 404s that leak nothing`,
+			r.status === 404 &&
+				(s.status === 404 || ordinal !== '0') &&
+				!/<script|node_modules|\.ts:\d+/.test(r.text + s.text),
+			`${r.status} / ${s.status}`
+		);
+	}
+
+	// A real round trip: suspend a card of a deck made for this, see it leave the queue, put it back.
+	const served = await send({ path: '/api/study/next?deckId=probe-leech' });
+	const leechPk: number | undefined = JSON.parse(served.text).item?.cardPk;
+	if (leechPk === undefined) {
+		check('a card of the leech test deck can be served', false, served.text.slice(0, 80));
+	} else {
+		const suspended = await post(`/api/cards/${leechPk}/suspend`, {});
+		check(
+			'a card can be suspended, and the answer says so',
+			suspended.status === 200 && JSON.parse(suspended.text).suspended === true,
+			`${suspended.status}`
+		);
+		const afterSuspend = await send({ path: '/api/decks' });
+		const row = JSON.parse(afterSuspend.text).decks.find(
+			(d: { id: string }) => d.id === 'probe-leech'
+		);
+		check('and it leaves the study counts', row?.counts?.new === 1, JSON.stringify(row?.counts));
+		const again = await post(`/api/cards/${leechPk}/suspend`, {});
+		check('suspending again is harmless', again.status === 200, `${again.status}`);
+		const back = await post(`/api/cards/${leechPk}/unsuspend`, {});
+		check(
+			'putting it back works and restores the count',
+			back.status === 200 &&
+				JSON.parse((await send({ path: '/api/decks' })).text).decks.find(
+					(d: { id: string }) => d.id === 'probe-leech'
+				)?.counts?.new === 2,
+			`${back.status}`
+		);
+		const resetIt = await post(`/api/leeches/${leechPk}/0/reset`, {});
+		check(
+			'resetting an item that is not a leech is harmless',
+			resetIt.status === 200,
+			`${resetIt.status}`
+		);
+	}
+
+	for (const method of ['GET', 'PUT', 'PATCH', 'DELETE']) {
+		for (const path of [
+			'/api/leeches/1/0/reset',
+			'/api/cards/1/suspend',
+			'/api/cards/1/unsuspend'
+		]) {
+			const r = await send({
+				method,
+				path,
+				headers: method === 'GET' ? {} : JSON_HEADERS,
+				...(method === 'GET' ? {} : { body: '{}' })
+			});
+			check(
+				`${method} on ${path} is refused`,
+				[400, 403, 404, 405].includes(r.status),
+				`got ${r.status}`
+			);
+		}
+	}
+	for (const method of ['POST', 'PUT', 'DELETE']) {
+		for (const path of ['/api/leeches', '/api/report/weak-spots']) {
+			const r = await send({ method, path, headers: JSON_HEADERS, body: '{}' });
+			check(
+				`${method} on ${path} is refused`,
+				[400, 403, 404, 405].includes(r.status),
+				`got ${r.status}`
+			);
+		}
+	}
+	for (const type of [
+		'text/plain',
+		'application/x-www-form-urlencoded',
+		'multipart/form-data; boundary=x'
+	]) {
+		for (const path of ['/api/cards/1/suspend', '/api/leeches/1/0/reset']) {
+			const evil = await send({
+				method: 'POST',
+				path,
+				headers: { 'content-type': type, origin: 'https://evil.example' },
+				body: '{}'
+			});
+			check(
+				`${path.split('/').slice(-1)[0]} cross-site as ${type.split(';')[0]} is refused (403 or 415)`,
+				[403, 415].includes(evil.status),
+				`got ${evil.status}`
+			);
+		}
+	}
+	for (const [method, path] of [
+		['GET', '/api/leeches'],
+		['GET', '/api/report/weak-spots'],
+		['POST', '/api/cards/1/suspend'],
+		['POST', '/api/leeches/1/0/reset']
+	] as const) {
+		const foreign = await send({
+			method,
+			path,
+			headers: { ...(method === 'POST' ? JSON_HEADERS : {}), host: 'attacker.example' },
+			...(method === 'POST' ? { body: '{}' } : {})
+		});
+		check(
+			`${method} ${path} under a foreign host name is refused (421)`,
+			foreign.status === 421,
+			`got ${foreign.status}`
+		);
+	}
+
+	const reportMd = await send({ path: '/api/report/weak-spots' });
+	check(
+		'the weak-spot report is Markdown, not cached, and has no cross-origin permission',
+		reportMd.status === 200 &&
+			reportMd.headers['content-type'] === 'text/markdown; charset=utf-8' &&
+			reportMd.headers['cache-control'] === 'no-store' &&
+			!('access-control-allow-origin' in reportMd.headers) &&
+			reportMd.text.startsWith('# Tessera weak-spot report'),
+		`${reportMd.status} ${reportMd.headers['content-type']}`
+	);
+	const reportJson = await send({ path: '/api/report/weak-spots?format=json' });
+	check(
+		'and JSON when asked, with the schema address and the same shape',
+		reportJson.status === 200 &&
+			JSON.parse(reportJson.text).report === 'tessera-weak-spots' &&
+			Array.isArray(JSON.parse(reportJson.text).decks) &&
+			typeof JSON.parse(reportJson.text).schemaUrl === 'string'
+	);
+	for (const format of ['xml', 'MD', '', 'json;x', '../x']) {
+		const r = await send({ path: `/api/report/weak-spots?format=${encodeURIComponent(format)}` });
+		check(`the format "${format}" is refused with a 400`, r.status === 400, `got ${r.status}`);
+	}
+	check(
+		'the report gives no path on the server',
+		!/\/data\b|node_modules|\.ts:\d+/.test(reportMd.text + reportJson.text)
+	);
+	check(
+		'a deck with no leeches is not an error',
+		(await send({ path: '/api/report/weak-spots?deckId=probe-leech' })).status === 200
+	);
 
 	// ---- 5. Path traversal and error leakage
 	console.log('\n# Paths and errors');

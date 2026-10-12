@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { basicCards, deckOf, importViaApi } from './helpers.ts';
+import { basicCards, deckOf, importViaApi, makeLeech } from './helpers.ts';
 
 // Automated WCAG 2.1 A and AA checks (axe-core) on every screen state, in both colour schemes.
 // Automation finds roughly a third of accessibility problems. Keyboard order, focus movement, and
@@ -114,6 +114,63 @@ for (const scheme of ['light', 'dark'] as const) {
 			await page.getByRole('button', { name: 'Start over', exact: true }).click();
 			await expect(page.locator('.callout--ok').getByText('Started over.')).toBeVisible();
 			await scan(page, 'start over result');
+		});
+
+		test('leeches: every card type, a card set aside, the report fallback, and empty', async ({
+			page,
+			request
+		}) => {
+			const id = `a11y-leech-${scheme}`;
+			await importViaApi(
+				request,
+				deckOf(id, `A11y leech ${scheme}`, [
+					{ id: 'b', type: 'basic', front: 'Basic **front**', back: 'Basic back', tags: ['t'] },
+					{ id: 'c', type: 'cloze', text: 'The {{c1::DR}} and {{c2::BDR}}' },
+					{ id: 't', type: 'typed', front: 'Typed?', answer: 'yes' },
+					{ id: 'm', type: 'choice', front: 'Pick', choices: ['One', 'Two'], correct: 1 }
+				])
+			);
+			makeLeech(id, 'b', { lapses: 12 });
+			makeLeech(id, 'c', { ordinal: 1, lapses: 10 });
+			makeLeech(id, 't', { lapses: 9, wrongAnswers: ['no', 'maybe'] });
+			makeLeech(id, 'm', { lapses: 8 });
+			await page.goto('/leeches');
+			await expect(page.getByRole('heading', { name: 'Leeches', level: 1 })).toBeVisible();
+			await page
+				.getByLabel('Show', { exact: true })
+				.selectOption({ label: `A11y leech ${scheme}` });
+			await expect(page.locator('.row')).toHaveCount(4);
+			await scan(page, 'leeches list');
+
+			await page.getByRole('button', { name: /Set card m aside/ }).click();
+			await expect(page.locator('.badge')).toHaveText('Set aside');
+			await scan(page, 'leeches with a card set aside');
+
+			// The fallback text box, shown directly by refusing the clipboard.
+			await page.evaluate(() => {
+				Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true });
+				document.execCommand = () => false;
+			});
+			await page.getByRole('button', { name: 'Copy the weak-spot report for Claude' }).click();
+			await expect(page.getByLabel(/blocked copying/)).toBeVisible();
+			await scan(page, 'leeches report fallback');
+
+			await page
+				.getByRole('button', { name: /Reset the leech flag/ })
+				.first()
+				.click();
+			await expect(page.locator('.row')).toHaveCount(3);
+		});
+
+		test('leeches: empty', async ({ page, request }) => {
+			const id = `a11y-leech-none-${scheme}`;
+			await importViaApi(request, deckOf(id, `A11y leech none ${scheme}`, basicCards(1, 'n')));
+			await page.goto('/leeches');
+			await page
+				.getByLabel('Show', { exact: true })
+				.selectOption({ label: `A11y leech none ${scheme}` });
+			await expect(page.getByText('No leeches.')).toBeVisible();
+			await scan(page, 'leeches empty');
 		});
 
 		test('backups: the restore panel, and the restore waiting screen', async ({ page }) => {
