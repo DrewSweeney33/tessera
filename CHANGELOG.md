@@ -4,6 +4,10 @@ All notable changes to Tessera are written here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Changed
+
+- The container's logs are now rotated (three files of 10 MB) in the sample `compose.yaml`. Tessera logs one line per request, and Docker keeps logs forever by default. If you wrote your own compose file, add a `logging` section (see the operations guide).
+
 ### Fixed
 
 - The manual backup command in the operations guide failed on a fresh install, because the `/data/backups` folder only appeared after the first database upgrade. Tessera now creates the folder when it starts. If you are on 0.1.0, run `docker compose exec tessera mkdir -p /data/backups` once.

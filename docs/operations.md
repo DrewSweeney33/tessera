@@ -35,6 +35,8 @@ Availability is not a target. It is a study tool. If it is down for an hour, not
 
 Measured on a 5,000 card deck with 200,000 review records: about 200 to 250 MB of memory when idle, rising to about 315 MB under sustained heavy traffic and then staying flat (a 3 minute test of 140 requests a second showed no growth). The database file is 55 MB and a start takes about one second. Allow 512 MB.
 
+Tessera writes one log line for every request, and Docker keeps container logs forever unless told otherwise. The `compose.yaml` in this repository keeps at most three files of 10 MB for the container (`logging` under the service). If you wrote your own compose file, add the same lines, or the logs will slowly use the disk.
+
 ## Backups
 
 Two kinds exist.

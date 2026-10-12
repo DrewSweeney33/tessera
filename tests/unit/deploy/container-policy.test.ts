@@ -122,6 +122,16 @@ describe('compose.yaml (ADR-004, ADR-005)', () => {
 		expect(Object.keys(compose.volumes)).toEqual(['tessera-data']);
 	});
 
+	it('rotates its logs: one line a request would otherwise grow without limit (security review S-11)', () => {
+		const logging = service['logging'] as {
+			driver: string;
+			options: Record<string, string>;
+		};
+		expect(logging.driver).toBe('json-file');
+		expect(logging.options['max-size']).toBe('10m');
+		expect(logging.options['max-file']).toBe('3');
+	});
+
 	it('does not set an API token, which would be a committed secret', () => {
 		const env = service['environment'] as Record<string, string>;
 		expect(Object.keys(env)).not.toContain('TESSERA_API_TOKEN');
