@@ -2,12 +2,16 @@
 
 ## Current handoff
 
-**From:** The team (SDE, QA, Security, DevOps), end of Milestone L (library management)
+**From:** The team (SDE, QA, Security, DevOps), end of Milestone L and Milestone 3
 **To:** The owner
 **Date:** 2026-10-12
 **Per-feature files:** `.10x/reviews/2026-10-12-qa-report-milestone-l.md`, `.10x/reviews/2026-10-12-security-review-milestone-l.md`, `.10x/decisions/sde/tessera-v1.md` (sections from "L-01" to "L-08 Backups, L-09 restore, L-10 harness"), `.10x/adrs/013-*.md`, `.10x/adrs/014-*.md`, `CHANGELOG.md` ([Unreleased])
 
 ### What was done
+
+**Milestone 3 (added after you said "Lets continue").** Leeches and the weak-spot loop are built: a Leeches page (the cards you keep forgetting, with the wrong answers you typed; Reset, Set aside, Put back), your weakest tags, and **Copy the weak-spot report for Claude**, which puts your worst cards on the clipboard as ready-to-edit deck blocks in the import format with a request to rewrite them, keeping every id and type. Claude's answer imports as usual, updates only those cards, and keeps their history. Also a Settings page (new cards per day, reviews per day, target retention, the hour the day starts, the leech threshold, mixing new and due cards), and the mixing option now really mixes. ADR-015 records the design; the review is `.10x/reviews/2026-10-12-m3-qa-and-security.md`. Pushed to `main`, CI green through the leech work. **CT123 does not have the Milestone 3 work yet** (it has the library work, built from commit 3d00272); say so and I will put the new build on it.
+
+**Milestone L,** from earlier:
 
 Milestone L is built, pushed to `main`, and tested: **L-01 to L-10, including the stretch (L-09 restore)**. In the web page you can now make a deck, edit any card with a live preview, add and remove cards, export a deck, move a deck to the Trash and restore it or delete it for good, start a deck over, back up now, download and delete backups, and restore a backup. Nothing is released. `[Unreleased]` in the changelog lists all of it. Your live Tessera on CT123 still runs 0.1.1, which has none of this.
 
@@ -18,13 +22,14 @@ Checks, all passing on the last commit: 1,736 unit and integration tests, 217 br
 1. **Choose the version and say when to cut a release candidate.** This is the first release with a database change (`0001_deck_resets`), so semver says **0.2.0**. Nothing has been tagged. The CI image build runs on tags, so a candidate such as `v0.2.0-rc.1` is the way to get a published image to test on CT123 before the final release (the harness has to be run against the published candidate: `TESSERA_LIVE_SSH=andrew@192.168.30.102 npm run live:test -- --image ghcr.io/drewsweeney33/tessera:0.2.0-rc.1 --expect-migration`).
 2. **Read the two accepted risks in the security review (S-11, S-12).** Anyone who can reach the page can delete a deck for good, delete a backup, or restore an older backup (which restarts Tessera). The typed word protects against a slip, not a person. Keep it behind your VPN or NPM Access List as now. Say if you want an optional page password or a limit on backups, or leave them as accepted.
 3. **Upgrading CT123 later** is the usual tag change and pull. Because of the migration, Tessera writes a `pre-migrate-…` backup first. Going back to 0.1.1 after that means restoring that backup (the operations guide, "Roll back"). The harness tested exactly this.
-4. **Restore needs the restart policy** (`restart: unless-stopped` in `compose.yaml`). CT123's compose file has it. If you ever run without one, the page says what to do.
-5. **Still open from before:** the OPNsense rule so only NPM reaches 192.168.30.102:3000, clearing the build cache on CT123, a daily off-box backup copy (the Backups page now makes the download easy, but a scheduled copy is still yours), Uptime Kuma, the VLAN/host/Pi-hole/firewall notes for CT123 in the vault, trying the Claude skill in a real conversation (R-9), a screen reader and phone pass (R-3, R-10), and a multi-day soak (R-8).
+4. **Try the report on real leeches, then tell me what Claude got wrong in how it answered.** The instruction wording is a first draft (the review has the details).
+5. **Restore needs the restart policy** (`restart: unless-stopped` in `compose.yaml`). CT123's compose file has it. If you ever run without one, the page says what to do.
+6. **Still open from before:** the OPNsense rule so only NPM reaches 192.168.30.102:3000, clearing the build cache on CT123, a daily off-box backup copy (the Backups page now makes the download easy, but a scheduled copy is still yours), Uptime Kuma, the VLAN/host/Pi-hole/firewall notes for CT123 in the vault, trying the Claude skill in a real conversation (R-9), a screen reader and phone pass (R-3, R-10), and a multi-day soak (R-8).
 
 ### Next, once you decide
 
 - Cut the release candidate, run the harness against it, then release 0.2.0 on your word.
-- Then the held work: "Practice again" (cram mode, the other half of US-14), the weak-spot report, and the rest of M3. The checkpoint rule (5 study days) was overridden by your "next milestone", so the order is yours.
+- Then Milestone 4: "Practice again" (cram mode, the other half of US-14: grades never change the schedule) and statistics (today, retention, a forecast, a streak, per-tag retention). After that, Milestone 5 (polish and the rest of the plan). The checkpoint rule (5 study days) was overridden by your "next milestone", so the order is yours.
 - Backlog: B-3 (chunked oversized bodies reset the connection), B-4 (reorder cards in the editor).
 
 ### Things to know
