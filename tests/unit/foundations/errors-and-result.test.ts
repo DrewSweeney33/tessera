@@ -65,6 +65,85 @@ describe('toErrorResponse', () => {
 	});
 });
 
+// Found by the live-image harness on the homelab: with the data volume full, an import answered "Something
+// went wrong on the server" (a generic 500), so nobody could tell the disk was full. The database error is
+// recognised, even when a layer above wraps it, and answered plainly, without internals.
+describe('toErrorResponse for a full or unwritable disk', () => {
+	const sqlite = (code: string) =>
+		Object.assign(new Error(`${code}: database or disk is full`), { code });
+
+	it('answers a full disk with 507 and says what to do', async () => {
+		const response = toErrorResponse(sqlite('SQLITE_FULL'), 'r3');
+		expect(response.status).toBe(507);
+		expect(response.headers.get('x-request-id')).toBe('r3');
+		const body = await response.json();
+		expect(body.error.code).toBe('storage_full');
+		expect(body.error.message).toMatch(/full/i);
+		expect(body.error.message).toMatch(/free (up )?(some )?space/i);
+		expect(body.error.message).toMatch(/history is (safe|intact|not lost)/i);
+	});
+
+	it('recognises the error when another layer wraps it, however deep', async () => {
+		const wrapped = Object.assign(new Error('Failed query: insert into cards ...'), {
+			cause: Object.assign(new Error('wrapper'), { cause: sqlite('SQLITE_FULL') })
+		});
+		expect(toErrorResponse(wrapped).status).toBe(507);
+	});
+
+	it('recognises the operating system error for no space left', async () => {
+		expect(
+			toErrorResponse(Object.assign(new Error('write failed'), { code: 'ENOSPC' })).status
+		).toBe(507);
+	});
+
+	it('answers an unwritable database with 503 and a plain message', async () => {
+		for (const code of [
+			'SQLITE_READONLY',
+			'SQLITE_READONLY_DBMOVED',
+			'SQLITE_IOERR_WRITE',
+			'SQLITE_IOERR'
+		]) {
+			const response = toErrorResponse(sqlite(code));
+			expect(response.status, code).toBe(503);
+			const body = await response.json();
+			expect(body.error.code, code).toBe('service_unavailable');
+			expect(body.error.message, code).toMatch(/cannot write|can't write|not writable/i);
+		}
+	});
+
+	it('never leaks the database error, a path, or a query', async () => {
+		const text = JSON.stringify(
+			await toErrorResponse(
+				Object.assign(new Error('SQLITE_FULL at /data/tessera.db: insert into cards (...)'), {
+					code: 'SQLITE_FULL'
+				})
+			).json()
+		);
+		for (const secret of ['SQLITE', '/data', 'insert into', 'tessera.db']) {
+			expect(text).not.toContain(secret);
+		}
+	});
+
+	it('leaves other database errors as the generic 500', async () => {
+		for (const code of ['SQLITE_CORRUPT', 'SQLITE_CONSTRAINT_UNIQUE', 'SQLITE_BUSY', 'EACCES']) {
+			expect(toErrorResponse(sqlite(code)).status, code).toBe(500);
+		}
+	});
+
+	it('copes with an error that points to itself, and with non-errors', () => {
+		const loop: { cause?: unknown } = new Error('loop');
+		loop.cause = loop;
+		expect(toErrorResponse(loop).status).toBe(500);
+		for (const odd of [null, undefined, 'a string', 42, { code: 7 }]) {
+			expect(toErrorResponse(odd).status).toBe(500);
+		}
+	});
+
+	it('has an HTTP status for the new code', () => {
+		expect(STATUS_BY_CODE.storage_full).toBe(507);
+	});
+});
+
 describe('systemClock', () => {
 	it('returns a fresh Date each call', () => {
 		const first = systemClock.now();

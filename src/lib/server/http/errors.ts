@@ -10,6 +10,7 @@ export type ApiErrorCode =
 	| 'unsupported_media_type'
 	| 'misdirected_request'
 	| 'service_unavailable'
+	| 'storage_full'
 	| 'internal_error';
 
 export const STATUS_BY_CODE: Record<ApiErrorCode, number> = {
@@ -22,6 +23,7 @@ export const STATUS_BY_CODE: Record<ApiErrorCode, number> = {
 	validation_failed: 422,
 	misdirected_request: 421,
 	service_unavailable: 503,
+	storage_full: 507,
 	internal_error: 500
 };
 
@@ -55,10 +57,41 @@ export function errorResponse(
 	return new Response(JSON.stringify(body), { status: STATUS_BY_CODE[code], headers });
 }
 
-// Expected failures keep their code. Anything else is a bug: report a generic 500 and never leak internals.
+// The first database or operating system error code in an error and the errors it wraps (a layer above the
+// database may wrap the original). Bounded, so an error that points back at itself cannot loop.
+function storageFailure(error: unknown): 'full' | 'unwritable' | undefined {
+	let current: unknown = error;
+	for (let depth = 0; depth < 6 && typeof current === 'object' && current !== null; depth++) {
+		const code = (current as { code?: unknown }).code;
+		if (code === 'SQLITE_FULL' || code === 'ENOSPC') return 'full';
+		if (typeof code === 'string' && /^SQLITE_(READONLY|IOERR)/.test(code)) return 'unwritable';
+		current = (current as { cause?: unknown }).cause;
+	}
+	return undefined;
+}
+
+// Expected failures keep their code. A full or unwritable data disk is named, with what to do, because the
+// person running Tessera can fix it. Anything else is a bug: report a generic 500 and never leak internals.
 export function toErrorResponse(error: unknown, requestId?: string): Response {
 	if (error instanceof AppError) {
 		return errorResponse(error.code, error.message, error.details, requestId);
+	}
+	const storage = storageFailure(error);
+	if (storage === 'full') {
+		return errorResponse(
+			'storage_full',
+			'The disk that holds the Tessera data is full, so this could not be saved. Free up some space and try again. Your study history is safe.',
+			undefined,
+			requestId
+		);
+	}
+	if (storage === 'unwritable') {
+		return errorResponse(
+			'service_unavailable',
+			'Tessera cannot write to its data folder right now. Check that the disk is not full or read-only, then try again. Your study history is safe.',
+			undefined,
+			requestId
+		);
 	}
 	return errorResponse(
 		'internal_error',
