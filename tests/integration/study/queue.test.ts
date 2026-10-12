@@ -399,21 +399,87 @@ describe('selectNext: scope', () => {
 });
 
 describe('selectNext: interleave', () => {
-	it('draws due reviews and new cards randomly instead of in order', () => {
+	// Serves the queue once for each of 1000 evenly spaced random numbers, and counts what comes out.
+	function sweep(): { review: number; new: number; keys: Map<string, number> } {
+		const keys = new Map<string, number>();
+		let review = 0;
+		let fresh = 0;
+		for (let i = 0; i < 1000; i++) {
+			const result = served(pick({ rng: () => i / 1000 }));
+			if (result.category === 'review') review++;
+			else if (result.category === 'new') fresh++;
+			const key = `${result.card.key}:${result.state.ordinal}`;
+			keys.set(key, (keys.get(key) ?? 0) + 1);
+		}
+		return { review, new: fresh, keys };
+	}
+
+	it('mixes new cards in among the due reviews, in proportion to how many of each are waiting', () => {
 		setSetting(handle.db, 'interleave', true);
 		seed(fiveBasic());
 		for (const key of ['a', 'b', 'c']) {
 			makeReview(key, { stability: 5, reviewedAgoMs: 10 * DAY, due: ago(5 * DAY) });
 		}
-		expect(keyOf(pick({ rng: () => 0 }))).toBe('a:0');
-		expect(keyOf(pick({ rng: () => 0.5 }))).toBe('b:0');
-		expect(keyOf(pick({ rng: () => 0.99 }))).toBe('c:0');
+		// Three reviews and two new cards are waiting: three in five should be reviews.
+		const result = sweep();
+		expect(result.review).toBe(600);
+		expect(result.new).toBe(400);
+	});
 
+	it('gives every waiting card the same chance within its kind', () => {
+		setSetting(handle.db, 'interleave', true);
+		seed(fiveBasic());
 		for (const key of ['a', 'b', 'c']) {
-			makeReview(key, { stability: 5, reviewedAgoMs: 10 * DAY, due: ahead(30 * DAY) });
+			makeReview(key, { stability: 5, reviewedAgoMs: 10 * DAY, due: ago(5 * DAY) });
 		}
-		expect(keyOf(pick({ rng: () => 0 }))).toBe('d:0');
-		expect(keyOf(pick({ rng: () => 0.99 }))).toBe('e:0');
+		const { keys } = sweep();
+		for (const key of ['a:0', 'b:0', 'c:0', 'd:0', 'e:0']) expect(keys.get(key), key).toBe(200);
+	});
+
+	it('uses how many new cards there really are, not the handful it looks at', () => {
+		setSetting(handle.db, 'interleave', true);
+		setSetting(handle.db, 'newPerDay', 1000);
+		seed(Array.from({ length: 100 }, (_, i) => basic(`n${String(i).padStart(3, '0')}`)));
+		for (let i = 0; i < 10; i++) {
+			// Ten cards that are already learned and due.
+			const key = `n${String(i).padStart(3, '0')}`;
+			makeReview(key, { stability: 5, reviewedAgoMs: 10 * DAY, due: ago(5 * DAY) });
+		}
+		// Ten reviews and ninety new cards: one in ten should be a review.
+		const result = sweep();
+		expect(result.review).toBe(100);
+		expect(result.new).toBe(900);
+	});
+
+	it('serves only reviews when no new card is waiting, and only new cards when no review is', () => {
+		setSetting(handle.db, 'interleave', true);
+		seed(fiveBasic());
+		expect(sweep().review).toBe(0);
+		for (const key of ['a', 'b', 'c', 'd', 'e']) {
+			makeReview(key, { stability: 5, reviewedAgoMs: 10 * DAY, due: ago(5 * DAY) });
+		}
+		expect(sweep().new).toBe(0);
+	});
+
+	it('serves only new cards once the daily review limit is reached, even though reviews are due', () => {
+		setSetting(handle.db, 'interleave', true);
+		setSetting(handle.db, 'reviewsPerDay', 1);
+		seed(fiveBasic());
+		makeReview('a', { stability: 5, reviewedAgoMs: 10 * DAY, due: ago(5 * DAY) });
+		makeReview('b', { stability: 5, reviewedAgoMs: 10 * DAY, due: ago(5 * DAY) });
+		logReview('c', { prePhase: 2, at: iso(NOW.getTime() - MIN) });
+		expect(sweep().review).toBe(0);
+	});
+
+	it('keeps the order when it is off: due reviews first, then new cards in file order', () => {
+		seed(fiveBasic());
+		for (const key of ['a', 'b']) {
+			makeReview(key, { stability: 5, reviewedAgoMs: 10 * DAY, due: ago(5 * DAY) });
+		}
+		const result = sweep();
+		expect(result.new).toBe(0);
+		const off = served(pick({ rng: () => 0.99 }));
+		expect(off.category).toBe('review');
 	});
 
 	it('keeps learning items due now first regardless', () => {
@@ -421,6 +487,17 @@ describe('selectNext: interleave', () => {
 		seed(fiveBasic());
 		makeLearning('b', ago(MIN));
 		expect(keyOf(pick({ rng: () => 0.99 }))).toBe('b:0');
+	});
+
+	it('still buries the other blanks of a cloze card that was just answered', () => {
+		setSetting(handle.db, 'interleave', true);
+		seed([cloze('c1', 'A {{c1::x}} and {{c2::y}}'), basic('plain')]);
+		handle.sqlite
+			.prepare('update card_state set buried_until = ? where ordinal = 2')
+			.run(ahead(6 * 60 * MIN));
+		const { keys } = sweep();
+		expect(keys.has('c1:2')).toBe(false);
+		expect(keys.get('c1:1')! + keys.get('plain:0')!).toBe(1000);
 	});
 });
 

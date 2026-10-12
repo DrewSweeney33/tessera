@@ -63,8 +63,12 @@ function sum(counts: Map<string, number>): number {
 //
 //   1. Learning and relearning items due now, earliest first.
 //   2. Review items due before the study day ends, lowest recall probability first,
-//      unless the daily review limit is reached. With interleave on, random.
-//   3. New items, in deck then file order, per deck up to its daily limit. With interleave on, random.
+//      unless the daily review limit is reached.
+//   3. New items, in deck then file order, per deck up to its daily limit.
+//
+//   With interleave on, steps 2 and 3 become one draw: a review or a new item is picked at random, with the chance
+//   of each kind equal to its share of what is waiting (three reviews and two new cards: three in five are
+//   reviews), and a random item of that kind. When only one kind is waiting, that kind is drawn.
 //   4. Learning items due within the next 20 minutes (learn ahead).
 //   5. Nothing: report when the next learning item is due, if any is due later today.
 export function selectNext(x: Executor, options: QueueOptions): QueueResult {
@@ -77,15 +81,44 @@ export function selectNext(x: Executor, options: QueueOptions): QueueResult {
 	const learningNow = listLearning(x, { nowIso, untilIso: nowIso, scope, limit: 1 })[0];
 	if (learningNow) return item('learning', learningNow);
 
-	if (countReviewsSince(x, dayStart.toISOString()) < settings.reviewsPerDay) {
-		const due = listReviewDue(x, {
-			nowIso,
-			dueBeforeIso: dayEnd.toISOString(),
-			scope,
-			limit: REVIEW_CANDIDATE_LIMIT
-		});
+	const reviewsOpen = countReviewsSince(x, dayStart.toISOString()) < settings.reviewsPerDay;
+	const due = reviewsOpen
+		? listReviewDue(x, {
+				nowIso,
+				dueBeforeIso: dayEnd.toISOString(),
+				scope,
+				limit: REVIEW_CANDIDATE_LIMIT
+			})
+		: [];
+
+	const newItems = (limit: number): QueueRow[] => {
+		const introduced = countNewIntroducedSince(x, dayStart.toISOString());
+		const decksWithRoom = listDecksInScope(x, scope)
+			.filter((deck) => (introduced.get(deck.id) ?? 0) < (deck.newPerDay ?? settings.newPerDay))
+			.map((deck) => deck.id);
+		return listNew(x, { nowIso, deckIds: decksWithRoom, limit });
+	};
+
+	if (settings.interleave) {
+		const fresh = newItems(NEW_INTERLEAVE_WINDOW);
+		if (due.length > 0 && fresh.length > 0) {
+			// One draw decides both the kind and the item: the lower part of it picks among the reviews, the rest among
+			// the new cards. The shares come from the real counts, not from the few candidates fetched here.
+			const counts = countQueue(x, { scope, now, timeZone });
+			const waiting = counts.review + counts.new;
+			const reviewShare = waiting === 0 ? 1 : counts.review / waiting;
+			const draw = rng();
+			if (draw < reviewShare) {
+				const at = Math.floor((draw / reviewShare) * due.length);
+				return item('review', due[Math.min(at, due.length - 1)]!);
+			}
+			const at = Math.floor(((draw - reviewShare) / (1 - reviewShare)) * fresh.length);
+			return item('new', fresh[Math.min(at, fresh.length - 1)]!);
+		}
+		if (due.length > 0) return item('review', due[Math.floor(rng() * due.length)]!);
+		if (fresh.length > 0) return item('new', fresh[Math.floor(rng() * fresh.length)]!);
+	} else {
 		if (due.length > 0) {
-			if (settings.interleave) return item('review', due[Math.floor(rng() * due.length)]!);
 			let best = due[0]!;
 			let bestRecall = reader.retrievability(toItemState(best.state), now);
 			for (const row of due) {
@@ -97,19 +130,9 @@ export function selectNext(x: Executor, options: QueueOptions): QueueResult {
 			}
 			return item('review', best);
 		}
+		const next = newItems(1)[0];
+		if (next) return item('new', next);
 	}
-
-	const introduced = countNewIntroducedSince(x, dayStart.toISOString());
-	const decksWithRoom = listDecksInScope(x, scope)
-		.filter((deck) => (introduced.get(deck.id) ?? 0) < (deck.newPerDay ?? settings.newPerDay))
-		.map((deck) => deck.id);
-	const fresh = listNew(x, {
-		nowIso,
-		deckIds: decksWithRoom,
-		limit: settings.interleave ? NEW_INTERLEAVE_WINDOW : 1
-	});
-	if (fresh.length > 0)
-		return item('new', fresh[Math.floor((settings.interleave ? rng() : 0) * fresh.length)]!);
 
 	const aheadIso = new Date(now.getTime() + LEARN_AHEAD_MS).toISOString();
 	const ahead = listLearning(x, { nowIso, untilIso: aheadIso, scope, limit: 1 })[0];

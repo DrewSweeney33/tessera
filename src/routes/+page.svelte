@@ -58,6 +58,7 @@
 				>
 				<a class="btn btn--quiet" href={resolve('/trash')}>Trash</a>
 				<a class="btn btn--quiet" href={resolve('/backups')}>Backups</a>
+				<a class="btn btn--quiet" href={resolve('/settings')}>Settings</a>
 			</div>
 		</header>
 
@@ -129,6 +130,7 @@
 				<a class="btn" href={resolve('/decks/new')}>New deck</a>
 				<a class="btn btn--quiet" href={resolve('/trash')}>Trash</a>
 				<a class="btn btn--quiet" href={resolve('/backups')}>Backups</a>
+				<a class="btn btn--quiet" href={resolve('/settings')}>Settings</a>
 			</p>
 		</div>
 	{:else if view.kind === 'error'}

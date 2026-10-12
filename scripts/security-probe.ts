@@ -697,6 +697,27 @@ try {
 				(await status('/api/leeches', withToken)) === 200 &&
 					(await status('/api/report/weak-spots', withToken)) === 200
 			);
+			check('the settings are refused without the token', (await status('/api/settings')) === 401);
+			check(
+				'changing them is refused without the token',
+				(await status('/api/settings', JSON_HEADERS, 'PUT')) === 401
+			);
+			check(
+				'and a path variant is refused too',
+				(await status('/api/%73ettings', JSON_HEADERS, 'PUT')) === 401
+			);
+			check(
+				'they can be read and changed with the token',
+				(await status('/api/settings', withToken)) === 200 &&
+					(
+						await send({
+							method: 'PUT',
+							path: '/api/settings',
+							headers: { ...JSON_HEADERS, ...withToken },
+							body: '{"leechThreshold":8}'
+						})
+					).status === 200
+			);
 			const tokenBackup = await send({
 				method: 'POST',
 				path: '/api/backups',
@@ -2240,6 +2261,128 @@ try {
 	check(
 		'a deck with no leeches is not an error',
 		(await send({ path: '/api/report/weak-spots?deckId=probe-leech' })).status === 200
+	);
+
+	// ---- 4h. Settings (M3-09)
+	console.log('\n# Settings');
+	const putSettings = (body: unknown, headers = JSON_HEADERS) =>
+		send({
+			method: 'PUT',
+			path: '/api/settings',
+			headers,
+			body: typeof body === 'string' ? body : JSON.stringify(body)
+		});
+	const settingsGet = await send({ path: '/api/settings' });
+	const settingsBody = settingsGet.status === 200 ? JSON.parse(settingsGet.text) : undefined;
+	check(
+		'the settings answer with the values, the defaults, and the time zone, not cached and without cross-origin permission',
+		settingsGet.status === 200 &&
+			typeof settingsBody?.settings?.newPerDay === 'number' &&
+			typeof settingsBody?.defaults?.newPerDay === 'number' &&
+			typeof settingsBody?.timeZone === 'string' &&
+			settingsGet.headers['cache-control'] === 'no-store' &&
+			!('access-control-allow-origin' in settingsGet.headers),
+		`${settingsGet.status}`
+	);
+	const originalNewPerDay: number = settingsBody?.settings?.newPerDay ?? 20;
+	const changed = await putSettings({ newPerDay: originalNewPerDay === 21 ? 22 : 21 });
+	check(
+		'a setting can be changed, and the answer carries all of them',
+		changed.status === 200 &&
+			JSON.parse(changed.text).settings.newPerDay !== originalNewPerDay &&
+			typeof JSON.parse(changed.text).settings.leechThreshold === 'number',
+		`${changed.status}`
+	);
+	for (const [label, body] of [
+		['a number below the range', { newPerDay: -1 }],
+		['a number above the range', { newPerDay: 1001 }],
+		['a fraction where a whole number is needed', { leechThreshold: 2.5 }],
+		['text where a number is needed', { newPerDay: '20' }],
+		['null', { rolloverHour: null }],
+		['a retention that is a percent, not a fraction', { targetRetention: 90 }],
+		['text where on or off is needed', { interleave: 'yes' }],
+		['a setting that does not exist', { secret: true }],
+		['an empty set', {}],
+		['an array', []],
+		['a number', 5],
+		['a mix of one good value and one bad one', { newPerDay: 5, leechThreshold: 1 }]
+	] as const) {
+		const r = await putSettings(body);
+		check(`settings with ${label} are refused with a 422`, r.status === 422, `got ${r.status}`);
+	}
+	const unknown = await putSettings({ '<script>alert(1)</script>': 1 });
+	check(
+		'an unknown setting with markup for a name is refused and not echoed',
+		unknown.status === 422 && !unknown.text.includes('<script'),
+		`${unknown.status}`
+	);
+	check(
+		'and a refused change saved nothing, even the good value in it',
+		JSON.parse((await send({ path: '/api/settings' })).text).settings.newPerDay !== 5
+	);
+	check('a body that is not JSON is a 400', (await putSettings('{not json')).status === 400);
+	const bigSettings = JSON.stringify({ newPerDay: 5, pad: 'x'.repeat(40_000) });
+	const tooBigSettings = await send({
+		method: 'PUT',
+		path: '/api/settings',
+		headers: { ...JSON_HEADERS, 'content-length': String(Buffer.byteLength(bigSettings)) },
+		body: bigSettings
+	});
+	check(
+		'a body over the small limit is a 413',
+		tooBigSettings.status === 413,
+		`got ${tooBigSettings.status}`
+	);
+	for (const method of ['POST', 'PATCH', 'DELETE']) {
+		const r = await send({ method, path: '/api/settings', headers: JSON_HEADERS, body: '{}' });
+		check(
+			`${method} on the settings is refused`,
+			[400, 403, 404, 405].includes(r.status),
+			`got ${r.status}`
+		);
+	}
+	for (const type of [
+		'text/plain',
+		'application/x-www-form-urlencoded',
+		'multipart/form-data; boundary=x'
+	]) {
+		const evil = await send({
+			method: 'PUT',
+			path: '/api/settings',
+			headers: { 'content-type': type, origin: 'https://evil.example' },
+			body: '{"newPerDay":999}'
+		});
+		check(
+			`changing the settings cross-site as ${type.split(';')[0]} is refused (403 or 415)`,
+			[403, 415].includes(evil.status),
+			`got ${evil.status}`
+		);
+	}
+	check(
+		'and none of that changed anything',
+		JSON.parse((await send({ path: '/api/settings' })).text).settings.newPerDay !== 999
+	);
+	const foreignSettings = await send({
+		method: 'PUT',
+		path: '/api/settings',
+		headers: { ...JSON_HEADERS, host: 'attacker.example' },
+		body: '{"newPerDay":5}'
+	});
+	check(
+		'changing the settings under a foreign host name is refused (421)',
+		foreignSettings.status === 421,
+		`got ${foreignSettings.status}`
+	);
+	check(
+		'reading them under a foreign host name is refused too',
+		(await send({ path: '/api/settings', headers: { host: 'attacker.example' } })).status === 421
+	);
+	// Put it back as it was.
+	await putSettings({ newPerDay: originalNewPerDay });
+	check(
+		'the setting is back as it was',
+		JSON.parse((await send({ path: '/api/settings' })).text).settings.newPerDay ===
+			originalNewPerDay
 	);
 
 	// ---- 5. Path traversal and error leakage

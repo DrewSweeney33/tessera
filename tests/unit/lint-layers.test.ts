@@ -18,7 +18,9 @@ async function ruleIds(code: string, filePath: string): Promise<string[]> {
 	return (result?.messages ?? []).map((m) => m.ruleId ?? 'parse-error');
 }
 
-describe('layer lint rules', () => {
+// The first lint of the run loads the whole type-aware project, which takes several seconds on a busy machine, so
+// these tests get more time than the default five seconds.
+describe('layer lint rules', { timeout: 60_000 }, () => {
 	it('forbids core importing server code', async () => {
 		const ids = await ruleIds(
 			"import { db } from '#lib/server/db/client';\nexport const x = db;\n",

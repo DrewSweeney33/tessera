@@ -13,6 +13,8 @@ import type {
 	ImportResponse,
 	NextResponse,
 	RestoreDeckResponse,
+	SettingsDto,
+	SettingsResponse,
 	RestorePreviewResponse,
 	RestoreResponse,
 	ReviewRequest,
@@ -129,6 +131,15 @@ export const api = {
 			method: 'POST',
 			headers: JSON_HEADERS,
 			body: JSON.stringify(request)
+		}),
+
+	settings: () => call<SettingsResponse>('/api/settings'),
+
+	saveSettings: (changes: Partial<SettingsDto>) =>
+		call<SettingsResponse>('/api/settings', {
+			method: 'PUT',
+			headers: JSON_HEADERS,
+			body: JSON.stringify(changes)
 		}),
 
 	leeches: (deckId?: string) =>

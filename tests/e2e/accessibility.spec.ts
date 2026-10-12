@@ -116,6 +116,29 @@ for (const scheme of ['light', 'dark'] as const) {
 			await scan(page, 'start over result');
 		});
 
+		test('settings: as loaded, with problems, and saved', async ({ page, request }) => {
+			await page.goto('/settings');
+			await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();
+			await expect(page.getByLabel(/New cards per day/)).toHaveValue('20');
+			await scan(page, 'settings loaded');
+
+			await page.getByLabel(/New cards per day/).fill('-1');
+			await page.getByLabel('Leech threshold').fill('1');
+			await page.getByRole('button', { name: 'Save settings' }).click();
+			await expect(page.locator('#newPerDay-problem')).toBeVisible();
+			await scan(page, 'settings with problems');
+
+			await page.getByRole('button', { name: 'Fill in the defaults' }).click();
+			await page.getByLabel(/New cards per day/).fill('21');
+			await page.getByRole('button', { name: 'Save settings' }).click();
+			await expect(page.locator('.callout--ok')).toBeVisible();
+			await scan(page, 'settings saved');
+			await request.put('/api/settings', {
+				headers: { 'content-type': 'application/json' },
+				data: JSON.stringify({ newPerDay: 20 })
+			});
+		});
+
 		test('leeches: every card type, a card set aside, the report fallback, and empty', async ({
 			page,
 			request

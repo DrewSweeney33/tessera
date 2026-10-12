@@ -280,6 +280,23 @@ export interface LeechesResponse {
 	openCount: number;
 }
 
+// The settings a learner can change (M3-09), with the defaults to show beside them and the time zone the server
+// uses to decide when a study day starts. The time zone is set by the server's TZ, not here.
+export interface SettingsDto {
+	targetRetention: number;
+	newPerDay: number;
+	reviewsPerDay: number;
+	rolloverHour: number;
+	leechThreshold: number;
+	interleave: boolean;
+}
+
+export interface SettingsResponse {
+	settings: SettingsDto;
+	defaults: SettingsDto;
+	timeZone: string;
+}
+
 export interface DecksResponse {
 	decks: DeckSummaryDto[];
 	// What a session across every deck would serve right now.

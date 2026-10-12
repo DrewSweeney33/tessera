@@ -789,3 +789,18 @@ Milestone L (library management) started on the owner's go-ahead (ADR-013 and AD
 **Found on the way.** The leech helper for browser tests moves a card to the review phase, so "new" counts do not move when it is set aside (the test watches the sum of the three counts). `getByLabel('Show')` also matched a button whose label held the deck title "show"; the tests use an exact match. Planted bugs showed two gaps (tie-breaking by recency and repeated wrong answers beyond the limit), both now tested.
 
 **Not done.** M3-09 (a settings page) and M3-10 (interleave). The 90-day window and the ten-review minimum are fixed, not settings.
+
+## M3-09 settings and M3-10 interleave (2026-10-12)
+
+**Built.** `settingProblems` in `core/settings.ts` (one check for the form and the server, plain messages, names the setting, never repeats what was sent), `api/settings.ts` and a route, the `/settings` page. In `study/queue.ts`, the interleave draw.
+
+**Decisions.**
+1. **A change to the settings is all or nothing.** Every value is checked first, then saved in one transaction, so a form with one bad field saves none of the others. A test breaks the second write on purpose and checks the first is rolled back.
+2. **Retention is a percent on screen and a fraction on the server**, with the conversion rounded to two decimals of a percent.
+3. **The time zone is shown, not set**, because it comes from `TZ` where Tessera runs and drives the study day. The page says so.
+4. **Interleave is one draw.** The lower part of one random number picks among the due cards and the rest among the new cards, with the split taken from the true counts (not from the few candidates fetched), so a deck of a hundred new cards and ten due ones gives one due card in eleven. Only when both kinds are waiting; otherwise the kind that is waiting.
+5. **No bundle budget exists**, and Zod arrives only in the lazy settings chunk.
+
+**Found on the way.** Svelte's `bind:value` on a number input gives a number (or null), not text, so `.trim()` threw and the page died with a 500; the form keeps text and converts when saving. Two overlapping builds left a half-built `build/`; one build at a time.
+
+**Not done.** Per-deck limits in the page (the database column exists), and a setting for the 90-day window of the weak-tag table.
