@@ -250,3 +250,43 @@ Estimate: 10 tasks left, about 30 hours of the original 32, unchanged.
 ### Gate and start condition
 
 Start only when the owner says the checkpoint is met or overrides it. Then: write the design notes and ADRs that M3 needs (the report contract and the export and backup endpoints), update `status.md` to Phase 4 for M3, and begin at M3-01. At the M3 exit: QA and security reports, a harness run, and a release, only on the owner's approval. The plan names only `v0.1.0` (M2) and `v1.0.0` (M5), so the M3 version number is for the owner to choose. Semantic versioning would make it `0.2.0`, since it adds features.
+
+## Library management, added to the plan (2026-10-12)
+
+The owner asked for manual deck creation, editing, practice again and start over, deck deletion, and backups from the GUI (PM file, US-11 to US-16). Designs are in ADR-013 and ADR-014, both **Proposed** for the owner's review. **Nothing is started.** This section is the plan, and it keeps the checkpoint gate: the work starts when the owner says so.
+
+### Tasks (new milestone "L", each test-first)
+
+| ID | Task | Size | Depends on | Done when |
+|---|---|---|---|---|
+| L-01 | Pull M3-06 forward: `exportDeck` in both formats and `/api/decks/:id/export` | M | none | The round-trip property test passes (export then import changes nothing) for every golden deck. The editor depends on it. |
+| L-02 | Create a deck: allow an empty deck in the planner, a create route, a "New deck" form with the id slug (unique, editable until saved) | M | none | US-11. The slug helper and the uniqueness message are unit tested. A created deck appears on the home page. |
+| L-03 | Snapshot-before-destructive-action helper: names by kind, the disk-full guard, the `backups` listing | S | none | A destructive action does not run if the snapshot cannot be written (a 507 test). Names cannot collide. |
+| L-04 | Card editor component for the four types, with a live preview and the same validation messages as import | M | L-01 | Every field error names the field. An invalid card cannot be saved. Keyboard-only and axe tests pass. |
+| L-05 | Edit a deck: load through export, save through the import pipeline, add, edit, and archive cards, edit title, description, and tags, with the stale-write check (`updatedAt`) | M | L-01, L-04 | US-12. Progress is kept for edited text, a type change warns, a stale save is refused with a clear message. The write goes through the existing planner (no second write path). |
+| L-06 | Trash: delete (archive) a deck, hide it everywhere including the queue, restore, permanent delete with the title typed and a snapshot first | M | L-03 | US-14. A permanent delete removes cards, state, and history, and a restore from Trash loses nothing. A test proves an archived deck is absent from every list and from `/api/study/next`. |
+| L-07 | Start over: reset a deck's card state, keep the review log, typed confirmation, snapshot first | M | L-03 | US-13 (start over). Property test: after a reset every card is new and the log row count is unchanged. |
+| L-08 | Backups page: back up now, list, download, delete, with the same-disk warning (this replaces M3-07's single endpoint) | M | L-03 | US-15. Names are never paths (traversal tests). A full disk answers 507. A download streams without growing memory (measured on the real host with a 55 MB database). |
+| L-09 | Restore from the list, staged with a restart (ADR-014): checks, a `pre-restore` snapshot, the marker file, the swap at start | M | L-08 | US-16 (stretch). A crash test: a kill between the marker and the swap leaves the old data or the new, never a mix. The live-image harness restores on the real host and watches Docker restart the server. |
+| L-10 | Probe entries for every new route, end-to-end tests of each flow (create, edit, delete and restore, start over, back up), docs, and the skill's note that hand edits exist | M | L-02 to L-08 | All flows pass on three browser engines. The probe has traversal, method, token, and host cases for the new routes. The harness gains download and restore steps. |
+
+**Also in the plan, not new:** "Practice again" is the cram mode already planned for M4 (US-7). If the owner wants it sooner, it moves up, because it is independent of these tasks.
+
+### Estimate
+
+L-01 to L-10 add up to about 38 hours, with L-01 taken from M3 (M3-06) and L-08 replacing M3-07, so the net addition to the whole plan is about 32 hours. Confidence plus or minus 30 percent, as for the rest.
+
+### Order, recommended
+
+L-01, L-03, L-02, L-04, L-05, L-06, L-07, L-08, L-10, then L-09 if the owner wants restore in the GUI. After that, the original M3 (leeches and weak spots), then M4, then M5. **Why before the weak-spot work:** the owner needs to manage decks by hand to use Tessera every day, which is also what the checkpoint measures. The alternative order (weak spots first) is valid if the owner prefers it. Either way each group ships as its own release candidate, with a harness run on the real host recorded in its QA report (ADR-012). A version number for each is the owner's choice. Semantic versioning would make library management `0.2.0`.
+
+### Risks specific to this group
+
+| Risk | Mitigation |
+|---|---|
+| A hand edit is overwritten by a later re-import of an older Claude deck | The preview shows the overwrite and the owner decides. Documented. No locking feature in the first cut. |
+| A destructive action destroys history by mistake | Trash first, archive by default, a typed confirmation, and a snapshot before it runs. Nothing runs if the snapshot fails. |
+| The editor grows into a large piece of UI | Four card types and live preview only. No images, no rich-text toolbar, no drag-and-drop reorder in the first cut. |
+| A new write surface on an unauthenticated page | The existing guards, probe entries for every new route, and a security review at the exit |
+| Restore corrupts data | Staged restart (not a hot swap), a `pre-restore` snapshot, `tessera.db.before-restore`, and a crash test |
+| The owner's other, not yet stated, requests | The PM file lists candidates. Each new request gets a story, a place in this order, and a size before it is built. |

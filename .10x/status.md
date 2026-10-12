@@ -131,9 +131,24 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 - [x] M2-13 Claude skill, deck-format docs, golden decks (M). Done 2026-10-11. `claude-skill/tessera-deck/SKILL.md`, `docs/deck-format.md`, `docs/claude-workflow.md`, three golden decks (CCNA in both formats, PowerShell with code, TCP/IP with diagrams), README rewritten. 34 tests keep the documents in step with the code (every example parses, languages, labels, limits, quoted error messages, error codes, links); 12 deliberate document mistakes all caught. **Found and fixed:** Prettier silently turns the lines after a choices list into part of the last choice, so an indented label is now an error (`label_in_choice`) and the writer escapes such lines; the 'Copy errors for Claude' message now asks for the deck's own format. **Not yet tried on a real Claude conversation, which needs the owner.**
 - [x] M2-14 e2e for all card types and Markdown, Firefox and WebKit in CI (M). Done 2026-10-11, **and Firefox passed on its first CI run (run 38182773425)**. New keyboard-only test through import and all four card types. One browser per invocation (`E2E_BROWSER`, `scripts/run-e2e.ts`), new CI job `browsers` (Firefox and WebKit, parallel to verify, 20 minute budget). WebKit passes all 118 tests after changes that reflect real browser differences (Safari does not Tab to links by default, only Chromium can be granted clipboard access) and after removing two races in my own tests. Firefox will not launch on this Windows machine (side-by-side configuration error), so its first run was in CI, where it passed. Minimum browser versions stated in the README and deployment guide. QA risk R-1 is closed.
 - [x] M2-15 Release pipeline (M). Done 2026-10-11. **Nothing published, tagged, or released.** `scripts/package-release-assets.ts` builds the deck schema, the Claude skill as a reproducible zip, and `SHA256SUMS`; `release.yml` builds them on rehearsals and tags, verifies them with `sha256sum -c` and `unzip -t`, and attaches them on a tag. The CI docker job now scans the built image with Trivy and fails on fixable high or critical findings (security finding S-05). New tests check every reference in every workflow against the repository; 12 deliberate workflow mistakes all caught. **The image scan step and the new asset step have never run on GitHub**, so the first CI run and a manual rehearsal of `release.yml` are on the first-release checklist.
-- [~] M2-16 M2 exit gate: QA report and security review written 2026-10-11 (`.10x/reviews/2026-10-11-qa-report-m2.md`, `…-security-review-m2.md`); version 0.1.0 and changelog section prepared in the working tree, not committed; the `v0.1.0` tag waits for the owner (S)
+- [x] M2-16 M2 exit gate (S). Done 2026-10-11: QA report and security review (`.10x/reviews/2026-10-11-qa-report-m2.md`, `…-security-review-m2.md`), then `v0.1.0` tagged and published on the owner's approval after CI was green on `ad6fb23`. Follow-up release **0.1.1** (the fixes the first real deploy and the live-image harness found, plus the harness): candidate `v0.1.1-rc.1` passed the harness on the real host (63 passed, 0 failed, 1 skipped), QA report `.10x/reviews/2026-10-12-qa-report-0.1.1.md`. The final `v0.1.1` is approved by the owner and is waiting for CI to be green on the current `main`.
 
-### M3 Leeches, weak spots, export, settings (11 tasks, 32 hours)
+### L Library management (10 tasks, about 38 hours; added 2026-10-12 at the owner's request)
+
+Manual deck creation, editing, practice again and start over, deck deletion (Trash), and backups from the GUI. Stories US-11 to US-16 in the PM file, delivery plan in the EM file ("Library management, added to the plan"), design in **ADR-013 and ADR-014, both Proposed and waiting for the owner**. Not started. Held at the same checkpoint gate as M3.
+
+- [ ] L-01 `exportDeck` and the export route (pulled forward from M3-06) (M)
+- [ ] L-02 Create a deck: empty deck in the planner, create route, "New deck" form (M)
+- [ ] L-03 Snapshot-before-destructive-action helper (S)
+- [ ] L-04 Card editor component for the four types with live preview (M)
+- [ ] L-05 Edit a deck through the import pipeline, with the stale-write check (M)
+- [ ] L-06 Trash: delete, restore, permanent delete with typed confirmation (M)
+- [ ] L-07 Start over: reset progress, keep the review log (M)
+- [ ] L-08 Backups page: back up now, list, download, delete (replaces M3-07) (M)
+- [ ] L-09 Restore from the list, staged with a restart (stretch) (M)
+- [ ] L-10 Probe entries, end-to-end flows, docs, skill note, harness steps (M)
+
+### M3 Leeches, weak spots, export, settings (11 tasks, 32 hours; M3-06 and M3-07 move into L)
 
 - [ ] M3-01 to M3-10, not started. **Held at the checkpoint gate** (the owner studies on 5 separate days with a Claude-generated deck, or overrides it). Re-plan done 2026-10-12: see the EM file, "M3 re-plan". M3-11 (competitor re-check) is done, as research, in the CTO file (it found Flash).
 

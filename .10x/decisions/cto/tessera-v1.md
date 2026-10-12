@@ -105,3 +105,13 @@ Done early, as research only, because the owner asked the team to keep following
 **Commercial** (Avorio, Discito, Deckbase and similar): hosted or native Apple apps, unchanged since Phase 1.
 
 Sources: [Flash repository](https://github.com/flash-cards/flash), [Flash on Glama](https://glama.ai/mcp/servers/flash-cards/flash), [awesome-fsrs](https://github.com/open-spaced-repetition/awesome-fsrs), [Anki releases](https://github.com/ankitects/anki/releases), [Anki on Wikipedia](https://en.wikipedia.org/wiki/Anki).
+
+## Scope change: library management (2026-10-12)
+
+The owner asked for manual deck creation, editing, practice again and start over, deck deletion, and backups from the GUI, and said more requests are likely. This does not trigger either kill criterion: the checkpoint measures whether the owner studies with Tessera, and these requests are what the owner needs in order to do that every day.
+
+**Strategic effect.** Tessera was pitched as file-first with Claude in the loop. It now also needs to be a deck manager. That is a wider product, and a bigger maintenance load for one maintainer. The team keeps it bounded: manual edits go through the existing import pipeline (ADR-013), no accounts, no images or audio, and no second write path. Flash and Anki users expect this feature set, so leaving it out would cost the owner's daily use more than building it costs.
+
+**Does it change the differentiator?** No. The validated file round trip, the privacy of a VPN-only deployment, and the weak-spot report (M3) remain the reasons to prefer Tessera over a connector-driven app.
+
+**Cost.** About 32 net hours (EM file). ADR-013 and ADR-014 are Proposed and wait for the owner. The scope-creep risk in the EM table still applies: each further request gets a story, a place in the order, and a size before it is built.

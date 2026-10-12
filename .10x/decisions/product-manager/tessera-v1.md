@@ -73,3 +73,47 @@ Accounts and multi-user, images and media, MCP server, auto-generated choice dis
 - Whether Brainy's source reveals features worth matching (answered in Phase 2).
 - Whether Mermaid rendering is needed in M1 or can land with M2 (EM decides in Phase 3).
 - Final visual direction for the UI (decided at implementation, using the design skills).
+
+## Owner requests added to the plan (2026-10-12)
+
+The owner asked for these to be added to the plan: (1) a way to **manually add decks**, (2) **edit existing decks**, (3) **retrain on decks after completion**, (4) **delete decks**, (5) **back up from the GUI**. The owner added that there are probably other features they want, and asked for these to be added now. This is a scope change, so the team treats it as a re-plan (the EM risk table says new work waits for one). **Nothing here is built.** The checkpoint gate still applies to milestone ordering: whether these come before or after the weak-spot work is the owner's call (see "Questions for the owner" below).
+
+### Why it matters for the product
+
+Tessera was designed as file-first: Claude writes a deck, Tessera imports it, and re-import by `id` keeps progress. The owner now wants to manage decks without Claude in the loop, which makes Tessera a deck manager as well. That is a real change of pitch, so the CTO file records it. It also removes the main friction a flashcard app has (a typo in one card currently means a trip through Claude or a hand-edited file), and it is what Flash and Anki users expect.
+
+### User stories
+
+| ID | Story | Acceptance criteria |
+|---|---|---|
+| US-11 | As a learner I can create a deck by hand. | A "New deck" action takes a title, an optional description, and tags, and makes an id from the title (a lowercase slug, checked for uniqueness, with a clear message if it is taken). The new deck exists with no cards and can be studied once it has some. Created decks use the same id rules as imported ones (`^[a-z0-9][a-z0-9-]{0,63}$`, as the schema defines). |
+| US-12 | As a learner I can add, edit, and remove cards in any deck, and edit the deck's title, description, and tags. | A card editor covers all four types (basic, cloze, typed, choice) with a live preview of the rendered Markdown. It validates with the same rules and messages as import, naming the field. Editing a card's text keeps its progress. Changing a card's type warns that progress is erased (as import does). Removing a card archives it (progress kept, restorable) unless the learner picks permanent removal. The editor never saves an invalid card. |
+| US-13 | As a learner I can practice a deck again after finishing it. | Two clearly different actions. **Practice again** (also called cram) studies the whole deck, or a tag, or the weakest cards, any time, and grades never change the schedule (this is US-7 in M4). **Start over** resets a deck's progress so every card is new again, after a typed confirmation, and only after an automatic snapshot (see ADR-014). *The words "retrain" and "after completion" are ambiguous. The team assumed both meanings. The owner confirms or narrows it.* |
+| US-14 | As a learner I can delete a deck without fear. | Delete moves the deck to a **Trash** (the deck's existing `archived` flag), hides it everywhere, and keeps its cards and review history. The Trash lists decks with their card and review counts, and each can be restored or deleted permanently. Permanent deletion needs the deck's title typed as confirmation, is preceded by an automatic snapshot, and says in plain words that the review history of the deck goes with it. |
+| US-15 | As an operator I can back up and see my backups from the GUI. | A Backups page has **Back up now** (writes a snapshot into the data folder's `backups` folder and shows its name and size), a list of existing snapshots (automatic pre-upgrade ones and manual ones, with dates and sizes), **Download** for any of them, and **Delete** for old ones (with a confirmation). The page says that a backup left on the same disk does not protect against losing the disk. A full disk gets the plain HTTP 507 message. |
+| US-16 | As an operator I can restore from a backup in the GUI (stretch). | Upload a snapshot or pick one from the list. The server checks it (integrity, the migration level, that it is a Tessera database), shows what it contains, takes an automatic snapshot of the current data first, and applies it. The server cannot swap the database file under itself safely, so the application restarts itself to apply it, and the page says so (ADR-014 sets out how). Not in the first cut unless the owner asks for it. |
+
+### Candidate features to confirm (the owner said there are probably others)
+
+Not requirements. A list for the owner to cross out or promote, gathered from the plan, the competitor check, and what a daily user usually reaches for next:
+
+- Search across cards (and by tag), and a deck list that can be filtered or sorted.
+- Suspend or bury a single card from the study screen.
+- Move a card to another deck, copy a deck, merge two decks.
+- Per-deck settings (daily limits and target retention for one deck, not only global ones).
+- Undo the last grade (already deferred to v1.1).
+- Study ahead (review cards that are not yet due).
+- A daily goal and a streak (part of the stats dashboard in M4).
+- A keyboard shortcut help overlay.
+- Import from Anki `.apkg` (Flash does it).
+- Images and audio in cards (a stated non-goal, because of storage and the CSP).
+- Reordering cards, and folders or nested decks.
+- Export of study history as CSV.
+
+### Questions for the owner (not blocking, the team assumed the answers shown)
+
+1. **"Retrain on decks after completion"**: does it mean practice again without changing the schedule, start over from scratch, or both? *Assumed both, as US-13.*
+2. **Delete**: is a Trash with restore acceptable, or does the owner want an immediate, permanent delete? *Assumed Trash first, with permanent delete behind it (US-14).*
+3. **Editing versus re-import**: if the owner edits a card by hand and later re-imports an older Claude version of the deck, the re-import preview shows the hand edit as a change to be overwritten, and the owner decides. *Assumed this is enough, with no "locked card" feature (ADR-013).*
+4. **Restore from the GUI**: wanted now, or is download plus the documented restore steps enough for the first cut? *Assumed later (US-16 is a stretch).*
+5. **Order**: library management before or after the weak-spot work? *Recommended before: it is what the owner needs to use the app daily, and it feeds the checkpoint.*

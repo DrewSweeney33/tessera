@@ -175,3 +175,11 @@ Spec: `.10x/specs/2026-10-11-v0.1.1-and-live-test-design.md`. ADR: `.10x/adrs/01
 - **B-1.** The data folder preparation (`openDatabase` in `src/lib/server/db/index.ts`) also creates `<dataDir>/backups`. A path that exists as a file is a clear start-up error. No schema, API, or ADR-008 change: ADR-008 already says backups live there.
 - **Harness boundaries.** One script on the developer's machine, one throwaway compose project on a Docker host over SSH, the existing `--base` scripts for application tests. Safety rules are enforced in code (marker file, port and volume refusals, dry run, teardown in `finally`).
 - **Failure modes.** Harness touches the live instance (refused by rule, tested with a negative control); leftover test project (teardown at the next start); disk-full test on a real disk (tmpfs volume with a size limit).
+
+## Library management design (2026-10-12, proposed, nothing built)
+
+Two proposed ADRs for the owner's review.
+- **ADR-013 (editing, deleting, resetting decks).** One write path: a manual edit builds a deck document (from `exportDeck`) and goes through the existing parse, plan, and commit steps. Delete is a two-step Trash using the `archived` flag decks already have (no migration). Permanent delete and start over need a typed confirmation and a snapshot first. A stale-write check protects against two tabs.
+- **ADR-014 (backups and restore from the GUI).** Four routes (back up now, list, download, delete) with names that are never paths. Snapshots go into the data folder (never `/tmp`, which is memory-backed). Restore is staged with a clean restart (a marker file, then a swap at the next start) and needs Compose's restart policy. No database upload through the page.
+
+**Failure modes covered:** a full disk (no snapshot means no action, and the answer is 507), a crash during restore (marker plus swap tested for old-or-new, never a mix), a path traversal in a backup name, a hand edit overwritten by a re-import (the preview shows it), and a stale write from a second tab.
