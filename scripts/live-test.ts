@@ -522,10 +522,19 @@ async function main(): Promise<void> {
 	const restartsBefore = Number(
 		remote("docker inspect --format '{{.RestartCount}}' " + id).stdout.trim()
 	);
-	remote(
+	// The server is found by its command line, which starts with "node build/index.js". Not by its name: inside
+	// the container Linux calls the main thread "MainThread", and an earlier version of this step matched on
+	// "node", killed nothing, and reported the missing restart as a failure. The init process (PID 1) and the
+	// shell running this loop have other command lines, so they are left alone.
+	const killed = remote(
 		'docker exec ' +
 			id +
-			' sh -c \'for d in /proc/[0-9]*; do if [ "$(cat $d/comm 2>/dev/null)" = node ]; then kill -9 ${d#/proc/}; fi; done\''
+			' sh -c \'for d in /proc/[0-9]*; do case "$(tr "\\0" " " < $d/cmdline 2>/dev/null)" in "node build/index.js"*) echo killing ${d#/proc/}; kill -9 ${d#/proc/};; esac; done\''
+	);
+	check(
+		'the server process was found inside the container and killed',
+		/^killing \d+$/m.test(killed.stdout),
+		killed.stdout.trim() || killed.stderr.trim() || 'nothing matched'
 	);
 	let restarted = false;
 	for (let i = 0; i < 60 && !restarted; i++) {
