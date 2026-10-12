@@ -14,6 +14,7 @@ All notable changes to Tessera are written here. The format follows [Keep a Chan
 
 ### Fixed
 
+- The browser tab showed the Svelte logo from the project starter. It now shows Tessera's own mark, readable on light and dark tab strips.
 - The manual backup command in the operations guide failed on a fresh install, because the `/data/backups` folder only appeared after the first database upgrade. Tessera now creates the folder when it starts. If you are on 0.1.0, run `docker compose exec tessera mkdir -p /data/backups` once.
 
 ## [0.1.0] - 2026-10-11
@@ -47,6 +48,8 @@ The first public version: import decks from Claude in JSON or Markdown, study wi
 - Tessera now refuses requests that arrive under a host name it is not meant to answer to, which blocks DNS rebinding attacks from hostile web pages. It answers `localhost`, any IP address, single-word names, and `.local`, `.lan`, `.home.arpa`, `.internal`, and `.localdomain` names by default. **If you reach Tessera by a real domain name, for example through a reverse proxy, set `TESSERA_ALLOWED_HOSTS`.** The refusal message says so.
 
 ### Fixed
+
+- The browser tab showed the Svelte logo from the project starter. It now shows Tessera's own mark, readable on light and dark tab strips.
 
 - A request body over the size limit, sent in chunks, returned a server error instead of "too large".
 - The study screen had no page heading for screen readers.

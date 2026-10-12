@@ -154,3 +154,30 @@ test.describe('theme', () => {
 		await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 	});
 });
+
+test.describe('tab icon', () => {
+	test('the page links Tessera’s own mark as its icon, and it is a real SVG', async ({
+		page,
+		request
+	}) => {
+		await page.goto('/');
+		const href = await page.locator('link[rel="icon"]').getAttribute('href');
+		expect(href, 'a link rel="icon"').toBeTruthy();
+		// Small files are inlined as a data address by the build, larger ones are served from the app.
+		let svg: string;
+		if (href!.startsWith('data:')) {
+			const [head, body = ''] = href!.split(/,(.*)/s);
+			svg = head!.includes(';base64')
+				? Buffer.from(body, 'base64').toString('utf8')
+				: decodeURIComponent(body);
+		} else {
+			const reply = await request.get(new URL(href!, page.url()).toString());
+			expect(reply.status()).toBe(200);
+			expect(reply.headers()['content-type']).toContain('image/svg+xml');
+			svg = await reply.text();
+		}
+		expect(svg).toContain('<svg');
+		expect(svg).toContain('Tessera');
+		expect(svg.toLowerCase()).not.toContain('svelte');
+	});
+});
