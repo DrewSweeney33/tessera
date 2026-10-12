@@ -13,13 +13,12 @@ The release workflow now attaches the deck schema, the Claude skill as a zip, an
 
 ### State of git
 
-M2-05 to M2-14 are on GitHub. M2-15 is committed locally and **not pushed**.
+Everything through M2-15 is on GitHub and CI is fully green on ad454a0 (Verify, Firefox, WebKit, Docker amd64 with the image scan, Docker arm64). The first run after M2-15 failed three ways (an e2e race in the LAN-address test, then a hang in `allHeaders()`, and real scan findings in npm/corepack/yarn); all are fixed. See the SDE log, "M2-15 follow-up".
 
 ### Needs the owner
 
-1. **Approve the push, then watch the first CI run.** It is the first run of the Trivy scan, which I could not run here (no container program on this machine). It can fail for two reasons that are not bugs: a high or critical finding with a fix available in the base image (rebuilding usually clears it) or the vulnerability database download being rate limited. Tell me what it says, or say "keep pushing CI fixes".
-2. **Run the release workflow by hand once** (Actions, Release, Run workflow, on `main`) before the real tag, to see the new asset step pass. It publishes nothing. The version in `package.json` is `0.0.1` and the changelog has no `0.0.1` section, so the rehearsal's version check will fail on `main`; use a short-lived branch as `docs/releasing.md` describes, or wait for M2-16, which sets the version.
-3. **Confirm Settings, Actions, General, Workflow permissions** allows the release job to push packages (still unverifiable until a real tag).
+1. **Run the release workflow by hand once** (Actions, Release, Run workflow, on `main`) before the real tag, to see the new asset step pass. It publishes nothing. The version in `package.json` is `0.0.1` and the changelog has no `0.0.1` section, so the rehearsal's version check will fail on `main`; use a short-lived branch as `docs/releasing.md` describes, or wait for M2-16, which sets the version.
+2. **Confirm Settings, Actions, General, Workflow permissions** allows the release job to push packages (still unverifiable until a real tag).
 
 ### Next
 
@@ -27,6 +26,7 @@ M2-16, the Milestone 2 exit gate: repeat QA and security review, the disk-full a
 
 ### Things to know
 
+- The runtime image has no npm, corepack, or yarn (removed on purpose, ab21775). Anything that needs npm at runtime must be done in the build stage.
 - A failed image scan is meant to be actionable: it only reports findings that have a fix. Do not add a `.trivyignore` without recording why.
 - The release zip is reproducible, so a checksum can be rebuilt and compared from the tagged source.
 - Earlier open items are unchanged (compose wrappers unverified on a real host, registry push unexercised, disk-full and long soak untested, screen readers untested, no favicon, the skill untried in a real conversation).

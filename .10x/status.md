@@ -1,7 +1,7 @@
 # Tessera Status
 
 **Last updated:** 2026-10-11
-**Current phase:** Phase 4 Implementation, Milestone 2 in progress (started 2026-10-11). The repository is live on GitHub (public) with CI green on Linux. M2-00 to M2-15 are done. No release exists; `v0.1.0` is the M2 exit.
+**Current phase:** Phase 4 Implementation, Milestone 2 in progress (started 2026-10-11). The repository is live on GitHub (public) with CI green on Linux. M2-00 to M2-15 are done and pushed (CI fully green on ad454a0, including the first image scan). No release exists; `v0.1.0` is the M2 exit.
 **Feature slug:** `tessera-v1`
 
 ## Phase tracker
@@ -12,7 +12,7 @@
 | 1 Strategy | Complete. Verdict: build, with a checkpoint after M2. |
 | 2 Design | Complete. 7 ADRs accepted (005 to 007 added during implementation). |
 | 3 Planning | Complete. 67 tasks, 5 milestones, about 224 hours (human-equivalent). |
-| 4 Implementation | M1 done (23 of 23 tasks), exit gate accepted by the owner 2026-10-11 ("start Milestone 2"). M2 in progress: M2-00 to M2-15 done (M2-00 to M2-14 pushed, CI green including Firefox; M2-15 committed locally, awaiting the owner's approval to push), M2-16 next. |
+| 4 Implementation | M1 done (23 of 23 tasks), exit gate accepted by the owner 2026-10-11 ("start Milestone 2"). M2 in progress: M2-00 to M2-15 done and pushed (CI green on ad454a0: Verify, Firefox, WebKit, Docker amd64 with image scan, Docker arm64), M2-16 next. |
 | 5 Verification | **Interim pass on the M1 slice done 2026-10-11.** 2 defects fixed, 0 blocking. Repeat at the M2 exit (with a security review) and final at M5 exit. |
 | 6 Delivery | **Delivery package for the M1 slice done 2026-10-11:** deploy, operations, and release docs, tag-driven release workflow, ops check script, four reliability fixes (ADR-008). Conditional sign-off: ready for the owner's own use on loopback or a VPN with backups. Public `v0.1.0` at M2 exit, `v1.0.0` at M5 exit. |
 
