@@ -54,6 +54,8 @@ describe('CI workflow', () => {
 		expect(commands).toContain('npm run test:e2e');
 		expect(commands).toContain('npm run benchmark');
 		expect(commands).toContain('npm run security:probe');
+		// The probe's remote mode is what the live-image harness relies on, so it is checked on every push.
+		expect(commands).toContain('npm run probe:remote-check');
 		expect(commands).toContain('npm run durability');
 		expect(commands).toContain('npm run ops:check');
 	});

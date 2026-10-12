@@ -24,6 +24,7 @@
 		"smoke": "node scripts/smoke.ts",
 		"benchmark": "node scripts/benchmark.ts",
 		"security:probe": "node scripts/security-probe.ts",
+		"probe:remote-check": "node scripts/probe-remote-check.ts",
 		"durability": "node scripts/durability-check.ts",
 		"ops:check": "node scripts/ops-check.ts",
 		"fixtures:scheduler": "node scripts/gen-scheduler-fixtures.ts",

@@ -5,20 +5,57 @@
 // A control that is specified but not built yet is reported as KNOWN (and listed in the security review),
 // never as PASS. None are open at the moment.
 // Run `npm run build` first. This writes decks named "probe-*" into the target, so never aim it at real data.
-import { spawn, type ChildProcess } from 'node:child_process';
+//
+// Against a server that is somewhere else (--base) the probe cannot start its own extra servers or read the
+// server's output, and it must never test the local build while claiming to test the remote one. So the checks
+// that need them take their server from a flag, and are reported as SKIP, with a reason, when the flag is absent:
+//   --hosts-base URL   a server started with TESSERA_ALLOWED_HOSTS set to PROBE_ALLOWED_HOSTS
+//   --token-base URL   a server started with TESSERA_API_TOKEN set to PROBE_TOKEN
+//   --logs-cmd CMD, --hosts-logs-cmd CMD, --token-logs-cmd CMD   shell commands that print each server's log
+// (see scripts/lib/probe-config.ts). The live-image harness (scripts/live-test.ts) supplies all of them.
+// The main --base server must run with the image's default settings: no ORIGIN, PROTOCOL_HEADER, HOST_HEADER,
+// TESSERA_ALLOWED_HOSTS, or TESSERA_API_TOKEN. The host-name and same-origin checks assume that, and fail
+// (they do not pass) against a server configured otherwise, such as one set up for a reverse proxy.
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import http from 'node:http';
 import { createServer, type AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { PROBE_ALLOWED_HOSTS, PROBE_TOKEN } from './lib/probe-config.ts';
 
 const args = process.argv.slice(2);
-const baseArg = args.includes('--base') ? args[args.indexOf('--base') + 1] : undefined;
+const flag = (name: string): string | undefined =>
+	args.includes(name) ? args[args.indexOf(name) + 1] : undefined;
+const baseArg = flag('--base');
+const hostsBase = flag('--hosts-base');
+const tokenBase = flag('--token-base');
+const logsCommand = flag('--logs-cmd');
+const hostsLogsCommand = flag('--hosts-logs-cmd');
+const tokenLogsCommand = flag('--token-logs-cmd');
 
 let failures = 0;
+let skipped = 0;
 function check(name: string, ok: boolean, detail = ''): void {
 	console.log(`${ok ? 'PASS ' : 'FAIL '} ${name}${ok || !detail ? '' : `  (${detail})`}`);
 	if (!ok) failures++;
+}
+// A check that could not run. Never counted as a pass, and listed in the summary.
+function skip(name: string, reason: string): void {
+	console.log(`SKIP  ${name}  (${reason})`);
+	skipped++;
+}
+// The output of a server that is somewhere else, from a command given on the command line.
+function remoteLog(command: string | undefined): (() => string | undefined) | undefined {
+	if (!command) return undefined;
+	return () => {
+		const result = spawnSync(command, {
+			shell: true,
+			encoding: 'utf8',
+			maxBuffer: 64 * 1024 * 1024
+		});
+		return result.status === 0 ? result.stdout : undefined;
+	};
 }
 interface Reply {
 	status: number;
@@ -88,8 +125,22 @@ function freePort(): Promise<number> {
 	});
 }
 
-// Starts one more server with extra environment, for checks that need a different configuration.
-async function startSecondServer(extraEnv: Record<string, string>) {
+interface ExtraServer {
+	origin: URL;
+	// The server's output so far, or undefined when it cannot be read.
+	output: () => string | undefined;
+	stop: () => void;
+}
+
+// Starts one more server with extra environment, for checks that need a different configuration. Against a
+// remote server it starts nothing: it hands back the server the flags name for that configuration, or null.
+async function startSecondServer(extraEnv: Record<string, string>): Promise<ExtraServer | null> {
+	if (baseArg) {
+		const url = 'TESSERA_API_TOKEN' in extraEnv ? tokenBase : hostsBase;
+		if (!url) return null;
+		const output = remoteLog('TESSERA_API_TOKEN' in extraEnv ? tokenLogsCommand : hostsLogsCommand);
+		return { origin: new URL(url), output: output ?? (() => undefined), stop: () => {} };
+	}
 	const port = await freePort();
 	const folder = mkdtempSync(join(tmpdir(), 'tessera-probe2-'));
 	const proc = spawn(process.execPath, ['build/index.js'], {
@@ -139,6 +190,9 @@ async function startSecondServer(extraEnv: Record<string, string>) {
 let child: ChildProcess | undefined;
 let dataDir: string | undefined;
 const serverOutput: string[] = [];
+// The main server's output: its own, or the remote one's through --logs-cmd, or undefined when neither exists.
+const readMainLog = (): string | undefined =>
+	baseArg ? remoteLog(logsCommand)?.() : serverOutput.join('');
 
 if (baseArg) {
 	origin = new URL(baseArg);
@@ -248,19 +302,17 @@ try {
 			noOrigin.status === 403 || noOrigin.status === 415,
 			`got ${noOrigin.status}`
 		);
-		if (child) {
-			const same = await send({
-				method: 'POST',
-				path: '/api/import',
-				headers: headers({ origin: sameOrigin }),
-				body: goodDeck
-			});
-			check(
-				`our guard alone refuses ${label} (same-origin, 415)`,
-				same.status === 415,
-				`got ${same.status}`
-			);
-		}
+		const same = await send({
+			method: 'POST',
+			path: '/api/import',
+			headers: headers({ origin: sameOrigin }),
+			body: goodDeck
+		});
+		check(
+			`our guard alone refuses ${label} (same-origin, 415)`,
+			same.status === 415,
+			`got ${same.status}`
+		);
 	}
 	for (const method of ['PUT', 'PATCH', 'DELETE']) {
 		const r = await send({
@@ -355,38 +407,47 @@ try {
 		`got ${health.status}`
 	);
 
-	if (child) {
-		for (const host of [
-			'localhost:3000',
-			'127.0.0.1',
-			'[::1]:3000',
-			'192.168.30.99:3000',
-			'tessera',
-			'tessera.lan',
-			'nas.home.arpa:3000',
-			'box.local'
-		]) {
-			const r = await send({ path: '/api/decks', headers: { host } });
-			check(`the default rules answer ${host}`, r.status === 200, `got ${r.status}`);
-		}
-		const own = await send({ path: '/api/decks', headers: { host: 'tessera.sweentech.com' } });
-		check(
-			'a real domain name needs the setting (a rebinding page could use one)',
-			own.status === 421,
-			`got ${own.status}`
-		);
+	for (const host of [
+		'localhost:3000',
+		'127.0.0.1',
+		'[::1]:3000',
+		'192.168.30.99:3000',
+		'tessera',
+		'tessera.lan',
+		'nas.home.arpa:3000',
+		'box.local'
+	]) {
+		const r = await send({ path: '/api/decks', headers: { host } });
+		check(`the default rules answer ${host}`, r.status === 200, `got ${r.status}`);
+	}
+	const own = await send({ path: '/api/decks', headers: { host: 'tessera.sweentech.com' } });
+	check(
+		'a real domain name needs the setting (a rebinding page could use one)',
+		own.status === 421,
+		`got ${own.status}`
+	);
+	const startupLog = readMainLog();
+	if (startupLog === undefined) {
+		skip('the startup log states the host rules', 'the server log is not available (--logs-cmd)');
+	} else {
 		check(
 			'the startup log states the host rules',
-			serverOutput.join('').includes('host check: using the default rules')
+			startupLog.includes('host check: using the default rules')
 		);
+	}
 
-		// With TESSERA_ALLOWED_HOSTS set, only the listed names are answered.
-		const listed = await startSecondServer({
-			TESSERA_ALLOWED_HOSTS: 'tessera.example.test, *.lab.example.test, box.example.test:8443'
-		});
-		const saved = origin;
-		origin = listed.origin;
-		try {
+	// With TESSERA_ALLOWED_HOSTS set, only the listed names are answered.
+	const listed = await startSecondServer({ TESSERA_ALLOWED_HOSTS: PROBE_ALLOWED_HOSTS });
+	if (!listed) {
+		skip(
+			'the host-list checks (13 requests)',
+			'needs a server started with the probe host list (--hosts-base)'
+		);
+	}
+	const saved = origin;
+	if (listed) origin = listed.origin;
+	try {
+		if (listed) {
 			for (const [host, expected] of [
 				['tessera.example.test', 200],
 				['TESSERA.EXAMPLE.TEST:443', 200],
@@ -409,26 +470,42 @@ try {
 					`got ${r.status}`
 				);
 			}
-			check(
-				'the startup log lists the configured names',
-				listed.output().includes('answering only the listed host names')
-			);
-		} finally {
-			origin = saved;
-			listed.stop();
+			const listedLog = listed.output();
+			if (listedLog === undefined) {
+				skip(
+					'the startup log lists the configured names',
+					'the server log is not available (--hosts-logs-cmd)'
+				);
+			} else {
+				check(
+					'the startup log lists the configured names',
+					listedLog.includes('answering only the listed host names')
+				);
+			}
 		}
+	} finally {
+		origin = saved;
+		listed?.stop();
+	}
 
-		// ---- 3b. The API token (ADR-009, ADR-011)
-		console.log('\n# API token');
-		const TOKEN = 'probe-token-0123456789abcdef0123456789abcdef';
-		const guarded = await startSecondServer({ TESSERA_API_TOKEN: TOKEN });
-		const savedOrigin = origin;
-		origin = guarded.origin;
-		const guardedOrigin = guarded.origin.origin;
-		const withToken = { authorization: `Bearer ${TOKEN}` };
-		const status = async (path: string, headers: Record<string, string> = {}, method = 'GET') =>
-			(await send({ method, path, headers })).status;
-		try {
+	// ---- 3b. The API token (ADR-009, ADR-011)
+	console.log('\n# API token');
+	const TOKEN = PROBE_TOKEN;
+	const guarded = await startSecondServer({ TESSERA_API_TOKEN: TOKEN });
+	if (!guarded) {
+		skip(
+			'all the API token checks (about 60)',
+			'needs a server started with the probe token (--token-base)'
+		);
+	}
+	const savedOrigin = origin;
+	if (guarded) origin = guarded.origin;
+	const guardedOrigin = guarded?.origin.origin ?? '';
+	const withToken = { authorization: `Bearer ${TOKEN}` };
+	const status = async (path: string, headers: Record<string, string> = {}, method = 'GET') =>
+		(await send({ method, path, headers })).status;
+	try {
+		if (guarded) {
 			const bare = await send({ path: '/api/decks' });
 			check(
 				'without the token a plain call is refused with 401',
@@ -643,17 +720,21 @@ try {
 			);
 
 			const log = guarded.output();
-			check(
-				'the startup log says a token is set, without printing it',
-				log.includes('API token: set') && !log.includes(TOKEN)
-			);
-			check('refusals are logged', log.includes('request refused, API token missing or wrong'));
-			check('the token never appears in the logs', !log.includes(TOKEN));
-			check('nor do the wrong guesses', !log.includes('guess-17-'));
-		} finally {
-			origin = savedOrigin;
-			guarded.stop();
+			if (log === undefined) {
+				skip('the token log checks (4)', 'the server log is not available (--token-logs-cmd)');
+			} else {
+				check(
+					'the startup log says a token is set, without printing it',
+					log.includes('API token: set') && !log.includes(TOKEN)
+				);
+				check('refusals are logged', log.includes('request refused, API token missing or wrong'));
+				check('the token never appears in the logs', !log.includes(TOKEN));
+				check('nor do the wrong guesses', !log.includes('guess-17-'));
+			}
 		}
+	} finally {
+		origin = savedOrigin;
+		guarded?.stop();
 	}
 
 	// ---- 4. Input hardening (section 6)
@@ -935,8 +1016,13 @@ try {
 		});
 	}
 	await new Promise((r) => setTimeout(r, 300));
-	const logs = serverOutput.join('');
-	if (child) {
+	const logs = readMainLog();
+	if (logs === undefined) {
+		skip(
+			'card text and typed answers never reach the logs',
+			'the server log is not available (--logs-cmd)'
+		);
+	} else {
 		check('server logs were captured', logs.length > 0);
 		check('card text and typed answers never reach the logs', !logs.includes(marker));
 	}
@@ -975,6 +1061,7 @@ try {
 		garbageSocket && (await send({ path: '/healthz' })).status === 200
 	);
 	if (child) check('the server process is still running', child.exitCode === null);
+	else skip('the server process is still running', 'the server is not a local process');
 } catch (error) {
 	console.error('\nProbe aborted:', error instanceof Error ? error.message : error);
 	failures++;
@@ -986,5 +1073,7 @@ try {
 	}
 }
 
+if (skipped > 0)
+	console.log(`\n${skipped} check(s) skipped, see the SKIP lines above. A skip is not a pass.`);
 console.log(failures === 0 ? '\nNo failed checks.' : `\n${failures} check(s) failed.`);
 process.exit(failures === 0 ? 0 : 1);
