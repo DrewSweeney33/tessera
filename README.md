@@ -28,7 +28,7 @@ Your data lives in a Docker volume. Do not back it up by copying `tessera.db` wh
 
 ### Security: there is no login
 
-Tessera is a single-user app and has no accounts. `compose.yaml` publishes the port on `127.0.0.1` only, on purpose. To use it from another device, the safest route is a private network such as Tailscale, or a reverse proxy that asks for a password. [docs/deploy.md](docs/deploy.md) walks through each option and what to avoid. See [ADR-005](.10x/adrs/005-security-posture-without-login.md) for the reasoning and [SECURITY.md](SECURITY.md) to report a problem.
+Tessera is a single-user app and has no accounts. `compose.yaml` publishes the port on `127.0.0.1` only, on purpose. To use it from another device, the safest route is a private network such as Tailscale, or a reverse proxy that asks for a password. [docs/deploy.md](docs/deploy.md) walks through each option and what to avoid. [docs/security.md](docs/security.md) says what Tessera protects, what it does not, and what you should do. See [ADR-005](.10x/adrs/005-security-posture-without-login.md) for the reasoning and [SECURITY.md](SECURITY.md) to report a problem.
 
 If you use a reverse proxy that terminates TLS, set `PROTOCOL_HEADER=x-forwarded-proto` and `HOST_HEADER=x-forwarded-host` (commented out in `compose.yaml`) so the app sees the real address.
 
