@@ -135,7 +135,7 @@ Sizes: S up to 2 hours, M up to 4 hours. Recommended M1 order is in the EM file 
 
 ### M3 Leeches, weak spots, export, settings (11 tasks, 32 hours)
 
-- [ ] M3-01 to M3-11, see EM file section 6. Re-plan at M2 exit.
+- [ ] M3-01 to M3-10, not started. **Held at the checkpoint gate** (the owner studies on 5 separate days with a Claude-generated deck, or overrides it). Re-plan done 2026-10-12: see the EM file, "M3 re-plan". M3-11 (competitor re-check) is done, as research, in the CTO file (it found Flash).
 
 ### M4 Cram and stats (8 tasks, 22 hours)
 

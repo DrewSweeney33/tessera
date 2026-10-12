@@ -206,3 +206,47 @@ Confidence plus or minus 30 percent. M1 is the riskiest estimate because it incl
 - **Splitting rule:** a task that exceeds its size is split before continuing, not stretched.
 - **State discipline:** the milestone exit gate writes decisions, status, and handoff files before the next milestone starts.
 - **Going back is allowed:** a design flaw found during a task returns to the Architect role, with an ADR addendum or a superseding ADR.
+
+## M3 re-plan (2026-10-12)
+
+The status file asked for a re-plan at the M2 exit. This is it. **Nothing here is started.** The CTO's continue criterion says to go past M2 only after the owner has studied for real on at least 5 separate days with a Claude-generated deck, and Tessera went live on the homelab on 2026-10-11. So M3 waits for the owner to say the checkpoint is met (or to override it).
+
+### What changed since the outline
+
+1. **M3-11 (competitor re-check) is done**, as research, in the CTO file. It found Flash, a self-hosted FSRS app that Claude drives over MCP, and it makes M3-04 and M3-05 (the weak-spot round trip) the clearest differentiator.
+2. **The definition of done grew.** Every new route gets entries in the security probe and in `probe:remote-check`'s coverage (the hardening checklist from the security review). Every release gets a live-image harness run recorded in its QA report (ADR-012). Troubleshooting rows go in the operations guide for any new error.
+3. **The error shape has two new codes:** `storage_full` (507) and `service_unavailable` (503) for a full or unwritable data folder. Any M3 route that writes (settings, leech actions, restores) must go through `toErrorResponse` so it answers the same way.
+4. **The backups folder now exists on a fresh install.** M3-07 builds on that.
+5. **Real-host numbers exist** for a budget: reads about 22 ms and writes about 21 ms at the median over the network, memory about 80 MiB under load, a 5,000 card import in about 2 seconds.
+
+### Order, with a done-when line per task (each test-first)
+
+| Order | Task | Done when |
+|---|---|---|
+| 1 | M3-01 leech flag in `submitReview`, repo queries, threshold setting | A review item reaching the threshold (default 8 lapses) is flagged exactly once and never auto-suspended. Property test: the flag depends only on lapse count and the threshold. The threshold is read from `settings`. Replay of a review does not flag twice. |
+| 2 | M3-02 leech list UI: suspend, reset, copy rewrite request | The list shows the full card, lapse count, and wrong typed answers. Suspend removes the item from the queue until it is unsuspended. Reset clears lapses and the flag, and keeps history. The copied request names the deck, the card id, and the format to return. Keyboard-only and axe tests pass. |
+| 3 | M3-03 weak-tag computation | Per-tag retention and lapse rate from the review log, with a minimum count so a tag with 2 reviews is not "weak". Tested against a hand-computed fixture. |
+| 4 | M3-04 `weakSpotReport` in Markdown and JSON | Contains leech cards with full content, lapse counts, recent wrong typed answers, and the weakest tags, within a stated size cap (so it still fits in a prompt), with a note when it was cut. The JSON and Markdown forms carry the same facts (property test). |
+| 5 | M3-05 `/api/report/weak-spots` and the UI button with copy | Same report over HTTP and in the page. Added to the probe. The copied text is a paste-ready prompt that asks for a revised deck in the Tessera format. |
+| 6 | M3-06 `exportDeck` in both formats and `/api/decks/:id/export` | Round trip: export, import, and compare gives no changes and no new cards, for every golden deck and for generated decks (property test). Ids stay stable. A card type change is not introduced by export. |
+| 7 | M3-07 `/api/backup` and a UI link, restore documentation | Uses `VACUUM INTO`, writes the snapshot into the data folder's `backups` folder (not `/tmp`, which is memory-backed and counts against the 512 MB limit), streams it, and removes it afterwards. A full disk answers 507. The restore guide is tested with the live-image harness. With the API token set, a non-page caller needs the token. |
+| 8 | M3-08 skill update for the round trip, an example report, a revised deck fixture, and an end-to-end test of the full loop | The Claude skill explains the weak-spot loop. The e2e test imports a deck, makes a card a leech, copies the report, imports a revised deck by the same ids, and the leech history is kept as the plan for re-import says. |
+| 9 | M3-09 settings UI: limits, target retention, rollover hour, leech threshold, time zone display | Each setting is validated on the server and in the form, with limits. A bad value is a 422 with the field named. Changing the rollover hour or target retention is explained (what it affects). Added to the probe. |
+| 10 | M3-10 interleave option in the queue | Off by default. When on, new and review items are mixed in a stated ratio, and cloze siblings stay buried. Property test on the queue. |
+| done | M3-11 competitor re-check | See the CTO file. |
+
+Estimate: 10 tasks left, about 30 hours of the original 32, unchanged.
+
+### Risks specific to M3
+
+| Risk | Mitigation |
+|---|---|
+| The weak-spot report is too big for a prompt | A cap per section and a "truncated" note, tested at the cap |
+| Export is not an exact inverse of import (Markdown formatting differences) | The round-trip property test comes first. Where JSON and Markdown differ, JSON is the reference. |
+| `/api/backup` exposes the whole database to anything that can reach it | It follows the existing rules: the host check, and the token for callers that are not the page. State this in the security review at the M3 exit. The documentation says plainly that the page has no login. |
+| A large backup response uses memory | Stream from the file. Test with a 55 MB database against the 512 MB limit on the real host with the harness. |
+| Scope creep (MCP, accounts, `.apkg` import) | Out of scope until a milestone re-plan. Flash does `.apkg` and MCP, so the owner may raise them at the checkpoint. |
+
+### Gate and start condition
+
+Start only when the owner says the checkpoint is met or overrides it. Then: write the design notes and ADRs that M3 needs (the report contract and the export and backup endpoints), update `status.md` to Phase 4 for M3, and begin at M3-01. At the M3 exit: QA and security reports, a harness run, and a release, only on the owner's approval. The plan names only `v0.1.0` (M2) and `v1.0.0` (M5), so the M3 version number is for the owner to choose. Semantic versioning would make it `0.2.0`, since it adds features.
