@@ -1,5 +1,5 @@
 import { networkInterfaces } from 'node:os';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type Request } from '@playwright/test';
 import { basicCards, deckOf } from './helpers.ts';
 import { tokenPort, tokenValue } from './token-server.ts';
 
@@ -39,11 +39,14 @@ test.describe('the web page with a token set', () => {
 	test('imports and studies over plain HTTP on the machine network address', async ({ page }) => {
 		test.skip(!lanAddress, 'this machine has no network address other than loopback');
 		const base = `http://${lanAddress}:${tokenPort}`;
-		const wire: Record<string, string>[] = [];
-		page.on('request', async (request) => {
-			if (request.url().startsWith(`${base}/api/`)) wire.push(await request.allHeaders());
+		// Only note the requests here. Reading a request's headers is asynchronous, and doing it inside the event
+		// handler can still be pending when the test ends, which fails the test with "Test ended".
+		const requests: Request[] = [];
+		page.on('request', (request) => {
+			if (request.url().startsWith(`${base}/api/`)) requests.push(request);
 		});
 		await importAndStudy(page, base, 'lan');
+		const wire = await Promise.all(requests.map((request) => request.allHeaders()));
 
 		// Every call from the page carries its marker, and none of them had Sec-Fetch-Site: a browser sends it
 		// only to HTTPS and localhost, which is why the marker exists (ADR-011). This keeps that premise checked.
