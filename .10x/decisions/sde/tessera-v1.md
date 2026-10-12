@@ -756,3 +756,21 @@ Milestone L (library management) started on the owner's go-ahead (ADR-013 and AD
 **Checked.** Trash: 20 service tests and 20 handler tests (15 + 12 planted bugs, all caught or equivalent), 13 browser tests, axe in both themes, 320/375/768 layout. Start over: see the status row. Full gates before the Trash commit: verify, build, probe, Chromium (all), WebKit (all).
 
 **Not done.** The Backups page (L-08), restore from the list (L-09), the harness steps for download, restore, and the 0.1.1 to new upgrade (L-10).
+
+## L-08 Backups, L-09 restore, L-10 harness (2026-10-12)
+
+**Built.** Backups: `api/backups.ts` and four routes, the `/backups` page, `formatBytes`. Restore: `src/lib/server/restore/` (`inspect`, `stage`, `apply`), `api/restore.ts`, two routes, the Restore panel, `requestShutdown` on the app context, `applyPendingRestore` called by `createApp` before the database opens. The SQLite reading lives in `db/inspect.ts` (the layer rule keeps the driver in `db/`). Harness: library-feature steps, a restore step, an upgrade-from-previous step with a rollback, two more compose services on a shared volume, and a sixth port.
+
+**Decisions.**
+1. **Restore is staged, not hot-swapped** (ADR-014). The marker names the backup and the name the old database is kept under (`tessera.db.before-restore-<time>`, chosen at staging and never reused). That name is what makes the apply resumable: its presence says the old database was moved aside, its absence says it was not. Order: copy and flush, move aside, install, remove the old write-ahead files and the marker. A test stops the apply after each step and finishes it on the next start; the end state is the same each time.
+2. **Nothing runs on a bad marker.** A marker with a name that is not a plain backup name or an old-database name that is not the expected pattern is refused and moves nothing.
+3. **A restore that cannot be done at the restart** (the backup gone or turned bad) puts the old database back if it had been moved aside, writes `restore-result.json`, and starts normally. The page shows the result.
+4. **`DELETE` with a body is answered 400 by the framework**, so every "delete" that needs a typed confirmation is a POST. The backup delete has no body.
+5. **The shutdown is a SIGTERM to ourselves 800 ms after the 202**, so the answer reaches the browser; a test double replaces it. The restart policy does the rest. The page waits for the server to go and come back, with a fifteen second fallback for a restart faster than its polling.
+6. **`npm prune` is gone from the Dockerfile.** A `deps` stage runs `npm ci --omit=dev`.
+
+**Found on the way.** See the QA report: the stale-copy notice, the import into the Trash, two accessibility findings, the narrow probe expectations, the `npm prune` hang, and a harness check that assumed it could see the server down.
+
+**Checked.** See the QA report and the security review (S-11, S-12 are the two accepted risks). Real host: 106 passed, 0 failed.
+
+**Not done.** The published release candidate run, the version number and tag (the owner's), the weak-spot work and the rest of M3 (held behind the library work by the owner's order), and "Practice again" (cram) from US-14.

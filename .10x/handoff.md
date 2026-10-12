@@ -2,52 +2,43 @@
 
 ## Current handoff
 
-**From:** The team (SDE, QA, DevOps, PM, EM), after the overnight run of 2026-10-12
-**To:** The owner (a few decisions and one upgrade), then the SDE
+**From:** The team (SDE, QA, Security, DevOps), end of Milestone L (library management)
+**To:** The owner
 **Date:** 2026-10-12
-**Per-feature files:** `.10x/reviews/2026-10-12-qa-report-0.1.1.md`, `.10x/decisions/sde/tessera-v1.md` (sections "0.1.1" and "0.1.1 released"), `.10x/decisions/engineering-manager/tessera-v1.md` ("M3 re-plan" and "Library management"), `.10x/decisions/product-manager/tessera-v1.md` (US-11 to US-16), `.10x/adrs/013-*.md` and `014-*.md`
+**Per-feature files:** `.10x/reviews/2026-10-12-qa-report-milestone-l.md`, `.10x/reviews/2026-10-12-security-review-milestone-l.md`, `.10x/decisions/sde/tessera-v1.md` (sections from "L-01" to "L-08 Backups, L-09 restore, L-10 harness"), `.10x/adrs/013-*.md`, `.10x/adrs/014-*.md`, `CHANGELOG.md` ([Unreleased])
 
-### What happened overnight
+### What was done
 
-- **0.1.1 is released** (stable, `v0.1.1`, image `ghcr.io/drewsweeney33/tessera:0.1.1`, with `0.1` and `latest` moved to it). It fixes what the first real deploy and the live-image harness found: the backups folder on a fresh install, a plain 507 answer when the data disk is full, Tessera's own tab icon, log rotation, and a deploy guide for the published image. It also ships the harness. The final image passed the harness on your real host again: 63 passed, 0 failed, 1 skipped.
-- **Your live Tessera on CT123 is still on 0.1.0.** I did not touch it. The upgrade is yours (steps below).
-- **M3 stays held at the checkpoint gate** (the CTO's rule: continue past M2 only after you have studied on 5 separate days with a Claude-generated deck). The M3 re-plan is written and the competitor re-check is done. It found Flash, a self-hosted FSRS app that Claude drives over MCP. Details are in the CTO file.
-- **Your library management requests are in the plan, not built:** user stories US-11 to US-16, ADR-013 (editing, deleting, and resetting decks) and ADR-014 (backups and restore from the GUI), both **Proposed**, and tasks L-01 to L-10 (about 38 hours, about 32 net).
+Milestone L is built, pushed to `main`, and tested: **L-01 to L-10, including the stretch (L-09 restore)**. In the web page you can now make a deck, edit any card with a live preview, add and remove cards, export a deck, move a deck to the Trash and restore it or delete it for good, start a deck over, back up now, download and delete backups, and restore a backup. Nothing is released. `[Unreleased]` in the changelog lists all of it. Your live Tessera on CT123 still runs 0.1.1, which has none of this.
 
-### Needs the owner
+Checks, all passing on the last commit: 1,736 unit and integration tests, 217 browser tests on each of Chromium and WebKit, an accessibility scan of every new state in light and dark, layout at phone widths, and about 490 security probe checks. The live-image harness ran on CT123's Docker (test project only, `~/tessera-test`) against an image built from the code: **106 passed, 0 failed**. That run included the restore (the server stopped itself, Docker restarted it, the data was the backup's) and an upgrade from 0.1.1 with a rollback.
 
-1. **Upgrade CT123 to 0.1.1.** On the LXC as `andrew`. 0.1.1 has no database change, so no migration runs.
+### What needs you
 
-   ```bash
-   cd /opt/tessera
-   sed -i 's#tessera:0.1.0#tessera:0.1.1#' compose.yaml
-   grep image compose.yaml
-   docker compose pull
-   docker compose up -d
-   docker compose ps
-   curl -s http://192.168.30.102:3000/healthz
-   ```
-
-   `/healthz` should say version 0.1.1. The backups folder now appears on its own. To go back, change the tag to `0.1.0` and run `docker compose up -d`. The compose file on CT123 already has log rotation.
-2. **Read and answer the five questions at the end of the product requirements** ("Owner requests added to the plan"): what "retrain after completion" means (the team assumed both practice again and start over), Trash before permanent delete, hand edits versus re-import, restore from the GUI now or later, and the order (library management before the weak-spot work is recommended). Then accept or change ADR-013 and ADR-014.
-3. **Tell the team the checkpoint is met, or override it**, so the next milestone can start. The recommended next group is library management (L-01 to L-10), which is also what you need for daily use.
-4. **List the other features you want.** The product file has a candidate list to cross out or promote.
-5. **Optional cleanup on CT123**, all of it low risk: about 544 MB of Docker build cache from a hung build (`docker builder prune -f`, after `docker builder du` to look), and the cached candidate image (`docker rmi ghcr.io/drewsweeney33/tessera:0.1.1-rc.1`). The old 0.1.0 image can go after you have upgraded and are happy.
-6. **Port 3000 on CT123 is reachable from the LAN directly**, which skips NPM's Access List. An OPNsense rule that lets only NPM (192.168.30.93) reach 192.168.30.102:3000 would close it.
-7. **Still open from the M2 exit:** use the skill in a real Claude conversation (R-9), a screen reader pass (R-3), a phone check (R-10), accept or reject security findings S-10 and S-04, a multi-day soak (R-8), and a daily backup copy to another machine.
+1. **Choose the version and say when to cut a release candidate.** This is the first release with a database change (`0001_deck_resets`), so semver says **0.2.0**. Nothing has been tagged. The CI image build runs on tags, so a candidate such as `v0.2.0-rc.1` is the way to get a published image to test on CT123 before the final release (the harness has to be run against the published candidate: `TESSERA_LIVE_SSH=andrew@192.168.30.102 npm run live:test -- --image ghcr.io/drewsweeney33/tessera:0.2.0-rc.1 --expect-migration`).
+2. **Read the two accepted risks in the security review (S-11, S-12).** Anyone who can reach the page can delete a deck for good, delete a backup, or restore an older backup (which restarts Tessera). The typed word protects against a slip, not a person. Keep it behind your VPN or NPM Access List as now. Say if you want an optional page password or a limit on backups, or leave them as accepted.
+3. **Upgrading CT123 later** is the usual tag change and pull. Because of the migration, Tessera writes a `pre-migrate-…` backup first. Going back to 0.1.1 after that means restoring that backup (the operations guide, "Roll back"). The harness tested exactly this.
+4. **Restore needs the restart policy** (`restart: unless-stopped` in `compose.yaml`). CT123's compose file has it. If you ever run without one, the page says what to do.
+5. **Still open from before:** the OPNsense rule so only NPM reaches 192.168.30.102:3000, clearing the build cache on CT123, a daily off-box backup copy (the Backups page now makes the download easy, but a scheduled copy is still yours), Uptime Kuma, the VLAN/host/Pi-hole/firewall notes for CT123 in the vault, trying the Claude skill in a real conversation (R-9), a screen reader and phone pass (R-3, R-10), and a multi-day soak (R-8).
 
 ### Next, once you decide
 
-Write nothing until you say so. Then: accept or change ADR-013 and ADR-014, start with L-01 (`exportDeck`), and keep each group test-first with a harness run on the real host in its QA report (ADR-012).
+- Cut the release candidate, run the harness against it, then release 0.2.0 on your word.
+- Then the held work: "Practice again" (cram mode, the other half of US-14), the weak-spot report, and the rest of M3. The checkpoint rule (5 study days) was overridden by your "next milestone", so the order is yours.
+- Backlog: B-3 (chunked oversized bodies reset the connection), B-4 (reorder cards in the editor).
 
 ### Things to know
 
-- The harness (`npm run live:test`, guide `docs/testing-on-your-host.md`) works only in `~/tessera-test` on the host and never touches `/opt/tessera`. Building the image on CT123 hangs (a slow route to the npm registry from that container), so test published images, or release candidates, with `--image`.
-- A release candidate (`v0.1.1-rc.1`, for example) publishes only its exact tag and a pre-release, so it is the safe way to test unreleased code on the real host before a final release.
-- The arm64 CI job runs under emulation and once stalled for over 20 minutes. A docs-only push replaced that run. A native ARM runner would remove it, and the owner has not asked for the change.
-- The runtime image has no npm, corepack, or yarn (removed on purpose). A failed image scan reports only findings that have a fix.
+- **The image build on CT123 used to hang in `npm prune`.** The Dockerfile now installs the runtime modules in their own stage with `npm ci --omit=dev`, and building on that host takes seconds. The cause of the hang itself was not found.
+- The harness works only in `~/tessera-test` and never touches `/opt/tessera`. It now uses six ports (3001 to 3006) and a `previous`/`upgraded` pair of services for the upgrade test.
+- A release candidate tag publishes only its exact tag and a pre-release.
+- Restoring from the page stops the server with SIGTERM, which Windows cannot deliver, so it is a container feature.
 
 ## Handoff history
+
+### 2026-10-12: the team, the overnight run, to the owner
+
+0.1.1 released and verified on the real host; the competitor re-check and the M3 re-plan written; the library requests became user stories US-11 to US-16 with ADR-013 and ADR-014 (Proposed). The owner then upgraded CT123 to 0.1.1, accepted both ADRs, and said "next milestone", which overrode the checkpoint gate and started Milestone L.
 
 ### 2026-10-11: SDE, QA, and DevOps, the 0.1.1 work, to the owner
 

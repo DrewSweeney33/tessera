@@ -2,7 +2,7 @@
 
 **By:** QA Engineer role. **Scope:** manual deck creation, export, editing, the Trash, Start over, the Backups page, and restore from the list (US-11 to US-16 except "Practice again", which is planned for a later milestone). **Design:** ADR-013 and ADR-014 (both accepted by the owner on 2026-10-12).
 
-**Release readiness:** the code is ready for a release candidate. It is **not** ready for a final release until the live-image harness has been run on the real host against that candidate (ADR-012). That run has not happened for this milestone; see "What has not been tested".
+**Release readiness:** ready for a release candidate. The live-image harness has passed on the real host (CT123's Docker, test project only) against an image built from the committed code: 106 passed, 0 failed, 2 skipped (the probe's local-process check, and the soak, which was not requested). A final release still needs the harness run against the published release candidate (ADR-012), and the owner's choice of version number and tag.
 
 ## What was built and how it was tested
 
@@ -28,7 +28,8 @@ Totals at the last full run: 1,736 unit and integration tests, 217 browser tests
 3. **Heading level skipped and duplicate landmarks** in the card preview (axe).
 4. **Two probe expectations were too narrow** (a refusal can be 400, 403, or 415).
 5. **The probe's oversized body** must carry its true length (chunked uploads over a small limit reset the connection: backlog B-3, unchanged).
-6. **Building the image on the homelab host hung in `npm prune`** (R-14). Neither a missing audit setting nor anything else in the project was the cause; a clean production-only install in its own stage is used instead, and is cached by Docker.
+6. **Building the image on the homelab host hung in `npm prune`** (R-14), for the full 15 minute timeout, three times. Turning off the audit and fund requests did not help. A clean production-only install in its own Dockerfile stage replaces it, and the same build now takes seconds on that host. The cause inside `npm prune` was not found.
+7. **The harness's first restore check was too strict.** Docker restarted the server faster than the harness polled, so it never saw the server down. It now uses Docker's restart count.
 
 ## Verified behaviours worth naming
 
@@ -42,7 +43,7 @@ Totals at the last full run: 1,736 unit and integration tests, 217 browser tests
 
 ## What has not been tested
 
-- **The real host.** The live-image harness now has steps for the library features, the upgrade from the previous release with a rollback, and the restore from the list (the server stopping itself and Docker starting it again). They have not yet run to completion: both attempts to run the harness stopped at the image build on the homelab host (R-14, see above). The fix has been made and the harness has not been run since. **Before any release, run it against a release candidate** (`--expect-migration`).
+- **The published release candidate.** The harness ran on the real host against an image built there from the committed code. It covered the library features on the real image, the restore from the list (the server stopped itself, Docker restarted it once, and the data was the backup's with the old data kept beside it), and the upgrade from 0.1.1 with a rollback: the new image came up on 0.1.1's data and kept the deck and its progress, took the backup before the migration, 0.1.1 then refused the upgraded database saying it was newer, and putting the backup back brought 0.1.1 up again with the deck as it was. The ADR-012 rule is that the *published* candidate is what gets tested before a release, so that run is still owed.
 - **A restore on a host without a restart policy.** The page and the guide say what to do; no browser test can stop the server.
 - **Screen reader, phone, and a multi-day soak** (R-3, R-10, R-8) are unchanged and still open.
 - **A very large deck in the editor** (thousands of cards). The editor shows fifty cards at a time and checks only open cards while typing, and a 120-card deck was tested in the browser. A 5,000-card deck was exercised by the unit tests of the editing logic but not in a browser.

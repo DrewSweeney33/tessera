@@ -884,16 +884,17 @@ async function restoreFromList(main: string, checkScript: string): Promise<void>
 		accepted.text.slice(0, 100)
 	);
 
-	// The server stops itself, then Docker starts it again: wait for down, then up.
-	let sawDown = false;
+	// The server stops itself and Docker starts it again, which can take less than one polling interval, so the
+	// restart is told by Docker's own count and not by catching the server down.
 	let back = false;
 	for (let i = 0; i < 90 && !back; i++) {
 		await sleep(1000);
-		const health = await http(main, '/healthz');
-		if (health.status !== 200) sawDown = true;
-		else if (sawDown || i > 20) back = true;
+		const count = Number(
+			remote(`docker inspect --format '{{.RestartCount}}' ${containerId('main')}`).stdout.trim()
+		);
+		back = count > restartsBefore && (await http(main, '/healthz')).status === 200;
 	}
-	check('the server stopped itself and the restart policy brought it back', back && sawDown);
+	check('the server stopped itself and the restart policy brought it back within 90 seconds', back);
 	check('and it is healthy', await waitHealthy('main'));
 	const restartsAfter = Number(
 		remote(`docker inspect --format '{{.RestartCount}}' ${containerId('main')}`).stdout.trim()
