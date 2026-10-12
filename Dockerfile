@@ -34,6 +34,13 @@ COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/package.json ./package.json
 COPY --from=build --chown=node:node /app/drizzle ./drizzle
 
+# The server runs with node alone. The base image also carries npm, corepack, and yarn, each with its own copies of
+# packages (tar, brace-expansion, ip-address, undici and others) that this app never loads. They are the source of
+# the vulnerability scan's findings in the image, and nothing here uses them: the health check and the start command
+# are node. Removing them shrinks the image and leaves less to patch. The build stage still has npm.
+RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+    /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-* /root/.npm
+
 # Owned by node so a named volume inherits the right owner on first use.
 RUN mkdir -p /data && chown node:node /data
 VOLUME /data

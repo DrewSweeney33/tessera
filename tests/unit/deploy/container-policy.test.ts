@@ -29,6 +29,35 @@ describe('Dockerfile (ADR-004)', () => {
 		}
 	});
 
+	it('removes npm, corepack, and yarn from the runtime image, which only the build stage needs', () => {
+		// They carry packages the app never loads, and those were the findings of the image vulnerability scan.
+		const runtime = dockerfile.slice(dockerfile.lastIndexOf('FROM node:24-trixie-slim AS runtime'));
+		const start = runtime.indexOf('RUN rm -rf');
+		expect(start, 'a RUN rm -rf line').toBeGreaterThan(-1);
+		// The command runs to the end of its last continued line.
+		const removal = runtime.slice(start).split('\n\n')[0]!;
+		for (const path of [
+			'/usr/local/lib/node_modules',
+			'/usr/local/bin/npm',
+			'/usr/local/bin/npx',
+			'/usr/local/bin/corepack',
+			'/usr/local/bin/yarn'
+		]) {
+			expect(removal, path).toContain(path);
+		}
+		// It must happen as root, so before the switch to the node user, and the build stage keeps npm.
+		expect(start).toBeLessThan(runtime.indexOf('USER node'));
+		const build = dockerfile.slice(0, dockerfile.indexOf('AS runtime'));
+		expect(build).not.toContain('rm -rf /usr/local/lib/node_modules');
+		expect(build).toContain('RUN npm ci');
+		// Nothing that runs in the container uses them: it starts and checks itself with node alone.
+		const instructions = runtime
+			.split('\n')
+			.filter((line) => /^(CMD|HEALTHCHECK|ENTRYPOINT)\b/.test(line) || line.startsWith('  CMD'));
+		expect(instructions.join('\n')).not.toMatch(/\b(npm|npx|yarn|corepack)\b/);
+		expect(runtime).toContain('CMD ["node", "build/index.js"]');
+	});
+
 	it('runs as the non-root node user with a writable data volume', () => {
 		expect(dockerfile).toMatch(/^USER node$/m);
 		expect(dockerfile).toContain('chown node:node /data');
