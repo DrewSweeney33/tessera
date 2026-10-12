@@ -125,7 +125,7 @@ describe('openDatabase on a fresh directory', () => {
 	it('reports one pending migration and writes no backup', () => {
 		const handle = open();
 		expect(handle.migration).toEqual({ pending: 1, backupPath: undefined });
-		expect(existsSync(join(dir.path, 'backups'))).toBe(false);
+		expect(readdirSync(join(dir.path, 'backups'))).toEqual([]);
 	});
 });
 
@@ -141,7 +141,7 @@ describe('reopening an existing database', () => {
 			.prepare("select value from settings where key = 'targetRetention'")
 			.get() as { value: string };
 		expect(row.value).toBe('0.85');
-		expect(existsSync(join(dir.path, 'backups'))).toBe(false);
+		expect(readdirSync(join(dir.path, 'backups'))).toEqual([]);
 	});
 });
 
@@ -393,7 +393,7 @@ describe('operational safeguards', () => {
 		expect(() => open()).toThrow(/backups/);
 		expect(readFileSync(join(dir.path, 'tessera.db')).equals(before)).toBe(true);
 		// The failed attempts must not leave the file locked or add a backup.
-		expect(existsSync(join(dir.path, 'backups'))).toBe(false);
+		expect(readdirSync(join(dir.path, 'backups'))).toEqual([]);
 	});
 
 	it('explains a damaged database file by name and leaves it alone', () => {

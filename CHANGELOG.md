@@ -4,6 +4,10 @@ All notable changes to Tessera are written here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Fixed
+
+- The manual backup command in the operations guide failed on a fresh install, because the `/data/backups` folder only appeared after the first database upgrade. Tessera now creates the folder when it starts. If you are on 0.1.0, run `docker compose exec tessera mkdir -p /data/backups` once.
+
 ## [0.1.0] - 2026-10-11
 
 The first public version: import decks from Claude in JSON or Markdown, study with spaced repetition, and run it yourself in a container.

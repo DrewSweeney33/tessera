@@ -8,6 +8,7 @@ import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
 	copyFileSync,
+	existsSync,
 	mkdirSync,
 	mkdtempSync,
 	readFileSync,
@@ -217,7 +218,13 @@ try {
 		}
 	})();
 	await sleep(150);
-	const backupFile = join(base, 'manual-backup.db');
+	// Where the guide puts it: inside the data folder's backups folder, which a fresh install must already have
+	// (it once did not, and the documented command failed on first use).
+	check(
+		'the backups folder exists on a fresh install, before any upgrade backup',
+		existsSync(join(live, 'backups'))
+	);
+	const backupFile = join(live, 'backups', 'manual-backup.db');
 	const started = performance.now();
 	const run = spawnSync(process.execPath, ['-e', payload, join(live, 'tessera.db'), backupFile], {
 		encoding: 'utf8'

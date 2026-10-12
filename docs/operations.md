@@ -39,7 +39,7 @@ Measured on a 5,000 card deck with 200,000 review records: about 200 to 250 MB o
 
 Two kinds exist.
 
-**Automatic, before upgrades.** When a new version changes the database layout, Tessera first writes a full copy to `/data/backups/pre-migrate-<timestamp>.db`. Nothing prunes this folder, so delete old ones when you are happy with an upgrade.
+**Automatic, before upgrades.** When a new version changes the database layout, Tessera first writes a full copy to `/data/backups/pre-migrate-<timestamp>.db`. Nothing prunes this folder, so delete old ones when you are happy with an upgrade. Tessera creates the folder when it starts, so it is there on a fresh install too. (Version 0.1.0 did not, and the manual backup below failed until you ran `docker compose exec tessera mkdir -p /data/backups`. Upgrading to 0.1.1 fixes it.)
 
 **Manual, whenever you like, while Tessera keeps running.** This takes a consistent snapshot and is safe during studying. It takes under a second for a large deck.
 

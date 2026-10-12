@@ -75,9 +75,30 @@ function explainOpenFailure(path: string, cause: unknown): Error {
 	return cause instanceof Error ? cause : new Error(message);
 }
 
+// The operations guide puts manual backups in <dataDir>/backups, and upgrade backups go there too. A fresh
+// install has made no upgrade backup, so the folder is made at start. Without it the documented backup
+// command fails with SQLITE_CANTOPEN on its first run. Whatever is already there is left alone.
+function ensureBackupsFolder(dataDir: string): void {
+	const folder = join(dataDir, 'backups');
+	try {
+		mkdirSync(folder, { recursive: true });
+	} catch (cause) {
+		const code = (cause as NodeJS.ErrnoException).code;
+		throw new DatabaseOpenError(
+			code === 'EEXIST' || code === 'ENOTDIR'
+				? `Cannot create the backups folder ${folder}: a file with that name is in the way (it is not a folder). ` +
+						`Move or delete that file and start again.`
+				: `Cannot create the backups folder ${folder} (${code ?? 'unknown error'}). ` +
+						`Check that the data folder is writable by the user Tessera runs as and that the disk is not full.`,
+			{ cause }
+		);
+	}
+}
+
 // Opens (creating if needed) the database in dataDir, applies migrations, and seeds settings.
 export function openDatabase(options: OpenOptions): DatabaseHandle {
 	mkdirSync(options.dataDir, { recursive: true });
+	ensureBackupsFolder(options.dataDir);
 	const path = join(options.dataDir, 'tessera.db');
 	let sqlite: Sqlite;
 	try {
