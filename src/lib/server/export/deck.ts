@@ -2,6 +2,7 @@ import { err, ok, type Result } from '#lib/core/result.ts';
 import { serializeJson, serializeMarkdown, type SerializeProblem } from '#lib/core/parse/index.ts';
 import { FORMAT_VERSION, validateDeck, type Deck } from '#lib/core/schema/index.ts';
 import type { Executor } from '../db/client.ts';
+import { AppError } from '../http/errors.ts';
 import { getDeck, listCardsForDeck } from '../repos/index.ts';
 
 // A deck read back out of the database as a deck document, the inverse of import (ADR-013). Importing the
@@ -25,6 +26,12 @@ export function exportDeck(x: Executor, deckId: string): Deck | undefined {
 			...(row.tags.length > 0 ? { tags: row.tags } : {}),
 			...(row.source ? { source: row.source } : {})
 		}));
+
+	// A deck document must have at least one card (the public format, served at /api/schema), so a deck with none
+	// has nothing it could export. Say so plainly: it is a state of the data, not a bug and not a bad request.
+	if (cards.length === 0) {
+		throw new AppError('conflict', 'This deck has no cards yet, so there is nothing to export.');
+	}
 
 	const checked = validateDeck({
 		tessera: FORMAT_VERSION,

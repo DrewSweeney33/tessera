@@ -49,7 +49,7 @@ test.describe('no sideways scroll and no wrapped buttons', () => {
 		test(`at ${width}px`, async ({ page }) => {
 			await page.setViewportSize({ width, height: 800 });
 
-			for (const path of ['/', '/import', '/study/layout-deck']) {
+			for (const path of ['/', '/import', '/decks/new', '/study/layout-deck']) {
 				await page.goto(path);
 				await expect(page.locator('main')).toBeVisible();
 				if (path.startsWith('/study')) {

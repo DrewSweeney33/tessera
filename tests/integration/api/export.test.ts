@@ -6,6 +6,7 @@ import { createLogger } from '#lib/server/log.ts';
 import { handleExportDeck } from '#lib/server/api/export.ts';
 import { handleImport } from '#lib/server/api/import.ts';
 import { decks } from '#lib/server/db/schema.ts';
+import { upsertDeck } from '#lib/server/repos/index.ts';
 import { fakeClock } from '../../helpers/fake-clock.ts';
 import { makeTempDir, type TempDir } from '../../helpers/temp-dir.ts';
 
@@ -116,6 +117,21 @@ describe('GET /api/decks/:id/export', () => {
 		expect(trashedBody.error.message).toBe(
 			(await exportOf('nope').json()).error.message.replace('nope', 'ccna')
 		);
+	});
+
+	it('answers 409 and says why for a deck that has no cards', async () => {
+		upsertDeck(
+			app.db,
+			{ id: 'empty', title: 'Empty', description: undefined, tags: undefined },
+			'2026-10-12T12:00:00.000Z'
+		);
+		for (const query of ['', '?format=md']) {
+			const response = exportOf('empty', query);
+			expect(response.status, query).toBe(409);
+			const body = await response.json();
+			expect(body.error.code).toBe('conflict');
+			expect(body.error.message).toMatch(/no cards/i);
+		}
 	});
 
 	it('answers 404 without echoing anything for an id that cannot be a deck id', async () => {

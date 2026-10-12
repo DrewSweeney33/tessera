@@ -1,6 +1,6 @@
 import { ID_PATTERN } from '#lib/core/schema/limits.ts';
 import type { AppContext } from '../app.ts';
-import { errorResponse } from '../http/errors.ts';
+import { AppError, errorResponse, toErrorResponse } from '../http/errors.ts';
 import { exportDeck, renderDeckExport, type ExportFormat } from '../export/index.ts';
 
 const FORMATS: Record<string, ExportFormat> = {
@@ -40,7 +40,14 @@ export function handleExportDeck(
 		);
 	}
 
-	const deck = exportDeck(app.db, deckId);
+	let deck;
+	try {
+		deck = exportDeck(app.db, deckId);
+	} catch (error) {
+		// A deck with no cards: an expected state, answered with its own message.
+		if (error instanceof AppError) return toErrorResponse(error, requestId);
+		throw error;
+	}
 	if (!deck) return notFound();
 
 	const rendered = renderDeckExport(deck, format);

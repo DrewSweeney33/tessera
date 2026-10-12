@@ -1,5 +1,7 @@
 import type {
 	ApiErrorBody,
+	CreateDeckRequest,
+	CreateDeckResponse,
 	DecksResponse,
 	FieldErrorDto,
 	ImportResponse,
@@ -83,6 +85,13 @@ export interface ImportOptions {
 
 export const api = {
 	decks: () => call<DecksResponse>('/api/decks'),
+
+	createDeck: (request: CreateDeckRequest) =>
+		call<CreateDeckResponse>('/api/decks', {
+			method: 'POST',
+			headers: JSON_HEADERS,
+			body: JSON.stringify(request)
+		}),
 
 	studyNext: (deckId?: string) =>
 		call<NextResponse>(`/api/study/next${deckId ? `?deckId=${encodeURIComponent(deckId)}` : ''}`),

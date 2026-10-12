@@ -259,6 +259,11 @@ label,
 	line-height: 1.5;
 }
 
+.field--text {
+	font-family: var(--font-body);
+	font-size: var(--text-base);
+}
+
 .field::placeholder {
 	color: var(--color-muted);
 }

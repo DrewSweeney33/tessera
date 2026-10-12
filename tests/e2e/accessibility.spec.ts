@@ -56,6 +56,23 @@ for (const scheme of ['light', 'dark'] as const) {
 			await scan(page, 'import errors');
 		});
 
+		test('new deck: empty, with errors, and done', async ({ page }) => {
+			await page.goto('/decks/new');
+			await expect(page.getByRole('heading', { name: 'New deck', level: 1 })).toBeVisible();
+			await scan(page, 'new deck empty');
+
+			await page.getByLabel('Deck id').fill('Bad Id!');
+			await page.getByRole('button', { name: 'Create deck' }).click();
+			await expect(page.getByRole('alert')).toBeVisible();
+			await scan(page, 'new deck errors');
+
+			await page.getByLabel('Deck id').fill('');
+			await page.getByLabel('Title').fill(`A11y new deck ${scheme}`);
+			await page.getByRole('button', { name: 'Create deck' }).click();
+			await expect(page.getByRole('heading', { name: 'Deck created' })).toBeVisible();
+			await scan(page, 'new deck done');
+		});
+
 		test('import: a re-import preview with diffs, a retype, and missing cards', async ({
 			page,
 			request

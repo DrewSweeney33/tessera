@@ -6,6 +6,7 @@ export type ApiErrorCode =
 	| 'unauthorized'
 	| 'not_found'
 	| 'stale_review'
+	| 'conflict'
 	| 'payload_too_large'
 	| 'unsupported_media_type'
 	| 'misdirected_request'
@@ -18,6 +19,7 @@ export const STATUS_BY_CODE: Record<ApiErrorCode, number> = {
 	unauthorized: 401,
 	not_found: 404,
 	stale_review: 409,
+	conflict: 409,
 	payload_too_large: 413,
 	unsupported_media_type: 415,
 	validation_failed: 422,

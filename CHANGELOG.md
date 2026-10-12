@@ -6,6 +6,7 @@ All notable changes to Tessera are written here. The format follows [Keep a Chan
 
 ### Added
 
+- **New deck** in the web page: make an empty deck by hand from a title, with an optional description, tags, and id. The id is made from the title and shown while you type (a second deck with the same title gets a number), and a taken or invalid id is explained next to the field. A deck with no cards says so on the home page. Add cards to it by importing a file with its deck id. Also `POST /api/decks`. A deck with no cards answers an export request with a clear message instead of an error.
 - A deck can be exported: `GET /api/decks/:id/export` sends the deck as a JSON download, or as Markdown with `?format=md`. The file has every card with its id, type, text, tags, and order, so importing it again changes nothing and creates nothing. Cards you removed and decks in the Trash are not in it, and a Markdown export of content that format cannot hold says which card and points to JSON. This is the first step of editing decks in the web page. There is no export button in the page yet.
 
 ## [0.1.1] - 2026-10-12

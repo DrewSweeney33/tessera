@@ -13,7 +13,13 @@ import {
 import { openDatabase, type DatabaseHandle } from '#lib/server/db/index.ts';
 import { commitImport, planImport } from '#lib/server/import/index.ts';
 import { exportDeck, renderDeckExport } from '#lib/server/export/index.ts';
-import { getDeck, listCardsForDeck, setCardsArchived } from '#lib/server/repos/index.ts';
+import {
+	getDeck,
+	listCardsForDeck,
+	setCardsArchived,
+	upsertDeck
+} from '#lib/server/repos/index.ts';
+import { AppError } from '#lib/server/http/errors.ts';
 import { decks } from '#lib/server/db/schema.ts';
 import { eq } from 'drizzle-orm';
 import { basic, cloze, makeDeck } from '../../helpers/decks.ts';
@@ -109,6 +115,30 @@ describe('exportDeck', () => {
 		handle.db.update(decks).set({ archived: true }).where(eq(decks.id, 'd1')).run();
 		expect(getDeck(handle.db, 'd1')?.archived).toBe(true);
 		expect(exportDeck(handle.db, 'd1')).toBeUndefined();
+	});
+
+	it('says there is nothing to export for a deck that has no cards, instead of failing', () => {
+		upsertDeck(
+			handle.db,
+			{ id: 'empty', title: 'Empty', description: undefined, tags: undefined },
+			clock.now().toISOString()
+		);
+		let caught: unknown;
+		try {
+			exportDeck(handle.db, 'empty');
+		} catch (error) {
+			caught = error;
+		}
+		expect(caught).toBeInstanceOf(AppError);
+		expect((caught as AppError).code).toBe('conflict');
+		expect((caught as AppError).message).toMatch(/no cards/i);
+	});
+
+	it('says the same for a deck whose cards were all removed', () => {
+		commit(makeDeck([basic('a'), basic('b')]));
+		const pks = listCardsForDeck(handle.db, 'd1').map((card) => card.pk);
+		setCardsArchived(handle.db, pks, true, clock.now().toISOString());
+		expect(() => exportDeck(handle.db, 'd1')).toThrow(/no cards/i);
 	});
 
 	it('exports every field of all four card types, including hint, source, and tags', () => {

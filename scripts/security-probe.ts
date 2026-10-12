@@ -574,6 +574,18 @@ try {
 				'the token is judged before the content type, so a caller learns nothing about the API',
 				(await status('/api/import', { 'content-type': 'application/xml' }, 'POST')) === 401
 			);
+			// Creating a deck is a write, so it needs the token as well.
+			check(
+				'creating a deck is refused without the token',
+				(await status('/api/decks', JSON_HEADERS, 'POST')) === 401
+			);
+			const tokenCreate = await send({
+				method: 'POST',
+				path: '/api/decks',
+				headers: { ...JSON_HEADERS, ...withToken },
+				body: '{"title":"Made with the token"}'
+			});
+			check('and works with the token', tokenCreate.status === 201, `got ${tokenCreate.status}`);
 			// A deck export carries the whole deck, so it needs the token like every other API route.
 			check(
 				'a deck export is refused without the token',
@@ -1071,6 +1083,130 @@ try {
 		foreign.status === 421 && !foreign.text.includes(exportMarker),
 		`got ${foreign.status}`
 	);
+
+	// ---- 4c. Creating a deck by hand (ADR-013)
+	console.log('\n# Creating a deck');
+	const created = await post('/api/decks', { title: 'Probe made by hand' });
+	check(
+		'a deck can be created from a title, and is answered 201 with an id made from it',
+		// The id is made from the title, with a number added if an earlier run of the probe already made one.
+		created.status === 201 && /^probe-made-by-hand(-\d+)?$/.test(JSON.parse(created.text).deck?.id),
+		`${created.status} ${created.text.slice(0, 100)}`
+	);
+	const madeId: string = JSON.parse(created.text).deck?.id ?? '';
+	const listedAfter = await send({ path: '/api/decks' });
+	check(
+		'and the new deck is in the list with no cards',
+		JSON.parse(listedAfter.text).decks.some(
+			(d: { id: string; cardCount: number }) => d.id === madeId && d.cardCount === 0
+		)
+	);
+	const twice = await post('/api/decks', { id: madeId, title: 'Again' });
+	check(
+		'a taken id is refused with 409 and the field named',
+		twice.status === 409 && JSON.parse(twice.text).error?.details?.errors?.[0]?.path === 'id',
+		`${twice.status}`
+	);
+	for (const type of [
+		'text/plain',
+		'application/x-www-form-urlencoded',
+		'multipart/form-data; boundary=x',
+		undefined
+	]) {
+		const label = type ?? 'no content type';
+		const evil = await send({
+			method: 'POST',
+			path: '/api/decks',
+			headers: { ...(type ? { 'content-type': type } : {}), origin: 'https://evil.example' },
+			body: '{"title":"cross site"}'
+		});
+		check(
+			`creating a deck cross-site with ${label} is refused (403 or 415)`,
+			evil.status === 403 || evil.status === 415,
+			`got ${evil.status}`
+		);
+		const plain = await send({
+			method: 'POST',
+			path: '/api/decks',
+			headers: type ? { 'content-type': type } : {},
+			body: '{"title":"plain call"}'
+		});
+		check(
+			`and without an Origin with ${label} (403 or 415)`,
+			plain.status === 403 || plain.status === 415,
+			`got ${plain.status}`
+		);
+	}
+	for (const [label, body, expected] of [
+		['not JSON', '{not json', [400]],
+		['an array', '[1,2]', [422]],
+		['null', 'null', [422]],
+		['a number', '5', [422]],
+		['a blank title', '{"title":"   "}', [422]],
+		['a prototype pollution key', '{"title":"t","__proto__":{"x":1}}', [422]],
+		['an unknown field', '{"title":"t","cards":[{}]}', [422]],
+		['an id with a path in it', '{"id":"../../etc/x","title":"t"}', [422]],
+		['a title of 20 000 characters', JSON.stringify({ title: 'x'.repeat(20_000) }), [413, 422]],
+		['40 000 bytes', JSON.stringify({ title: 'x'.repeat(40_000) }), [413]]
+	] as const) {
+		// Sent with a Content-Length, as browsers and curl send it. (A chunked upload over this route's small limit
+		// gets its connection reset instead of a 413. That is how the study route behaves too, and it is on the
+		// backlog as B-3.)
+		const r = await send({
+			method: 'POST',
+			path: '/api/decks',
+			headers: { ...JSON_HEADERS, 'content-length': String(Buffer.byteLength(body)) },
+			body
+		});
+		check(
+			`creating a deck with ${label} is refused cleanly`,
+			(expected as readonly number[]).includes(r.status) &&
+				!/node_modules|\.ts:\d+|SQLITE/.test(r.text),
+			`got ${r.status} ${r.text.slice(0, 80)}`
+		);
+	}
+	const injection = await post('/api/decks', {
+		title: `x'); DROP TABLE decks; --`,
+		description: `'; DELETE FROM cards; --`
+	});
+	check(
+		'a title with SQL in it is stored as plain text',
+		injection.status === 201,
+		`${injection.status}`
+	);
+	check(
+		'and the deck list still works',
+		(await send({ path: '/api/decks' })).status === 200 &&
+			JSON.parse((await send({ path: '/api/decks' })).text).decks.length > 1
+	);
+	const markup = await post('/api/decks', { title: '<script>alert(1)</script>' });
+	check(
+		'a title with markup in it is stored as text and given a safe id',
+		markup.status === 201 && /^[a-z0-9-]+$/.test(JSON.parse(markup.text).deck.id),
+		`${markup.status}`
+	);
+	const foreignCreate = await send({
+		method: 'POST',
+		path: '/api/decks',
+		headers: { ...JSON_HEADERS, host: 'attacker.example' },
+		body: '{"title":"from a foreign host"}'
+	});
+	check(
+		'creating a deck under a foreign host name is refused (421) and creates nothing',
+		foreignCreate.status === 421 &&
+			!JSON.parse((await send({ path: '/api/decks' })).text).decks.some(
+				(d: { title: string }) => d.title === 'from a foreign host'
+			),
+		`got ${foreignCreate.status}`
+	);
+	for (const method of ['PUT', 'PATCH', 'DELETE']) {
+		const r = await send({ method, path: '/api/decks', headers: JSON_HEADERS, body: '{}' });
+		check(
+			`${method} on /api/decks is refused`,
+			[400, 403, 405].includes(r.status),
+			`got ${r.status}`
+		);
+	}
 
 	// ---- 5. Path traversal and error leakage
 	console.log('\n# Paths and errors');

@@ -715,3 +715,20 @@ Milestone L (library management) started on the owner's go-ahead (ADR-013 and AD
 **Process note.** A temporary edit to an untracked file was not undone by `git checkout` (it only restores tracked files) and was restored by hand. Mutation scripts that restore from an in-memory copy are safe. Hand edits to untracked files need a copy first.
 
 **Not done.** Nothing calls it yet. L-06 (permanent delete), L-07 (start over), L-08 (the Backups page), and L-09 (restore) will.
+
+## L-02 create a deck by hand (2026-10-12)
+
+**Built.** `slugifyTitle` (`src/lib/core/slug.ts`, shared by the form and the server), `createDeck` (`src/lib/server/decks/`), `POST /api/decks` (201 with the deck as the home page lists it, 409 for a taken id with the field named, 422 naming every bad field, 413 over 16 KB), the `conflict` error code (409), the page `src/routes/decks/new/`, a "New deck" link on the home page in both states, and "No cards yet" for a deck with none. The id is made from the title and shown while typing; a taken or invalid id is explained beside the field; the owner's typing is kept on an error.
+
+**Decision.** The deck file schema requires at least one card and is the public format served at `/api/schema`, so it was not loosened. A deck made by hand is created directly with the same rules for id, title, description, and tags (the other option ADR-013 allowed). A deck in the Trash still owns its id, so a title that slugs to it gets a number rather than reusing it.
+
+**Found on the way.**
+1. `exportDeck` (L-01) would have crashed with a 500 for a deck with no cards, because such a deck cannot validate as a deck document. It now answers 409 with a plain message (tests first).
+2. A chunked upload over a small route limit (16 KB here) gets its connection reset instead of a 413 when sent chunked. With a `Content-Length` (browsers, curl) it is a proper 413. It already behaved this way on `/api/study/review`, so it is not new. Logged as backlog item B-3.
+3. The probe's remote-mode check ran the probe twice on one server, and the second run correctly got `probe-made-by-hand-2`. The probe now uses the id it was given, which also makes it safe to re-run against a server it has touched.
+4. Two of my e2e tests collided on the shared server (a deck title contained another spec's search text). The title was changed.
+5. The home row read "0 cards· ccna" (no space before the dot), an existing cosmetic bug, fixed with a separator element.
+
+**Checked.** 22 slug tests including two property tests (a valid id for any text; idempotent); 26 service and handler tests; mutation check of 13 planted bugs (all caught after a second look at two whose text had not matched); 11 browser tests for the page; the page is in the accessibility scans (light and dark) and the layout checks at 320, 375, 414, and 768 px; probe 272 checks (30 new, including the token, cross-site, hostile body, SQL, markup, and foreign host cases); the whole browser suite passes on Chromium and WebKit (132 each). Rendered and looked at on a desktop and a phone, light and dark.
+
+**Not done.** No way to add cards from the page yet (the page says to import a file with the deck id). L-04 and L-05 bring the editor.

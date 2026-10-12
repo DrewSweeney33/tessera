@@ -45,6 +45,8 @@ describe('errorResponse', () => {
 		expect(STATUS_BY_CODE.unsupported_media_type).toBe(415);
 		expect(STATUS_BY_CODE.payload_too_large).toBe(413);
 		expect(STATUS_BY_CODE.misdirected_request).toBe(421);
+		// The request is fine but the state of the data does not allow it (an id already taken, nothing to export).
+		expect(STATUS_BY_CODE.conflict).toBe(409);
 	});
 });
 

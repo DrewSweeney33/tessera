@@ -86,6 +86,18 @@ export interface DeckSummaryDto {
 	counts: QueueCounts;
 }
 
+// POST /api/decks: a deck made by hand (US-11). The id is optional: left out, the server makes one from the title.
+export interface CreateDeckRequest {
+	id?: string;
+	title: string;
+	description?: string;
+	tags?: string[];
+}
+
+export interface CreateDeckResponse {
+	deck: DeckSummaryDto;
+}
+
 export interface DecksResponse {
 	decks: DeckSummaryDto[];
 	// What a session across every deck would serve right now.

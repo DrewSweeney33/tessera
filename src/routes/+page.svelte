@@ -48,9 +48,12 @@
 					{/if}
 				</p>
 			</div>
-			{#if available(totals) > 0}
-				<a class="btn btn--primary" href={resolve('/study/[[deckId]]', {})}>Study all decks</a>
-			{/if}
+			<div class="head__actions">
+				{#if available(totals) > 0}
+					<a class="btn btn--primary" href={resolve('/study/[[deckId]]', {})}>Study all decks</a>
+				{/if}
+				<a class="btn" href={resolve('/decks/new')}>New deck</a>
+			</div>
 		</header>
 
 		<ul class="ledger">
@@ -60,8 +63,10 @@
 						<h2 class="row__title">{deck.title}</h2>
 						<p class="muted row__meta">
 							{deck.cardCount}
-							{deck.cardCount === 1 ? 'card' : 'cards'}{#if deck.tags.length > 0}
-								· {deck.tags.join(', ')}{/if}
+							{deck.cardCount === 1 ? 'card' : 'cards'}{#if deck.tags.length > 0}<span
+									class="row__sep"
+									aria-hidden="true">·</span
+								>{deck.tags.join(', ')}{/if}
 						</p>
 						{#if deck.description}
 							<p class="row__description">{deck.description}</p>
@@ -88,6 +93,8 @@
 							<a class="btn btn--primary" href={resolve('/study/[[deckId]]', { deckId: deck.id })}>
 								Study
 							</a>
+						{:else if deck.cardCount === 0}
+							<span class="muted">No cards yet</span>
 						{:else}
 							<span class="muted">Done for now</span>
 						{/if}
@@ -105,7 +112,10 @@
 				Ask Claude to write a deck in the Tessera format, then import it here. The format is
 				described by a <a href={resolve('/api/schema')}>JSON Schema</a> you can give to Claude.
 			</p>
-			<p><a class="btn btn--primary" href={resolve('/import')}>Import a deck</a></p>
+			<p class="head__actions">
+				<a class="btn btn--primary" href={resolve('/import')}>Import a deck</a>
+				<a class="btn" href={resolve('/decks/new')}>New deck</a>
+			</p>
 		</div>
 	{:else if view.kind === 'error'}
 		<header class="head">
@@ -131,6 +141,13 @@
 		justify-content: space-between;
 		gap: var(--space-4);
 		margin-block-end: var(--space-5);
+	}
+
+	.head__actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-3);
+		margin: 0;
 	}
 
 	.summary {
@@ -164,6 +181,10 @@
 
 	.row__title {
 		font-size: var(--text-md);
+	}
+
+	.row__sep {
+		margin-inline: 0.5ch;
 	}
 
 	.row__meta {
