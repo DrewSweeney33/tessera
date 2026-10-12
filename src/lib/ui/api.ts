@@ -4,6 +4,7 @@ import type {
 	CreateDeckResponse,
 	DecksResponse,
 	FieldErrorDto,
+	GetDeckResponse,
 	ImportResponse,
 	NextResponse,
 	ReviewRequest,
@@ -36,11 +37,10 @@ export class ApiError extends Error {
 
 const JSON_HEADERS = { 'content-type': 'application/json' };
 
-async function call<T>(path: string, init?: RequestInit): Promise<T> {
-	let response: Response;
+// Sends the request, marked as coming from the Tessera page (ADR-011). A network failure becomes an ApiError.
+async function send(path: string, init?: RequestInit): Promise<Response> {
 	try {
-		// Says this call comes from the Tessera page, so a server with an API token still answers it (ADR-011).
-		response = await fetch(path, {
+		return await fetch(path, {
 			...init,
 			headers: {
 				...(init?.headers as Record<string, string> | undefined),
@@ -54,25 +54,40 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 			'Cannot reach the Tessera server. Check that it is running, then try again.'
 		);
 	}
+}
 
-	const text = await response.text();
-	let body: unknown;
+function parseBody(text: string): unknown {
 	try {
-		body = text ? JSON.parse(text) : undefined;
+		return text ? JSON.parse(text) : undefined;
 	} catch {
-		body = undefined;
+		return undefined;
 	}
+}
 
-	if (!response.ok) {
-		const error = (body as ApiErrorBody | undefined)?.error;
-		throw new ApiError(
-			response.status,
-			error?.code ?? 'http_error',
-			error?.message ?? `The request failed (HTTP ${response.status}).`,
-			error?.details
-		);
-	}
+function failureOf(response: Response, body: unknown): ApiError {
+	const error = (body as ApiErrorBody | undefined)?.error;
+	return new ApiError(
+		response.status,
+		error?.code ?? 'http_error',
+		error?.message ?? `The request failed (HTTP ${response.status}).`,
+		error?.details
+	);
+}
+
+async function call<T>(path: string, init?: RequestInit): Promise<T> {
+	const response = await send(path, init);
+	const body = parseBody(await response.text());
+	if (!response.ok) throw failureOf(response, body);
 	return body as T;
+}
+
+// A file the server sends as a download (a deck export, a backup), with the name it suggests.
+export async function fetchFile(path: string): Promise<{ blob: Blob; filename: string }> {
+	const response = await send(path);
+	if (!response.ok) throw failureOf(response, parseBody(await response.text()));
+	const disposition = response.headers.get('content-disposition') ?? '';
+	const named = /filename="([^"]+)"/.exec(disposition)?.[1];
+	return { blob: await response.blob(), filename: named ?? 'download' };
 }
 
 export interface ImportOptions {
@@ -81,10 +96,14 @@ export interface ImportOptions {
 	filename?: string | undefined;
 	// The format of the text. The page works it out with detectFormat. JSON when not given.
 	format?: DeckFormat | undefined;
+	// The revision the editor loaded the deck at. A save made from an out-of-date copy is refused with 409.
+	expectedRevision?: string | undefined;
 }
 
 export const api = {
 	decks: () => call<DecksResponse>('/api/decks'),
+
+	getDeck: (deckId: string) => call<GetDeckResponse>(`/api/decks/${encodeURIComponent(deckId)}`),
 
 	createDeck: (request: CreateDeckRequest) =>
 		call<CreateDeckResponse>('/api/decks', {
@@ -108,6 +127,7 @@ export const api = {
 		if (options.dryRun) query.set('dry_run', 'true');
 		if (options.archiveMissing) query.set('archive_missing', 'true');
 		if (options.filename) query.set('filename', options.filename);
+		if (options.expectedRevision) query.set('expected_revision', options.expectedRevision);
 		const suffix = query.size > 0 ? `?${query}` : '';
 		return call<ImportResponse>(`/api/import${suffix}`, {
 			method: 'POST',

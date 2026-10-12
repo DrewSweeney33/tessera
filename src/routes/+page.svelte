@@ -98,6 +98,13 @@
 						{:else}
 							<span class="muted">Done for now</span>
 						{/if}
+						<a
+							class="btn btn--quiet"
+							href={resolve('/decks/[id]/edit', { id: deck.id })}
+							aria-label="Edit {deck.title}"
+						>
+							Edit
+						</a>
 					</div>
 				</li>
 			{/each}
@@ -221,6 +228,10 @@
 	}
 
 	.row__action {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-2);
+		align-items: center;
 		justify-self: end;
 	}
 
@@ -235,7 +246,7 @@
 
 		.row__action {
 			min-width: 7.5rem;
-			text-align: end;
+			justify-content: flex-end;
 		}
 	}
 

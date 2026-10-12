@@ -94,6 +94,23 @@ curl -OJ "http://tessera.lan:3000/api/decks/ccna-ospf/export?format=md"
 
 The export has every card with its id, type, text, tags, and order, so importing it again changes nothing. Cards you removed are not in it. A deck in the Trash cannot be exported. If a deck has content that Markdown cannot hold (a card that starts with spaces, for example), the Markdown export says so and names the card, and the JSON export always works.
 
+## Edit a deck by hand
+
+You do not need Claude to fix a typo. Press **Edit** on a deck in the list. The page shows the deck details and every card. Open a card to change its text, with a preview of how it will look when you study it. Add a card of any of the four types, or remove one, and change the title, description, and tags.
+
+Nothing is saved until you press **Review changes**. That shows the same preview as an import: which cards change, the old and new text, and which cards are removed. Then **Save changes** applies it. It goes through the same code as an import, so a card you edit keeps its id and everything you studied on it. A card you remove is archived, not deleted: kept with its history and no longer studied. You can put a removed card back until you save.
+
+A few things to know:
+
+- **A card keeps its type.** Changing a card from basic to cloze would erase what you studied on it, so the editor does not offer it. Remove the card and add a new one.
+- **A deck needs at least one card** to be saved. To get rid of a deck you are done with, use the Trash (coming in a later version).
+- **If the deck changed somewhere else** (another tab, or Claude re-importing it) after you opened the editor, saving is refused and nothing is lost. The page tells you, keeps your edits on screen so you can copy any text, and offers to reload the deck.
+- **Studying in another tab does not get in the way.** Only changes to the deck itself count.
+- **Leaving with unsaved changes** asks first.
+- **Export JSON** and **Export Markdown** are buttons at the top of the editor, the same files as the routes above.
+
+For scripts: `GET /api/decks/:id` returns the deck as a document plus a `revision`. Send that revision back as `expected_revision` on `POST /api/import` and a save made from an out-of-date copy is refused with HTTP 409 instead of overwriting newer changes.
+
 ## Good cards
 
 The skill asks Claude for these. You can ask for them too.
@@ -108,4 +125,4 @@ The skill asks Claude for these. You can ask for them too.
 
 ## What is not here yet
 
-There is no button for exporting a deck in the web page yet, only the route above. A weak-spot report, which would let you hand Claude the cards you keep getting wrong and ask for better ones, is planned for a later version.
+Removing a deck to a Trash, practicing a deck again, starting a deck over, and backups from the web page are planned for the next version. A weak-spot report, which would let you hand Claude the cards you keep getting wrong and ask for better ones, is planned for a later version.

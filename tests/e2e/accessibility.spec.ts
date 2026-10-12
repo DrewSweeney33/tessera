@@ -73,6 +73,44 @@ for (const scheme of ['light', 'dark'] as const) {
 			await scan(page, 'new deck done');
 		});
 
+		test('edit deck: closed, every card type open, with problems, and the review', async ({
+			page,
+			request
+		}) => {
+			const id = `a11y-edit-${scheme}`;
+			await importViaApi(
+				request,
+				deckOf(id, `A11y edit ${scheme}`, [
+					{ id: 'b', type: 'basic', front: 'Basic **front**', back: 'Basic back', hint: 'A hint' },
+					{ id: 'c', type: 'cloze', text: 'The {{c1::DR}} and {{c2::BDR}}', extra: 'More' },
+					{ id: 't', type: 'typed', front: 'Typed?', answer: 'yes', accept: ['yep'] },
+					{ id: 'm', type: 'choice', front: 'Pick', choices: ['One', 'Two'], correct: 0 }
+				])
+			);
+			await page.goto(`/decks/${id}/edit`);
+			await expect(page.getByRole('heading', { name: 'Edit deck', level: 1 })).toBeVisible();
+			await expect(page.locator('.card')).toHaveCount(4);
+			await scan(page, 'edit closed');
+
+			for (let n = 1; n <= 4; n++) {
+				await page.getByRole('button', { name: `Edit card ${n}` }).click();
+			}
+			await expect(page.locator('.card--open')).toHaveCount(4);
+			await scan(page, 'edit every type open');
+
+			// A new blank card, then a save attempt, shows every message.
+			await page.getByRole('button', { name: 'Add a card' }).click();
+			await page.getByRole('button', { name: 'Review changes' }).click();
+			await expect(page.locator('.problem').first()).toBeVisible();
+			await scan(page, 'edit with problems');
+
+			await page.getByRole('button', { name: 'Remove card 5' }).click();
+			await page.getByLabel('Title').fill(`A11y edit ${scheme} changed`);
+			await page.getByRole('button', { name: 'Review changes' }).click();
+			await expect(page.getByRole('heading', { name: /Updating deck/ })).toBeVisible();
+			await scan(page, 'edit review');
+		});
+
 		test('import: a re-import preview with diffs, a retype, and missing cards', async ({
 			page,
 			request
