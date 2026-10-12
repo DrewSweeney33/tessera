@@ -4,7 +4,9 @@ All notable changes to Tessera are written here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
-First working version, built in milestone 1. Not yet released: the first public version will be 0.1.0, at the end of milestone 2.
+## [0.1.0] - 2026-10-11
+
+The first public version: import decks from Claude in JSON or Markdown, study with spaced repetition, and run it yourself in a container.
 
 ### Added
 
@@ -23,7 +25,7 @@ First working version, built in milestone 1. Not yet released: the first public 
 - Light and dark themes that follow the system, usable on a phone.
 - Docker image for `linux/amd64` and `linux/arm64`, a hardened `compose.yaml`, a health check, and graceful shutdown.
 - Automatic backup before any database upgrade, and a documented way to take a backup while running.
-- Operations guide, deployment guide, and release process in `docs/`.
+- Operations guide, deployment guide, security page, and release process in `docs/`.
 
 ### Security
 
