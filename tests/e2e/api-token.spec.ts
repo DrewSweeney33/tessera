@@ -41,8 +41,10 @@ test.describe('the web page with a token set', () => {
 		const base = `http://${lanAddress}:${tokenPort}`;
 		// Only note the requests here. Reading a request's headers is asynchronous, and doing it inside the event
 		// handler can still be pending when the test ends, which fails the test with "Test ended".
+		// Only finished requests count: the browser never reports the raw headers of one that was cut off when the
+		// page moved on, and waiting for those would hang until the test times out.
 		const requests: Request[] = [];
-		page.on('request', (request) => {
+		page.on('requestfinished', (request) => {
 			if (request.url().startsWith(`${base}/api/`)) requests.push(request);
 		});
 		await importAndStudy(page, base, 'lan');
