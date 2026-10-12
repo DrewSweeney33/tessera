@@ -2,40 +2,43 @@
 
 ## Current handoff
 
-**From:** QA and Security, Milestone 2 exit (M2-16 evidence)
-**To:** The owner (decisions and checks only they can do), then the SDE to tag `v0.1.0` on approval
+**From:** SDE, QA, and DevOps, the 0.1.1 work and the live-image harness
+**To:** The owner (approve the final 0.1.1 after the real-host run), then the SDE for M3
 **Date:** 2026-10-11
-**Per-feature file:** `.10x/reviews/2026-10-11-qa-report-m2.md`, `.10x/reviews/2026-10-11-security-review-m2.md`, `.10x/decisions/sde/tessera-v1.md`, `docs/releasing.md`
+**Per-feature file:** `.10x/decisions/sde/tessera-v1.md` (section "0.1.1"), `.10x/specs/2026-10-11-v0.1.1-and-live-test-design.md`, `.10x/adrs/012-live-image-test-harness.md`, `docs/testing-on-your-host.md`
 
 ### Result
 
-Both exit reports are written. **No blocking defects, no open finding above Low.** Both M1 medium security findings are closed. CI is green on ad454a0 (Verify, Firefox, WebKit, Docker amd64 with the image scan, Docker arm64). Evidence: 884 unit and 346 integration tests, 118 browser tests on each of three engines, 215 probe checks, durability, smoke, benchmark (5,000 cards in 1.18 s), 0 production vulnerabilities, a four minute soak (54,338 requests, 0 errors, memory flat). A mutation check of 26 deliberate bugs in the new logic found 3 real test gaps, now closed. Nothing was tagged or published.
+0.1.0 is released and runs on the homelab (CT123, `https://tessera.sweentech.com`). Testing the real image on that host found real things, and 0.1.1 fixes them: the backups folder missing on a fresh install (B-1), a generic 500 when the data disk is full (now a plain 507), the Svelte logo in the browser tab (now Tessera's mark), unrotated container logs, and a deploy guide that only showed building from source. The new live-image harness (`npm run live:test`) runs the real image as a throwaway test instance on a Docker host over SSH and never touches the instance the owner uses. The security probe's remote mode no longer skips about 90 checks silently.
 
 ### State of git
 
-Pushed: everything through the state commit 1884089. **Local only, not pushed:** the test additions and the two reports (committed), and **uncommitted in the working tree:** the version bump to 0.1.0 (`package.json`, `package-lock.json`) and the CHANGELOG section `## [0.1.0] - 2026-10-11` (edit the date if the tag lands on another day). Full `npm run verify` passes with these, and the release assets build for 0.1.0.
+All 0.1.1 work is pushed (`5c20def`, version `0.1.1-rc.1`). CI on that commit decides the next step. The owner approved a release candidate: tag `v0.1.1-rc.1` once CI is green. A candidate publishes only the exact image tag `ghcr.io/drewsweeney33/tessera:0.1.1-rc.1` (never `latest` or `0.1`) and a GitHub pre-release. The final `0.1.1` still needs the owner's approval.
 
 ### Needs the owner
 
-1. **Quickstart on the homelab** with `docker compose up`, time it, try the wrapper scripts (R-2).
-2. **Use the skill in a real Claude conversation**: make two decks, import them, study them (R-9). Look at the example decks' facts too.
-3. **Rehearse the release workflow** on a short-lived branch (docs/releasing.md), and check Settings, Actions, General, Workflow permissions allows pushing packages (R-11).
-4. Decide the security review's open items: write `docs/security.md` or amend ADR-005 (S-08, I can draft it), approve log rotation in `compose.yaml` (S-11), accept S-10 and S-04.
-5. Recommended, not required: a screen reader pass (R-3), a disk-full run on a small volume (R-7), leave an instance running for days (R-8), try it on a phone (R-10).
-6. **Say "tag v0.1.0"** when satisfied. Then: commit the version bump and changelog, push, wait for CI, tag, watch the release workflow.
+1. **After the candidate is published:** the harness runs against that exact image, soak included. If it is green, say "release 0.1.1" and I bump the version, rename the changelog section, push, wait for CI, and tag.
+2. **Upgrade CT123 when 0.1.1 is out:** change the image tag in `/opt/tessera/compose.yaml`, `docker compose pull`, `docker compose up -d`. On 0.1.0 the manual backup needs `docker compose exec tessera mkdir -p /data/backups` once.
+3. **Port 3000 on CT123 is reachable from the LAN directly** (confirmed from the owner's PC), which skips NPM's "Internal Only" Access List. An OPNsense rule that lets only NPM reach 192.168.30.102:3000 would close it. Not an application change.
+4. **About 544 MB of Docker build cache is left on CT123** from the build that hung. Read-only first: `docker builder du`. To remove it: `docker builder prune -f` (it is cache only).
+5. Still open from the M2 exit, unchanged: use the skill in a real Claude conversation (R-9), a screen reader pass (R-3), try it on a phone (R-10), accept or reject security findings S-10 and S-04, a multi-day soak (R-8). The disk-full risk (R-7) is now tested on the real host and handled.
 
 ### Next
 
-M3 (leeches, weak spots, export, settings) after the tag, or before it if you prefer to keep building while you try things out.
+M3 (leeches, weak spots, export, settings) after 0.1.1. Every release from now on gets a harness run recorded in its QA report (ADR-012).
 
 ### Things to know
 
-- The runtime image has no npm, corepack, or yarn (removed on purpose, ab21775).
-- A failed image scan only reports findings that have a fix. Do not add a `.trivyignore` without recording why.
-- The token is not a login (QA/security review explains what it does and does not do).
-- Idle memory is about 256 MB and about 315 MB under load, on Windows.
+- The harness's test folder is `~/tessera-test` in the SSH user's home and its Compose project is `tessera-test`. It refuses to use the live port or a live folder with that name, and always tears down.
+- Building the image on CT123 hung in `npm prune` (a slow route to the npm registry from that container, cause not found). Use a published image with `--image`; `--build` now cancels a hung build after 15 minutes.
+- `docker kill` is a manual stop to Docker, so it does not restart the container. The harness simulates a crash by killing the server process inside it.
+- The runtime image has no npm, corepack, or yarn (removed on purpose). A failed image scan only reports findings that have a fix.
 
 ## Handoff history
+
+### 2026-10-11: QA and Security, Milestone 2 exit, to the owner
+
+Both exit reports written (no blocking defects), and `v0.1.0` tagged on the owner's approval after CI was green on `ad6fb23`. See `.10x/reviews/2026-10-11-qa-report-m2.md` and `2026-10-11-security-review-m2.md`.
 
 ### 2026-10-11: SDE, M2-15, to the owner
 

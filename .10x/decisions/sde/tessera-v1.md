@@ -665,3 +665,27 @@ Nothing was tagged or published. The two exit reports are `.10x/reviews/2026-10-
 **Version.** `package.json` and the lockfile are at 0.1.0 and the changelog has a `## [0.1.0] - 2026-10-11` section, **uncommitted on purpose**, until the owner approves the tag. `npm run verify` passes with them and the release assets build for 0.1.0.
 
 **Open for the owner:** `docs/security.md` (ADR-005 promises it), log rotation in `compose.yaml` (S-11), accept S-10 and S-04, and the checks only they can do (see the handoff).
+
+## 0.1.1 (2026-10-11)
+
+Spec: `.10x/specs/2026-10-11-v0.1.1-and-live-test-design.md`. ADR: `.10x/adrs/012-live-image-test-harness.md`. Version in the repository: `0.1.1-rc.1` (a release candidate, so the fixes can be tested on a real host before the final release). Nothing is final until the owner approves.
+
+**Built, each test-first and each with a negative control (the new test failed before the change).**
+- **B-1** `openDatabase` creates `<dataDir>/backups`; a file in the way is a clear error. New integration tests run the operations guide's own backup and check commands (extracted from the guide) against a fresh data folder. `ops-check` now takes its backup into that folder. Three older tests that asserted "no backup" by the folder not existing now assert the folder is empty.
+- **S-11** `compose.yaml` rotates logs (10 MB times 3), pinned by the container policy test and described in the operations guide.
+- **D-1** The deploy guide shows the published-image compose file, with a test that keeps every hardening setting equal to `compose.yaml`.
+- **F-1** The tab icon was the SvelteKit starter's Svelte logo (the owner saw it). Replaced by Tessera's mark with its own background, tested as a file and as what the page really serves, and looked at at 128, 32, and 16 px on light and dark strips.
+- **Disk full (found by the harness, not planned).** A full data volume answered a generic 500. `toErrorResponse` now recognizes `SQLITE_FULL` and `ENOSPC` (however deeply wrapped, bounded depth) as HTTP 507 `storage_full`, and `SQLITE_READONLY*` and `SQLITE_IOERR*` as HTTP 503 with a plain message, no internals. Troubleshooting rows added.
+- **Probe remote mode.** Against `--base` the probe used to skip about 90 checks silently (guards on a local child process), and its token and host-list variants would have tested the local build while claiming to test the remote server. It now takes those servers and their logs from flags, reports anything it cannot run as SKIP with a reason, and `npm run probe:remote-check` (in CI) proves it with local stand-ins. A deliberate break of the remote mode failed two of its checks.
+- **B-2 The harness** `scripts/live-test.ts` with `scripts/lib/live-test.ts`: safety rules (live port, live folder by name and by resolved path, fixed test folder and project, marker file, ssh target check), the compose file generated from the repository's own `compose.yaml`, command strings, and extraction of the guide's commands. About 60 unit tests (library and command line), and about 22 deliberate bugs planted in its rules, each caught or shown equivalent (one dead condition removed). `docs/testing-on-your-host.md` explains it.
+
+**What the harness found on the real host (CT123, nested Docker in an unprivileged LXC).**
+1. The published 0.1.0 image passes every hardening check as Docker applies it: non-root, read-only root, no capabilities, no-new-privileges, 512 MB limit, restart policy, log rotation, ports. Smoke, 214 probe checks, and the benchmark pass over the network. The test instance ran the same image digest as the live instance.
+2. B-1 confirmed on the real image: `/data/backups` missing, and the documented backup, copy-out, and restore steps failed as a result.
+3. Full disk: no crash, no restart, reads work, imports work after space is freed, integrity check ok, but the answer was a generic 500 (fixed above).
+4. A harness mistake, not an app fault: after `docker kill -s KILL` Docker does not restart the container, because it treats an explicit kill as a manual stop. The harness now simulates a crash by killing the server process inside the container (the restart policy applies) and treats `docker kill` as a separate, expected-stopped case.
+5. The first runs also taught the harness three things: `/opt` is root-owned on the host (the test folder is now `~/tessera-test`); a build on the LXC hung in `npm prune` for half an hour waiting on the network (cause not found, probably the route to the npm registry from that container), so the harness cancels a hung build on the host after 15 minutes and keeps the log; and giving up locally had left that build running on the host until it was stopped by hand (about 544 MB of build cache remains on CT123).
+
+**Not done.** The 0.1.1 fixes have not yet been run on the real host. The release candidate `v0.1.1-rc.1` exists for that. No soak has run on the real host yet.
+
+**Tech debt.** The harness is not covered by CI (CI has no homelab). Only its pure parts, its refusals, and the probe's remote mode are.
