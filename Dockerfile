@@ -10,9 +10,16 @@ COPY package.json package-lock.json .npmrc ./
 RUN npm ci --no-audit --no-fund
 
 COPY . .
-# No audit or fund request: "npm prune" sends one by default, and on a host whose network cannot reach the audit endpoint
-# it waited for half an hour (a build on the homelab hung there). Nothing here needs it.
-RUN npm run build && npm prune --omit=dev --no-audit --no-fund
+RUN npm run build
+
+# The modules the server loads at run time: production dependencies only, from a clean install. This replaces
+# "npm prune --omit=dev" on the build stage's modules, which hung for the full timeout on the homelab host (twice,
+# with and without --no-audit) while a clean install of the same lockfile took fourteen seconds. It also keeps the
+# development tools out of the final image by construction, and this layer is cached until the lockfile changes.
+FROM node:24-trixie-slim AS deps
+WORKDIR /app
+COPY package.json package-lock.json .npmrc ./
+RUN npm ci --omit=dev --no-audit --no-fund
 
 FROM node:24-trixie-slim AS runtime
 
@@ -32,7 +39,7 @@ ENV NODE_ENV=production \
 
 WORKDIR /app
 COPY --from=build --chown=node:node /app/build ./build
-COPY --from=build --chown=node:node /app/node_modules ./node_modules
+COPY --from=deps --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/package.json ./package.json
 COPY --from=build --chown=node:node /app/drizzle ./drizzle
 

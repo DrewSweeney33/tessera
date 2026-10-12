@@ -318,7 +318,7 @@ async function main(): Promise<void> {
 			'the image was built on the host',
 			build.status === 0,
 			build.status === 124
-				? `timed out after 15 minutes. A host that reaches the npm registry slowly can hang in "npm prune". Test a published image with --image instead. Full log: ${buildLog}`
+				? `timed out after 15 minutes. A host that reaches the npm registry slowly can hang in an npm step. Test a published image with --image instead. Full log: ${buildLog}`
 				: `${tail(build.stderr, 3)}  Full log: ${buildLog}`
 		);
 		if (build.status !== 0) throw new Error('build failed');
@@ -837,6 +837,99 @@ async function libraryFeatures(): Promise<void> {
 	check(
 		'the database passes its integrity check after all of that',
 		integrity.stdout.trim() === 'ok'
+	);
+
+	await restoreFromList(main, guide.checkScript);
+}
+
+// Restore from the Backups list, on the real image. The server stages the restore and stops itself, the container's
+// restart policy starts it again, and the restore is applied before the database is opened.
+async function restoreFromList(main: string, checkScript: string): Promise<void> {
+	await postJson(main, '/api/import', deck('live-restore-kept', 2));
+	const made = asJson<Named>((await postJson(main, '/api/backups', {})).body)?.backup?.name ?? '';
+	check('a backup was taken to restore from', /^manual-.*\.db$/.test(made));
+	await postJson(main, '/api/import', deck('live-restore-later', 2));
+	const listed = async () =>
+		(asJson<{ decks?: Counted[] }>((await http(main, '/api/decks')).body)?.decks ?? []).map(
+			(d) => d.id
+		);
+	check('a deck added after the backup is there', (await listed()).includes('live-restore-later'));
+
+	const preview = asJson<{
+		restorable?: boolean;
+		summary?: { decks: number };
+		current?: { decks: number };
+	}>((await http(main, `/api/backups/${made}/preview`)).body);
+	check(
+		'the preview shows the backup and the data now',
+		preview?.restorable === true &&
+			typeof preview.summary?.decks === 'number' &&
+			(preview.current?.decks ?? 0) > (preview.summary?.decks ?? 0)
+	);
+	check(
+		'a restore without the word is refused (422) and the server stays up',
+		(await postJson(main, `/api/backups/${made}/restore`, { confirm: 'no' })).status === 422 &&
+			(await http(main, '/healthz')).status === 200
+	);
+
+	const restartsBefore = Number(
+		remote(`docker inspect --format '{{.RestartCount}}' ${containerId('main')}`).stdout.trim()
+	);
+	const accepted = await postJson(main, `/api/backups/${made}/restore`, { confirm: 'restore' });
+	const safety =
+		asJson<{ restoring?: { safetyCopy?: string } }>(accepted.body)?.restoring?.safetyCopy ?? '';
+	check(
+		'the restore is accepted (202), with a copy of the data as it is now',
+		accepted.status === 202 && /^pre-restore-.*\.db$/.test(safety),
+		accepted.text.slice(0, 100)
+	);
+
+	// The server stops itself, then Docker starts it again: wait for down, then up.
+	let sawDown = false;
+	let back = false;
+	for (let i = 0; i < 90 && !back; i++) {
+		await sleep(1000);
+		const health = await http(main, '/healthz');
+		if (health.status !== 200) sawDown = true;
+		else if (sawDown || i > 20) back = true;
+	}
+	check('the server stopped itself and the restart policy brought it back', back && sawDown);
+	check('and it is healthy', await waitHealthy('main'));
+	const restartsAfter = Number(
+		remote(`docker inspect --format '{{.RestartCount}}' ${containerId('main')}`).stdout.trim()
+	);
+	check(
+		'Docker counts one more restart',
+		restartsAfter === restartsBefore + 1,
+		`${restartsBefore} to ${restartsAfter}`
+	);
+
+	const ids = await listed();
+	check(
+		'the data is the backup: the deck from before is there, the later one is gone',
+		ids.includes('live-restore-kept') && !ids.includes('live-restore-later'),
+		ids.join(', ')
+	);
+	const files = compose('exec -T main ls /data')
+		.stdout.split('\n')
+		.map((l) => l.trim());
+	check(
+		'the data from before is kept beside it, and nothing is left half done',
+		files.some((f) => f.startsWith('tessera.db.before-restore-')) &&
+			files.includes('restore-result.json') &&
+			!files.includes('restore-pending.json') &&
+			!files.some((f) => f.endsWith('.restoring')),
+		files.join(' ')
+	);
+	check(
+		'the safety copy is in the backups folder',
+		listBackupsInContainer('main').includes(safety)
+	);
+	const result = compose('exec -T main cat /data/restore-result.json').stdout;
+	check('the result says the restore worked', /"ok": true/.test(result), result.slice(0, 120));
+	check(
+		'and the restored database passes its integrity check',
+		compose(`exec -T main node -e "${checkScript}" /data/tessera.db`).stdout.trim() === 'ok'
 	);
 }
 

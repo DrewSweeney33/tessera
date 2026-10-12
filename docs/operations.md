@@ -39,7 +39,7 @@ Tessera writes one log line for every request, and Docker keeps container logs f
 
 ## Backups
 
-**From the web page.** Open **Backups** from the deck list. **Back up now** saves a copy of everything while Tessera keeps running. The page lists every backup with why it was taken (by you, before an upgrade, before a deck was deleted for good, before a deck was started over), its date, and its size. **Download** sends one to your computer, which is the way to keep a copy on another disk. **Delete** removes one after asking. Backups are plain files in `/data/backups`, so the commands below work on the same files. Restoring is still done from the host (see Restore below).
+**From the web page.** Open **Backups** from the deck list. **Back up now** saves a copy of everything while Tessera keeps running. The page lists every backup with why it was taken (by you, before an upgrade, before a deck was deleted for good, before a deck was started over), its date, and its size. **Download** sends one to your computer, which is the way to keep a copy on another disk. **Delete** removes one after asking. Backups are plain files in `/data/backups`, so the commands below work on the same files. **Restore…** brings one back from the page (see Restore below).
 
 Two kinds of backup are made without the page.
 
@@ -72,6 +72,20 @@ To run it on a schedule, put the first command in a cron job or a systemd timer 
 **Never back up by copying `tessera.db` while Tessera is running.** Recent changes live in a side file (`tessera.db-wal`), so the copy can be missing days of study history and still look valid. In testing, such a copy of a fresh database was a 4 KB file with nothing in it. If you want a plain file copy, run `docker compose stop tessera` first, then copy the whole `/data` folder.
 
 ## Restore
+
+### From the web page
+
+Open **Backups**, press **Restore…** on a backup, and look at the table: it shows what the backup holds (decks, cards, reviews, and the date of the last review) beside what Tessera holds now. A file that is not a Tessera database, is damaged, or was written by a newer version is refused, and the page says why. Type `restore` and press **Restore this backup**.
+
+Tessera then saves a copy of the data as it is now (a `pre-restore-…` backup), writes down what you chose, and stops. **It must be started again by something**: the `restart: unless-stopped` line in `compose.yaml` does that, so keep it. When Tessera starts, before it opens the database, it puts the backup in place, keeps the data from before as `tessera.db.before-restore-<time>` in the data folder, and carries on. The page waits for Tessera to come back and says so. If Tessera does not come back (no restart policy), start it with `docker compose up -d`. The restore is applied at that start, and your data is safe either way.
+
+If the power fails or the container is killed part way, the next start finishes the restore, so you end up with either the old data or the whole backup, never a mix. If the backup has gone or cannot be read at that point, Tessera starts on the old data, and the Backups page says the restore did not happen and why.
+
+The data from before is never deleted by Tessera. Once you are happy, delete the `tessera.db.before-restore-…` file yourself to free the space. To undo a restore, restore the `pre-restore-…` backup the same way.
+
+Restoring changes everything in Tessera at once, including decks and progress made since the backup was taken. A backup from an older version is upgraded when Tessera starts on it (with the usual copy first). A backup from a newer version is refused.
+
+### From the host
 
 1. `docker compose stop tessera`
 2. Keep the damaged data, in case it is needed: `docker compose run --rm --no-deps --entrypoint sh tessera -c "mkdir -p /data/old && mv /data/tessera.db* /data/old/ 2>/dev/null; ls -la /data"`

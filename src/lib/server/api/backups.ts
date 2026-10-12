@@ -15,6 +15,7 @@ import {
 	type SnapshotInfo
 } from '../backups/index.ts';
 import { errorResponse } from '../http/errors.ts';
+import { readLastRestore, readPendingRestore } from '../restore/index.ts';
 import { jsonResponse } from '../http/response.ts';
 
 // The Backups routes (US-15, ADR-014). A backup is a file in <data folder>/backups. It is named by its file name
@@ -40,7 +41,15 @@ function findBackup(app: AppContext, name: string): SnapshotInfo | undefined {
 
 // GET /api/backups: every backup, newest first.
 export function handleListBackups(app: AppContext): Response {
-	const body: BackupsResponse = { backups: listSnapshots(app.config.dataDir).map(toDto) };
+	const last = readLastRestore(app.config.dataDir);
+	const pending = readPendingRestore(app.config.dataDir)?.name;
+	const body: BackupsResponse = {
+		backups: listSnapshots(app.config.dataDir).map(toDto),
+		...(last
+			? { lastRestore: { ok: last.ok, name: last.name, at: last.at, message: last.message } }
+			: {}),
+		...(pending ? { pendingRestore: pending } : {})
+	};
 	return jsonResponse(body);
 }
 

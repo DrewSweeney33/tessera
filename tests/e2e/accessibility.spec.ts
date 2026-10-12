@@ -116,6 +116,30 @@ for (const scheme of ['light', 'dark'] as const) {
 			await scan(page, 'start over result');
 		});
 
+		test('backups: the restore panel, and the restore waiting screen', async ({ page }) => {
+			await page.goto('/backups');
+			await page.getByRole('button', { name: 'Back up now' }).click();
+			const name = (await page.locator('.callout--ok code').textContent())!;
+			await page.getByRole('button', { name: `Restore ${name}` }).click();
+			await expect(page.getByRole('table')).toBeVisible();
+			await scan(page, 'restore panel');
+
+			await page.getByLabel(/to confirm/).fill('restore');
+			await scan(page, 'restore panel typed');
+
+			await page.route(`**/api/backups/${name}/restore`, (route) =>
+				route.fulfill({
+					status: 202,
+					contentType: 'application/json',
+					body: JSON.stringify({ restoring: { name, safetyCopy: 'pre-restore-test.db' } })
+				})
+			);
+			await page.route('**/healthz', (route) => route.abort('connectionrefused'));
+			await page.getByRole('button', { name: 'Restore this backup' }).click();
+			await expect(page.getByRole('heading', { name: 'Restoring…' })).toBeVisible();
+			await scan(page, 'restore waiting');
+		});
+
 		test('backups: with a backup, a delete question, and empty', async ({ page, request }) => {
 			await page.goto('/backups');
 			await page.getByRole('button', { name: 'Back up now' }).click();

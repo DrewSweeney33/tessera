@@ -1,7 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
-	import type { BackupDto, BackupKind } from '#lib/core/api-types.ts';
+	import { tick } from 'svelte';
+	import type {
+		BackupDto,
+		BackupKind,
+		LastRestoreDto,
+		RestorePreviewResponse
+	} from '#lib/core/api-types.ts';
 	import { ApiError, api, fetchFile } from '#lib/ui/api.ts';
 	import { saveBlob } from '#lib/ui/download.ts';
 	import { formatBytes } from '#lib/ui/format.ts';
@@ -9,7 +15,12 @@
 	type View =
 		| { kind: 'loading' }
 		| { kind: 'error'; message: string }
-		| { kind: 'ready'; backups: BackupDto[] };
+		| {
+				kind: 'ready';
+				backups: BackupDto[];
+				lastRestore?: LastRestoreDto;
+				pendingRestore?: string;
+		  };
 
 	const KIND_LABEL: Record<BackupKind, string> = {
 		manual: 'Taken by you',
@@ -27,11 +38,25 @@
 	let justMade = $state<string | undefined>();
 	// The backup whose delete question is open.
 	let deleting = $state<string | undefined>();
+	// The backup whose restore panel is open, what it would bring back, and what has been typed.
+	let restoring = $state<string | undefined>();
+	let preview = $state<RestorePreviewResponse | undefined>();
+	let confirmWord = $state('');
+	let restoreProblem = $state<string | undefined>();
+	// After a restore was accepted: Tessera is stopping and starting again.
+	let restart = $state<'waiting' | 'back' | 'slow' | undefined>();
+	let safetyCopy = $state<string | undefined>();
 
 	async function load() {
 		view = { kind: 'loading' };
 		try {
-			view = { kind: 'ready', backups: (await api.backups()).backups };
+			const response = await api.backups();
+			view = {
+				kind: 'ready',
+				backups: response.backups,
+				...(response.lastRestore ? { lastRestore: response.lastRestore } : {}),
+				...(response.pendingRestore ? { pendingRestore: response.pendingRestore } : {})
+			};
 		} catch (error) {
 			view = {
 				kind: 'error',
@@ -73,6 +98,75 @@
 		} catch (error) {
 			problem =
 				error instanceof ApiError ? error.message : 'Something went wrong downloading the backup.';
+		} finally {
+			busy = undefined;
+		}
+	}
+
+	async function openRestore(backup: BackupDto) {
+		if (busy) return;
+		restoring = backup.name;
+		preview = undefined;
+		confirmWord = '';
+		restoreProblem = undefined;
+		deleting = undefined;
+		try {
+			preview = await api.previewRestore(backup.name);
+		} catch (error) {
+			restoreProblem =
+				error instanceof ApiError ? error.message : 'Something went wrong looking at the backup.';
+		}
+		await tick();
+		document.getElementById('restore-word')?.focus();
+	}
+
+	function closeRestore(backup: BackupDto) {
+		restoring = undefined;
+		preview = undefined;
+		confirmWord = '';
+		restoreProblem = undefined;
+		void tick().then(() => document.getElementById(`restore-${backup.name}`)?.focus());
+	}
+
+	const sleepMs = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+	// Tessera stops itself after a restore and the restart policy starts it again. Wait for it to come back: first
+	// the stop, then the start. A restart so quick that the stop is never seen counts after fifteen seconds.
+	async function waitForRestart() {
+		const started = Date.now();
+		let sawDown = false;
+		await sleepMs(2500);
+		while (Date.now() - started < 90_000) {
+			const up = await fetch('/healthz', { cache: 'no-store' }).then(
+				(response) => response.ok,
+				() => false
+			);
+			if (!up) sawDown = true;
+			if (up && (sawDown || Date.now() - started > 15_000)) {
+				restart = 'back';
+				return;
+			}
+			await sleepMs(1000);
+		}
+		restart = 'slow';
+	}
+
+	async function restore(backup: BackupDto) {
+		if (busy || confirmWord.trim() !== 'restore') return;
+		busy = backup.name;
+		restoreProblem = undefined;
+		try {
+			const response = await api.restore(backup.name);
+			safetyCopy = response.restoring.safetyCopy;
+			restart = 'waiting';
+			restoring = undefined;
+			announcement = 'Restoring. Tessera is restarting.';
+			void waitForRestart();
+		} catch (error) {
+			restoreProblem =
+				error instanceof ApiError ? error.message : 'Something went wrong starting the restore.';
+			await tick();
+			document.getElementById('restore-word')?.focus();
 		} finally {
 			busy = undefined;
 		}
@@ -139,6 +233,54 @@
 		</div>
 	{/if}
 
+	{#if restart === 'waiting'}
+		<div class="callout" role="status">
+			<h2>Restoring…</h2>
+			<p>Tessera is restarting to bring the backup back. This takes a few seconds.</p>
+			{#if safetyCopy}
+				<p class="muted small">
+					The data as it was is saved as <code>{safetyCopy}</code>.
+				</p>
+			{/if}
+		</div>
+	{:else if restart === 'back'}
+		<div class="callout callout--ok" role="status">
+			<h2>Restored</h2>
+			<p>Tessera is back, with the backup in place.</p>
+			<p>
+				<a class="btn btn--primary" href={resolve('/')} data-sveltekit-reload>Go to your decks</a>
+			</p>
+		</div>
+	{:else if restart === 'slow'}
+		<div class="callout callout--error" role="alert">
+			<h2>Tessera has not come back yet</h2>
+			<p>
+				The restore is saved and is applied the next time Tessera starts. If you run it with Docker,
+				the container needs a restart policy such as <code>unless-stopped</code> (the one in
+				<code>compose.yaml</code>) to start again by itself. Otherwise start it by hand:
+				<code>docker compose up -d</code>. Your data is safe.
+			</p>
+		</div>
+	{/if}
+
+	{#if view.kind === 'ready' && view.pendingRestore && restart === undefined}
+		<div class="callout" role="status">
+			<p>
+				A restore from <code>{view.pendingRestore}</code> is waiting for Tessera to restart. It is applied
+				at the next start.
+			</p>
+		</div>
+	{/if}
+
+	{#if view.kind === 'ready' && view.lastRestore && restart === undefined}
+		<div class="callout" class:callout--error={!view.lastRestore.ok} role="status">
+			<p>
+				<strong>{view.lastRestore.ok ? 'Last restore' : 'The last restore did not happen'}</strong>
+				({when(view.lastRestore.at)}): {view.lastRestore.message}
+			</p>
+		</div>
+	{/if}
+
 	{#if problem}
 		<div class="callout callout--error" role="alert"><p>{problem}</p></div>
 	{/if}
@@ -175,6 +317,19 @@
 						>
 							Download
 						</button>
+						<button
+							id="restore-{backup.name}"
+							type="button"
+							class="btn"
+							disabled={busy !== undefined || restart !== undefined}
+							aria-expanded={restoring === backup.name ? 'true' : 'false'}
+							aria-controls="restore-panel-{backup.name}"
+							aria-label="Restore {backup.name}"
+							onclick={() =>
+								restoring === backup.name ? closeRestore(backup) : openRestore(backup)}
+						>
+							Restore…
+						</button>
 						{#if deleting === backup.name}
 							<span class="muted">Delete this backup?</span>
 							<button
@@ -202,13 +357,114 @@
 							</button>
 						{/if}
 					</div>
+					{#if restoring === backup.name}
+						<form
+							id="restore-panel-{backup.name}"
+							class="danger stack"
+							onsubmit={(event) => {
+								event.preventDefault();
+								void restore(backup);
+							}}
+						>
+							{#if !preview && !restoreProblem}
+								<p class="muted" role="status">Looking at the backup…</p>
+							{/if}
+							{#if restoreProblem}
+								<p class="problem" role="alert">{restoreProblem}</p>
+							{/if}
+							{#if preview && !preview.restorable}
+								<p class="problem" role="alert">
+									This backup cannot be restored: {preview.reason}
+								</p>
+							{/if}
+							{#if preview}
+								<table class="compare">
+									<caption class="sr-only"
+										>What the backup holds, and what is in Tessera now</caption
+									>
+									<thead>
+										<tr>
+											<th scope="col"><span class="sr-only">What</span></th>
+											<th scope="col">This backup</th>
+											<th scope="col">Now</th>
+										</tr>
+									</thead>
+									<tbody>
+										{#each [['Decks', 'decks'], ['Cards', 'cards'], ['Reviews', 'reviews']] as const as [label, key] (key)}
+											<tr>
+												<th scope="row">{label}</th>
+												<td>{preview.summary ? preview.summary[key] : '—'}</td>
+												<td>{preview.current[key]}</td>
+											</tr>
+										{/each}
+										<tr>
+											<th scope="row">Last review</th>
+											<td>
+												{preview.summary
+													? preview.summary.newestReviewAt
+														? when(preview.summary.newestReviewAt)
+														: 'none'
+													: '—'}
+											</td>
+											<td>
+												{preview.current.newestReviewAt
+													? when(preview.current.newestReviewAt)
+													: 'none'}
+											</td>
+										</tr>
+									</tbody>
+								</table>
+							{/if}
+							{#if preview?.restorable}
+								<p>
+									<strong>Restoring replaces everything in Tessera with this backup.</strong>
+									Anything you studied or changed since it was taken is lost, except that Tessera first
+									saves a copy of the data as it is now, so a restore can be undone. Tessera then stops
+									and starts again by itself, which needs a restart policy such as
+									<code>unless-stopped</code>
+									(the one in
+									<code>compose.yaml</code>).
+								</p>
+							{/if}
+							<label for="restore-word">
+								{preview?.restorable ? 'Type' : 'To go on, type'} <strong>restore</strong> to confirm
+							</label>
+							<input
+								id="restore-word"
+								class="field field--text"
+								type="text"
+								bind:value={confirmWord}
+								autocomplete="off"
+								spellcheck="false"
+								disabled={!preview?.restorable}
+							/>
+							<p class="actions">
+								<button
+									type="submit"
+									class="btn btn--primary"
+									disabled={!preview?.restorable ||
+										confirmWord.trim() !== 'restore' ||
+										busy !== undefined}
+									data-state={busy === backup.name ? 'loading' : undefined}
+								>
+									Restore this backup
+								</button>
+								<button type="button" class="btn btn--quiet" onclick={() => closeRestore(backup)}>
+									Cancel
+								</button>
+							</p>
+						</form>
+					{/if}
 				</li>
 			{/each}
 		</ul>
 	{/if}
 
 	<p class="muted small">
-		To bring a backup back, follow “Restore” in the operations guide (<code>docs/operations.md</code
+		Restoring from the page needs Tessera to restart by itself (the restart policy in <code
+			>compose.yaml</code
+		>). To bring a backup back by hand instead, follow “Restore” in the operations guide (<code
+			>docs/operations.md</code
 		>).
 	</p>
 </div>
@@ -271,9 +527,49 @@
 		align-items: center;
 	}
 
+	.problem {
+		color: var(--color-error);
+		font-size: var(--text-sm);
+	}
+
+	.danger {
+		padding: var(--space-4) var(--space-5);
+		border: 1px solid var(--color-error);
+		border-radius: var(--radius);
+		background: var(--color-error-soft);
+	}
+
+	.danger > :global(* + *) {
+		margin-block-start: var(--space-3);
+	}
+
+	.compare {
+		width: 100%;
+		border-collapse: collapse;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.compare th,
+	.compare td {
+		padding: var(--space-1) var(--space-3);
+		text-align: start;
+		border-block-end: 1px solid var(--color-rule);
+		overflow-wrap: anywhere;
+	}
+
+	.compare thead th {
+		font-size: var(--text-sm);
+		color: var(--color-muted);
+		font-weight: 500;
+	}
+
 	@media (min-width: 48rem) {
 		.row {
 			grid-template-columns: minmax(0, 1fr) auto;
+		}
+
+		.danger {
+			grid-column: 1 / -1;
 		}
 	}
 </style>

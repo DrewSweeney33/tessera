@@ -663,6 +663,18 @@ try {
 				'deleting a backup is refused without the token',
 				(await status('/api/backups/manual-x.db', JSON_HEADERS, 'DELETE')) === 401
 			);
+			check(
+				'previewing a restore is refused without the token',
+				(await status('/api/backups/manual-x.db/preview')) === 401
+			);
+			check(
+				'restoring is refused without the token',
+				(await status('/api/backups/manual-x.db/restore', JSON_HEADERS, 'POST')) === 401
+			);
+			check(
+				'and so is a path variant of it',
+				(await status('/api/backups/manual-x.db/%72estore', JSON_HEADERS, 'POST')) === 401
+			);
 			const tokenBackup = await send({
 				method: 'POST',
 				path: '/api/backups',
@@ -1884,6 +1896,140 @@ try {
 		(await send({ method: 'DELETE', path: `/api/backups/${backupName}`, headers: JSON_HEADERS }))
 			.status === 404
 	);
+
+	// ---- 4f. Restore (US-15, ADR-014). Only refusals and previews: a restore that went through would stop the server.
+	console.log('\n# Restore');
+	const forRestore = await post('/api/backups', {});
+	const restoreName: string =
+		forRestore.status === 201 ? JSON.parse(forRestore.text).backup?.name : '';
+	const previewed = await send({ path: `/api/backups/${restoreName}/preview` });
+	const previewBody = previewed.status === 200 ? JSON.parse(previewed.text) : undefined;
+	check(
+		'a backup can be previewed: restorable, with its counts and the counts of the data now',
+		previewed.status === 200 &&
+			previewBody?.restorable === true &&
+			typeof previewBody?.summary?.decks === 'number' &&
+			typeof previewBody?.current?.cards === 'number' &&
+			previewed.headers['cache-control'] === 'no-store' &&
+			!('access-control-allow-origin' in previewed.headers),
+		`${previewed.status} ${previewed.text.slice(0, 100)}`
+	);
+	check('and the preview gives no path on the server', !previewed.text.includes('/data'));
+
+	const restoreStillUp = async () => (await send({ path: '/healthz' })).status === 200;
+	for (const name of [
+		'..%2f..%2fpackage.json',
+		'..%2ftessera.db',
+		'tessera.db',
+		'tessera.db-wal',
+		'a%00.db',
+		`${'x'.repeat(200)}.db`,
+		'%3Cscript%3Ealert(1)%3C%2Fscript%3E.db',
+		'no-such-backup.db'
+	]) {
+		const got = await send({ path: `/api/backups/${name}/preview` });
+		const posted = await post(`/api/backups/${name}/restore`, { confirm: 'restore' });
+		check(
+			`preview and restore of "${name.slice(0, 28)}" are 404s that leak nothing and echo nothing`,
+			got.status === 404 &&
+				posted.status === 404 &&
+				!got.text.includes('<script') &&
+				!posted.text.includes('<script') &&
+				!/node_modules|\.ts:\d+|root:x:|"dependencies"/.test(got.text + posted.text),
+			`${got.status} / ${posted.status}`
+		);
+	}
+	check('and the server is still running after those', await restoreStillUp());
+
+	for (const [label, body] of [
+		['no confirmation', {}],
+		['the wrong word', { confirm: 'yes' }],
+		['the word in capitals', { confirm: 'RESTORE' }],
+		['a confirmation that is not text', { confirm: true }],
+		['an extra field', { confirm: 'restore', force: true }],
+		['an array', []]
+	] as const) {
+		const r = await post(`/api/backups/${restoreName}/restore`, body);
+		check(
+			`restore with ${label} is refused and stages nothing`,
+			r.status === 422 || r.status === 400,
+			`got ${r.status}`
+		);
+	}
+	const notJson = await post(`/api/backups/${restoreName}/restore`, '{not json');
+	check(
+		'restore with a body that is not JSON is a 400',
+		notJson.status === 400,
+		`got ${notJson.status}`
+	);
+	const bigRestore = JSON.stringify({ confirm: 'x'.repeat(40_000) });
+	const tooBig = await send({
+		method: 'POST',
+		path: `/api/backups/${restoreName}/restore`,
+		headers: { ...JSON_HEADERS, 'content-length': String(Buffer.byteLength(bigRestore)) },
+		body: bigRestore
+	});
+	check(
+		'restore with a body over the small limit is a 413',
+		tooBig.status === 413,
+		`got ${tooBig.status}`
+	);
+
+	for (const [method, path] of [
+		['GET', `/api/backups/${restoreName}/restore`],
+		['PUT', `/api/backups/${restoreName}/restore`],
+		['DELETE', `/api/backups/${restoreName}/restore`],
+		['POST', `/api/backups/${restoreName}/preview`],
+		['DELETE', `/api/backups/${restoreName}/preview`]
+	] as const) {
+		const r = await send({ method, path, headers: JSON_HEADERS, body: '{}' });
+		check(
+			`${method} on ${path.split('/').pop()} is refused`,
+			[400, 403, 404, 405].includes(r.status),
+			`got ${r.status}`
+		);
+	}
+	for (const [method, path] of [
+		['GET', `/api/backups/${restoreName}/preview`],
+		['POST', `/api/backups/${restoreName}/restore`]
+	] as const) {
+		const foreign = await send({
+			method,
+			path,
+			headers: { ...(method === 'POST' ? JSON_HEADERS : {}), host: 'attacker.example' },
+			...(method === 'POST' ? { body: JSON.stringify({ confirm: 'restore' }) } : {})
+		});
+		check(
+			`${method} ${path.split('/').pop()} under a foreign host name is refused (421)`,
+			foreign.status === 421,
+			`got ${foreign.status}`
+		);
+	}
+	for (const type of [
+		'text/plain',
+		'application/x-www-form-urlencoded',
+		'multipart/form-data; boundary=x'
+	]) {
+		const evil = await send({
+			method: 'POST',
+			path: `/api/backups/${restoreName}/restore`,
+			headers: { 'content-type': type, origin: 'https://evil.example' },
+			body: JSON.stringify({ confirm: 'restore' })
+		});
+		check(
+			`restore cross-site as ${type.split(';')[0]} is refused (403 or 415)`,
+			[403, 415].includes(evil.status),
+			`got ${evil.status}`
+		);
+	}
+	const afterRestoreTries = JSON.parse((await send({ path: '/api/backups' })).text);
+	check(
+		'after all of that no restore is waiting, no safety copy was made, and the server is still running',
+		afterRestoreTries.pendingRestore === undefined &&
+			!afterRestoreTries.backups.some((b: { kind: string }) => b.kind === 'pre-restore') &&
+			(await restoreStillUp())
+	);
+	await send({ method: 'DELETE', path: `/api/backups/${restoreName}`, headers: JSON_HEADERS });
 
 	// ---- 5. Path traversal and error leakage
 	console.log('\n# Paths and errors');

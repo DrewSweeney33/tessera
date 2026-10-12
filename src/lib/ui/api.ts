@@ -12,6 +12,8 @@ import type {
 	ImportResponse,
 	NextResponse,
 	RestoreDeckResponse,
+	RestorePreviewResponse,
+	RestoreResponse,
 	ReviewRequest,
 	ReviewResponse,
 	StartOverResponse,
@@ -127,6 +129,16 @@ export const api = {
 			method: 'POST',
 			headers: JSON_HEADERS,
 			body: '{}'
+		}),
+
+	previewRestore: (name: string) =>
+		call<RestorePreviewResponse>(`/api/backups/${encodeURIComponent(name)}/preview`),
+
+	restore: (name: string) =>
+		call<RestoreResponse>(`/api/backups/${encodeURIComponent(name)}/restore`, {
+			method: 'POST',
+			headers: JSON_HEADERS,
+			body: JSON.stringify({ confirm: 'restore' })
 		}),
 
 	deleteBackup: (name: string) =>

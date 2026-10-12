@@ -33,6 +33,12 @@ function readJournal(migrationsFolder: string): JournalEntry[] {
 	return (JSON.parse(readFileSync(file, 'utf8')) as { entries: JournalEntry[] }).entries;
 }
 
+// The time of the newest migration this version knows. A database that has applied a later one was written by a
+// newer version.
+export function newestKnownMigration(migrationsFolder: string): number {
+	return readJournal(migrationsFolder).reduce((latest, entry) => Math.max(latest, entry.when), 0);
+}
+
 function uniqueBackupPath(dataDir: string, clock: Clock): string {
 	const stamp = clock.now().toISOString().replace(/[:.]/g, '-');
 	let candidate = join(dataDir, 'backups', `pre-migrate-${stamp}.db`);

@@ -190,8 +190,52 @@ export interface BackupDto {
 	modifiedAt: string;
 }
 
+// What a database holds, to compare a backup with the data there now before restoring.
+export interface DataSummaryDto {
+	decks: number;
+	cards: number;
+	reviews: number;
+	// The time of the most recent review, if there is one.
+	newestReviewAt: string | null;
+}
+
+// What the last start did about a restore that was chosen on the Backups page.
+export interface LastRestoreDto {
+	ok: boolean;
+	name: string;
+	at: string;
+	message: string;
+}
+
 export interface BackupsResponse {
 	backups: BackupDto[];
+	// Present when the last start applied, or could not apply, a restore.
+	lastRestore?: LastRestoreDto;
+	// The backup a restore is waiting to bring back at the next start, if one is.
+	pendingRestore?: string;
+}
+
+// GET /api/backups/:name/preview: what restoring this backup would bring back, beside what is there now.
+export interface RestorePreviewResponse {
+	backup: BackupDto;
+	restorable: boolean;
+	// Why not, when it cannot be restored.
+	reason?: string;
+	summary?: DataSummaryDto;
+	current: DataSummaryDto;
+}
+
+// POST /api/backups/:name/restore. The word "restore" is typed by a person as a check that they mean it.
+export interface RestoreRequest {
+	confirm: 'restore';
+}
+
+export interface RestoreResponse {
+	restoring: {
+		name: string;
+		// The copy of the data as it is now, taken first, so a restore can be undone.
+		safetyCopy: string;
+	};
 }
 
 export interface CreateBackupResponse {

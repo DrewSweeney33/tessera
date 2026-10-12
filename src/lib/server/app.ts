@@ -5,6 +5,7 @@ import { getConfig, type Config } from './config.ts';
 import { systemClock, systemRng, type Clock, type Rng } from './clock.ts';
 import { openDatabase, type Db, type DatabaseHandle } from './db/index.ts';
 import { createLogger, type Logger } from './log.ts';
+import { applyPendingRestore } from './restore/index.ts';
 
 // Everything a request handler needs, created once at boot and passed down explicitly.
 export interface AppContext {
@@ -15,6 +16,9 @@ export interface AppContext {
 	database: DatabaseHandle;
 	db: Db;
 	version: string;
+	// Asks the process to stop cleanly, after a restore has been staged. A supervisor (the restart policy) then
+	// starts it again, and the restore is applied before the database is opened.
+	requestShutdown: () => void;
 }
 
 export interface CreateAppOptions {
@@ -23,6 +27,7 @@ export interface CreateAppOptions {
 	rng?: Rng;
 	log?: Logger;
 	migrationsFolder?: string;
+	requestShutdown?: () => void;
 }
 
 function readVersion(): string {
@@ -40,6 +45,10 @@ export function createApp(options: CreateAppOptions = {}): AppContext {
 	const clock = options.clock ?? systemClock;
 	const log = options.log ?? createLogger({ level: config.logLevel, clock });
 	checkDataDir(config.dataDir);
+	// A restore chosen on the Backups page is applied here, before the database is opened (ADR-014).
+	const restore = applyPendingRestore(config.dataDir, clock, {}, options.migrationsFolder);
+	if (restore?.ok) log.info('restore applied', { backup: restore.name, keptAs: restore.keptAs });
+	else if (restore) log.error('restore could not be done', { reason: restore.message });
 	const database = openDatabase({
 		dataDir: config.dataDir,
 		clock,
@@ -53,7 +62,13 @@ export function createApp(options: CreateAppOptions = {}): AppContext {
 		rng: options.rng ?? systemRng,
 		database,
 		db: database.db,
-		version: readVersion()
+		version: readVersion(),
+		requestShutdown:
+			options.requestShutdown ??
+			(() => {
+				// A moment first, so the answer that asked for this reaches the browser.
+				setTimeout(() => process.kill(process.pid, 'SIGTERM'), 800);
+			})
 	};
 }
 

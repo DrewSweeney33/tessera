@@ -13,19 +13,31 @@ const compose = parse(readFileSync('compose.yaml', 'utf8')) as {
 const service = compose.services['tessera']!;
 
 describe('Dockerfile (ADR-004)', () => {
-	it('uses the Debian 13 slim Node 24 image for both stages', () => {
+	it('uses the Debian 13 slim Node 24 image for every stage', () => {
 		const stages = [...dockerfile.matchAll(/^FROM (\S+)/gm)].map((m) => m[1]);
-		expect(stages).toEqual(['node:24-trixie-slim', 'node:24-trixie-slim']);
+		expect(stages).toEqual(['node:24-trixie-slim', 'node:24-trixie-slim', 'node:24-trixie-slim']);
 	});
 
-	it('builds with a clean install and prunes development dependencies', () => {
-		expect(dockerfile).toMatch(/RUN npm ci\b/);
-		expect(dockerfile).toMatch(/npm run build && npm prune --omit=dev/);
+	it('builds with a clean install, and installs only production dependencies for the runtime', () => {
+		const build = dockerfile.slice(dockerfile.indexOf('AS build'), dockerfile.indexOf('AS deps'));
+		expect(build).toMatch(/RUN npm ci\b/);
+		expect(build).toMatch(/RUN npm run build\b/);
+		const deps = dockerfile.slice(dockerfile.indexOf('AS deps'), dockerfile.indexOf('AS runtime'));
+		expect(deps).toMatch(/RUN npm ci --omit=dev\b/);
+	});
+
+	it('does not use "npm prune", which hung on the homelab host while a clean install did not', () => {
+		expect(dockerfile).not.toMatch(/RUN .*npm prune/);
 	});
 
 	it('copies exactly what the server needs at runtime, including migrations', () => {
-		for (const path of ['/app/build', '/app/node_modules', '/app/package.json', '/app/drizzle']) {
-			expect(dockerfile).toContain(`COPY --from=build --chown=node:node ${path}`);
+		for (const [stage, path] of [
+			['build', '/app/build'],
+			['deps', '/app/node_modules'],
+			['build', '/app/package.json'],
+			['build', '/app/drizzle']
+		] as const) {
+			expect(dockerfile).toContain(`COPY --from=${stage} --chown=node:node ${path}`);
 		}
 	});
 
@@ -47,9 +59,9 @@ describe('Dockerfile (ADR-004)', () => {
 		}
 		// It must happen as root, so before the switch to the node user, and the build stage keeps npm.
 		expect(start).toBeLessThan(runtime.indexOf('USER node'));
-		const build = dockerfile.slice(0, dockerfile.indexOf('AS runtime'));
-		expect(build).not.toContain('rm -rf /usr/local/lib/node_modules');
-		expect(build).toContain('RUN npm ci');
+		const earlier = dockerfile.slice(0, dockerfile.indexOf('AS runtime'));
+		expect(earlier).not.toContain('rm -rf /usr/local/lib/node_modules');
+		expect(earlier).toContain('RUN npm ci');
 		// Nothing that runs in the container uses them: it starts and checks itself with node alone.
 		const instructions = runtime
 			.split('\n')
