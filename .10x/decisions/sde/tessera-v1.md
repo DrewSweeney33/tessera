@@ -651,3 +651,17 @@ Nothing was published, tagged, or released. The task's own condition ("publicati
 - **E2E flake in the LAN-address test (the M2-12 failure the owner reported).** Cause: the test read `request.allHeaders()` inside an event handler, so a read could still be pending when the test ended ("Test ended"). Fix 2168b2a collected requests and read headers after the flow. That exposed a second cause: `allHeaders()` waits for the browser's raw-header event, which never comes for a request cut off by navigation, so it hung to the 45 s timeout. Fix ad454a0 collects on `requestfinished`. It was only diagnosable after adding the Playwright `github` reporter in CI, because job logs need a login while annotations are readable anonymously.
 - **Image scan.** The first scan failed with real findings (undici, tar, ip-address, brace-expansion) inside the npm, corepack, and yarn copies in the base image. The scan gate was first split into scan plus a check script (`scripts/lib/image-scan.ts`) so a failure names the packages as annotations. The runtime stage now deletes npm, corepack, and yarn (the server and health check use node only); the build stage keeps npm; a policy test guards it (ab21775). The scan now passes: no fixable high or critical finding in 2 targets (Debian 13.7 and Node.js libraries). arm64 is not scanned, by design.
 - **Process lesson.** Commit e5c3172 went out with 9 type errors because `npm run check | tail` hid the exit code (fixed in ba10059). Check `$LASTEXITCODE` and run the full `npm run verify` before every push. Bash heredocs also mangle backslashes, so content with escapes is written with the Write/Edit tools.
+
+## M2-16 Exit gate evidence (2026-10-11)
+
+Nothing was tagged or published. The two exit reports are `.10x/reviews/2026-10-11-qa-report-m2.md` and `.10x/reviews/2026-10-11-security-review-m2.md`.
+
+**Mutation check of the M2 logic.** 26 deliberate bugs (typed matcher, API token and web page detection, host check, choice shuffle and grading, format detection, Markdown parser errors). 22 were caught the first time. Of the four survivors, three were real test gaps and now have tests (a trailing hyphen is kept in a typed answer, `.localhost` stays loopback when an allow-list is set, a `---` start without a `tessera:` line is Markdown), and one is harmless (skipping every code fence line instead of one at the start of a pasted deck gives the same answer for every input a person pastes). The three were re-run and are caught.
+
+**KaTeX payloads.** The hostile diagram browser test now includes math labels with every KaTeX trust feature. The diagram draws and the SVG has nothing executable or remote in it (also checked by hand against the built server).
+
+**Soak.** Four minutes, four workers, 54,338 successful requests, 692 re-imports, 0 unexpected statuses, 0 error log lines, memory flat at about 315 MB after start-up. The soak script is a scratch file, not in the repository. A multi-day soak and a disk-full run are still the owner's.
+
+**Version.** `package.json` and the lockfile are at 0.1.0 and the changelog has a `## [0.1.0] - 2026-10-11` section, **uncommitted on purpose**, until the owner approves the tag. `npm run verify` passes with them and the release assets build for 0.1.0.
+
+**Open for the owner:** `docs/security.md` (ADR-005 promises it), log rotation in `compose.yaml` (S-11), accept S-10 and S-04, and the checks only they can do (see the handoff).

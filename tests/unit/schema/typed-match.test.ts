@@ -30,6 +30,13 @@ describe('normalizeTyped', () => {
 		expect(normalizeTyped('e.g. this')).toBe('e.g. this');
 	});
 
+	it('drops only sentence punctuation at the end, so a trailing hyphen, slash, or bracket is kept', () => {
+		expect(normalizeTyped('ip route 10.0.0.0/8')).toBe('ip route 10.0.0.0/8');
+		for (const ending of ['-', '/', ')', '_', '*']) {
+			expect(normalizeTyped(`word${ending}`)).toBe(`word${ending}`);
+		}
+	});
+
 	it('does not remove punctuation at the start', () => {
 		expect(normalizeTyped('...hello')).toBe('...hello');
 		expect(normalizeTyped('?why')).toBe('?why');

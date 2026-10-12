@@ -2,36 +2,44 @@
 
 ## Current handoff
 
-**From:** SDE, Milestone 2 (M2-15, the release pipeline)
-**To:** The owner (approve the push, then watch the first CI run), then the SDE for M2-16
+**From:** QA and Security, Milestone 2 exit (M2-16 evidence)
+**To:** The owner (decisions and checks only they can do), then the SDE to tag `v0.1.0` on approval
 **Date:** 2026-10-11
-**Per-feature file:** `.10x/decisions/sde/tessera-v1.md` (sections "M2-14 follow-up" and "M2-15"), `docs/releasing.md`
+**Per-feature file:** `.10x/reviews/2026-10-11-qa-report-m2.md`, `.10x/reviews/2026-10-11-security-review-m2.md`, `.10x/decisions/sde/tessera-v1.md`, `docs/releasing.md`
 
 ### Result
 
-The release workflow now attaches the deck schema, the Claude skill as a zip, and checksums to a release, and the CI image job scans the built image for fixable high or critical vulnerabilities. Nothing was published or tagged. The previous push (M2-14) was fully green in CI, including Firefox on its first run.
+Both exit reports are written. **No blocking defects, no open finding above Low.** Both M1 medium security findings are closed. CI is green on ad454a0 (Verify, Firefox, WebKit, Docker amd64 with the image scan, Docker arm64). Evidence: 884 unit and 346 integration tests, 118 browser tests on each of three engines, 215 probe checks, durability, smoke, benchmark (5,000 cards in 1.18 s), 0 production vulnerabilities, a four minute soak (54,338 requests, 0 errors, memory flat). A mutation check of 26 deliberate bugs in the new logic found 3 real test gaps, now closed. Nothing was tagged or published.
 
 ### State of git
 
-Everything through M2-15 is on GitHub and CI is fully green on ad454a0 (Verify, Firefox, WebKit, Docker amd64 with the image scan, Docker arm64). The first run after M2-15 failed three ways (an e2e race in the LAN-address test, then a hang in `allHeaders()`, and real scan findings in npm/corepack/yarn); all are fixed. See the SDE log, "M2-15 follow-up".
+Pushed: everything through the state commit 1884089. **Local only, not pushed:** the test additions and the two reports (committed), and **uncommitted in the working tree:** the version bump to 0.1.0 (`package.json`, `package-lock.json`) and the CHANGELOG section `## [0.1.0] - 2026-10-11` (edit the date if the tag lands on another day). Full `npm run verify` passes with these, and the release assets build for 0.1.0.
 
 ### Needs the owner
 
-1. **Run the release workflow by hand once** (Actions, Release, Run workflow, on `main`) before the real tag, to see the new asset step pass. It publishes nothing. The version in `package.json` is `0.0.1` and the changelog has no `0.0.1` section, so the rehearsal's version check will fail on `main`; use a short-lived branch as `docs/releasing.md` describes, or wait for M2-16, which sets the version.
-2. **Confirm Settings, Actions, General, Workflow permissions** allows the release job to push packages (still unverifiable until a real tag).
+1. **Quickstart on the homelab** with `docker compose up`, time it, try the wrapper scripts (R-2).
+2. **Use the skill in a real Claude conversation**: make two decks, import them, study them (R-9). Look at the example decks' facts too.
+3. **Rehearse the release workflow** on a short-lived branch (docs/releasing.md), and check Settings, Actions, General, Workflow permissions allows pushing packages (R-11).
+4. Decide the security review's open items: write `docs/security.md` or amend ADR-005 (S-08, I can draft it), approve log rotation in `compose.yaml` (S-11), accept S-10 and S-04.
+5. Recommended, not required: a screen reader pass (R-3), a disk-full run on a small volume (R-7), leave an instance running for days (R-8), try it on a phone (R-10).
+6. **Say "tag v0.1.0"** when satisfied. Then: commit the version bump and changelog, push, wait for CI, tag, watch the release workflow.
 
 ### Next
 
-M2-16, the Milestone 2 exit gate: repeat QA and security review, the disk-full and long soak runs on the homelab, set the version and move the changelog, and tag `v0.1.0` **only on your approval**. Before that the QA report, a fresh security review, and your try-out of the skill and the decks are needed.
+M3 (leeches, weak spots, export, settings) after the tag, or before it if you prefer to keep building while you try things out.
 
 ### Things to know
 
-- The runtime image has no npm, corepack, or yarn (removed on purpose, ab21775). Anything that needs npm at runtime must be done in the build stage.
-- A failed image scan is meant to be actionable: it only reports findings that have a fix. Do not add a `.trivyignore` without recording why.
-- The release zip is reproducible, so a checksum can be rebuilt and compared from the tagged source.
-- Earlier open items are unchanged (compose wrappers unverified on a real host, registry push unexercised, disk-full and long soak untested, screen readers untested, no favicon, the skill untried in a real conversation).
+- The runtime image has no npm, corepack, or yarn (removed on purpose, ab21775).
+- A failed image scan only reports findings that have a fix. Do not add a `.trivyignore` without recording why.
+- The token is not a login (QA/security review explains what it does and does not do).
+- Idle memory is about 256 MB and about 315 MB under load, on Windows.
 
 ## Handoff history
+
+### 2026-10-11: SDE, M2-15, to the owner
+
+Release pipeline and image scan. CI went green after three fixes. See the SDE log, "M2-15" and "M2-15 follow-up".
 
 ### 2026-10-11: SDE, M2-14, to the owner
 

@@ -102,6 +102,11 @@ describe('with TESSERA_ALLOWED_HOSTS set', () => {
 		}
 	});
 
+	it('answers any name under .localhost even when a list replaces the defaults', () => {
+		expect(accepted('app.localhost:3000', list)).toBe(true);
+		expect(accepted('tessera.localhost', list)).toBe(true);
+	});
+
 	it('matches a wildcard entry that carries a port', () => {
 		expect(accepted('x.lab.example:3000', ['*.lab.example:3000'])).toBe(true);
 		expect(accepted('x.lab.example:80', ['*.lab.example:3000'])).toBe(false);

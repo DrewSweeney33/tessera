@@ -26,6 +26,11 @@ describe('detectFormat: the text decides', () => {
 		expect(detectFormat(MARKDOWN.replaceAll('\n', '\r\n'))).toBe('markdown');
 	});
 
+	it('reads a deck that starts with --- as Markdown even before its tessera line is reached', () => {
+		expect(detectFormat('---\nid: d\ntitle: D\n---\n')).toBe('markdown');
+		expect(detectFormat('```\n---\nid: d\n---\n')).toBe('markdown');
+	});
+
 	it('ignores a byte order mark', () => {
 		expect(detectFormat(BOM + MARKDOWN)).toBe('markdown');
 		expect(detectFormat(BOM + JSON_DECK)).toBe('json');

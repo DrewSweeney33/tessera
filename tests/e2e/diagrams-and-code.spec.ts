@@ -199,7 +199,11 @@ test.describe('diagrams', () => {
 			'  click B href "javascript:window.__pwned=1"',
 			'  style A fill:#f00,stroke:#000',
 			'  classDef evil fill:url(https://evil.example/x.png)',
-			'  class A evil'
+			'  class A evil',
+			// Math in a label goes through KaTeX, whose trust settings are what an advisory is about.
+			'  M1["$$\\href{javascript:window.__pwned=1}{click}$$"] --> M2["$$\\url{https://evil.example/x}$$"]',
+			'  M3["$$\\htmlClass{evil}{x}$$"] --> M4["$$\\includegraphics{https://evil.example/x.png}$$"]',
+			'  M5["$$\\htmlData{k=v}{x} \\htmlStyle{color:red}{y}$$"]'
 		].join('\n');
 		await importViaApi(
 			request,
