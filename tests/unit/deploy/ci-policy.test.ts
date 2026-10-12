@@ -112,24 +112,36 @@ describe('CI workflow', () => {
 		expect(commands).toContain('"ccna-ospf"');
 	});
 
-	it('scans the built image for known vulnerabilities and fails on fixable serious ones', () => {
+	it('scans the built image, then fails on fixable serious findings in a step that says what they are', () => {
 		const docker = workflow.jobs['docker']!;
 		const names = docker.steps.map((s) => s.name ?? '');
-		const scan = docker.steps.find((s) => s.uses?.startsWith('aquasecurity/trivy-action@'));
+		type WithIf = { with: Record<string, unknown>; if?: string; run?: string; name?: string };
+		const scan = docker.steps.find((s) =>
+			s.uses?.startsWith('aquasecurity/trivy-action@')
+		) as unknown as WithIf;
 		expect(scan, 'a scan step').toBeDefined();
-		const options = (scan as unknown as { with: Record<string, unknown>; if?: string }).with;
-		// It scans the image that was just built, before that image is started or trusted.
-		expect(options['image-ref']).toBe('tessera:ci');
-		expect(options['exit-code']).toBe('1');
-		expect(options['ignore-unfixed']).toBe(true);
-		expect(options['severity']).toBe('CRITICAL,HIGH');
-		expect(options['vuln-type']).toBe('os,library');
-		expect(names.indexOf(scan!.name!)).toBeGreaterThan(names.indexOf('Build the image'));
-		expect(names.indexOf(scan!.name!)).toBeLessThan(
-			names.findIndex((n) => n.startsWith('Start the container'))
-		);
+		// It scans the image that was just built, before that image is started or trusted. The scanner writes a file
+		// and does not fail on findings. It fails only if it cannot run at all, so its failure means a tool problem.
+		expect(scan.with['image-ref']).toBe('tessera:ci');
+		expect(scan.with['format']).toBe('json');
+		expect(scan.with['output']).toBe('trivy-results.json');
+		expect(scan.with['exit-code']).toBe('0');
+		expect(scan.with['ignore-unfixed']).toBe(true);
+		expect(scan.with['severity']).toBe('CRITICAL,HIGH');
+		expect(scan.with['vuln-type']).toBe('os,library');
+		// The gate is the next step. It reads that file, names each finding, and fails on serious fixable ones.
+		const check = docker.steps.find((s) =>
+			s.run?.includes('scripts/check-image-scan.ts')
+		) as unknown as WithIf;
+		expect(check, 'a check step').toBeDefined();
+		expect(check.run).toBe('node scripts/check-image-scan.ts trivy-results.json');
+		const order = (step: WithIf) => names.indexOf(step.name!);
+		expect(order(scan)).toBeGreaterThan(names.indexOf('Build the image'));
+		expect(order(check)).toBe(order(scan) + 1);
+		expect(order(check)).toBeLessThan(names.findIndex((n) => n.startsWith('Start the container')));
 		// One architecture is enough, and the release workflow gets it through the CI workflow it calls.
-		expect((scan as unknown as { if?: string }).if).toBe("matrix.platform == 'linux/amd64'");
+		expect(scan.if).toBe("matrix.platform == 'linux/amd64'");
+		expect(check.if).toBe("matrix.platform == 'linux/amd64'");
 	});
 
 	it('publishes nothing and never logs in to a registry', () => {

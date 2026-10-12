@@ -66,6 +66,8 @@ The zip is reproducible: building it twice gives identical bytes, with no date i
 
 The CI workflow scans the built image with Trivy for known vulnerabilities in the operating system packages and in the npm packages that ship in it. It fails on anything rated **high or critical that has a fix available**, so a failure always asks for something that can be done. The release workflow runs CI first, so a release cannot go out with such a finding.
 
+It runs as two steps so a failure says what kind it is. **Scan the image** runs Trivy and writes `trivy-results.json`. It fails only if the scanner itself cannot run, for example if it cannot download its vulnerability database (a tool problem, usually gone on a re-run). **Check the scan result** (`scripts/check-image-scan.ts`) reads that file, prints every finding, writes each as a GitHub annotation on the run page, and fails on high or critical findings with a fix. It also fails if the scan looked at nothing, so a pass always means something was really scanned, and it prints what it looked at.
+
 ## If something goes wrong
 
 | Problem                           | What to do                                                                                                                                                                                                                                                                                                                                                                                               |
