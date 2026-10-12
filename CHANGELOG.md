@@ -4,8 +4,13 @@ All notable changes to Tessera are written here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [0.1.1-rc.1] - 2026-10-11
+
+A release candidate for 0.1.1, published so the fixes can be tested on a real Docker host before the final release.
+
 ### Added
 
+- A live-image test harness (`npm run live:test`, guide in `docs/testing-on-your-host.md`) that runs the real image as a throwaway test instance on your own Docker host over SSH and checks it: container hardening, the smoke, security, and speed tests over the network, backup and restore with the operations guide's own commands, a crash, a hard kill and a graceful stop, a full disk, and an optional soak. It never touches the instance you use.
 - The deployment guide shows how to run the published image with no source or build, as a hardened compose file with a pinned version. A test keeps the example as locked down as the repository's own `compose.yaml`.
 
 ### Changed
