@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
-	import { beforeNavigate } from '$app/navigation';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import type {
@@ -9,7 +9,8 @@
 		DeckDocumentDto,
 		FieldErrorDto,
 		ImportCommitDto,
-		ImportPlanSummary
+		ImportPlanSummary,
+		StartOverResponse
 	} from '#lib/core/api-types.ts';
 	import {
 		CARD_TYPES,
@@ -66,7 +67,15 @@
 	let serverErrors = $state<FieldErrorDto[]>([]);
 	let failure = $state<string | undefined>();
 	let conflict = $state(false);
-	let busy = $state<'review' | 'save' | 'export' | undefined>();
+	let busy = $state<'review' | 'save' | 'export' | 'trash' | 'reset' | undefined>();
+	let confirmingTrash = $state(false);
+	// Start over: the panel, what has been typed, a problem to show, and the result of the last one.
+	let confirmingReset = $state(false);
+	let resetTyped = $state('');
+	let resetProblem = $state<string | undefined>();
+	let resetDone = $state<StartOverResponse['reset'] | undefined>();
+	// Set once the deck is in the Trash, so leaving for the Trash page does not ask about unsaved edits again.
+	let leaving = $state(false);
 	let plan = $state<ImportPlanSummary | undefined>();
 	let planFor = $state('');
 	let saved = $state<ImportCommitDto | undefined>();
@@ -124,7 +133,7 @@
 
 	// Leaving with edits that are not saved asks first. The browser asks for itself when the tab or site is left.
 	beforeNavigate((navigation) => {
-		if (!dirty) return;
+		if (!dirty || leaving) return;
 		if (navigation.type === 'leave') {
 			navigation.cancel();
 		} else if (!window.confirm('You have changes that are not saved. Leave without saving them?')) {
@@ -347,6 +356,67 @@
 		}
 	}
 
+	function closeReset() {
+		confirmingReset = false;
+		resetTyped = '';
+		resetProblem = undefined;
+		void tick().then(() => document.getElementById('start-over-button')?.focus());
+	}
+
+	function openReset() {
+		confirmingReset = !confirmingReset;
+		confirmingTrash = false;
+		resetTyped = '';
+		resetProblem = undefined;
+		if (confirmingReset) {
+			void tick().then(() => document.getElementById('reset-title')?.focus());
+		}
+	}
+
+	// The button waits until what was typed matches the saved title. The server checks again.
+	const resetMatches = $derived(
+		original !== undefined && resetTyped.trim() === original.deck.title.trim()
+	);
+
+	async function startOver() {
+		if (busy || !resetMatches) return;
+		busy = 'reset';
+		resetProblem = undefined;
+		try {
+			const response = await api.startOver(deckId, resetTyped);
+			resetDone = response.reset;
+			confirmingReset = false;
+			resetTyped = '';
+			announcement = 'Started over. Every card is new again.';
+		} catch (error) {
+			resetProblem =
+				error instanceof ApiError ? error.message : 'Something went wrong starting the deck over.';
+			await tick();
+			document.getElementById('reset-title')?.focus();
+		} finally {
+			busy = undefined;
+		}
+	}
+
+	async function moveToTrash() {
+		if (busy) return;
+		busy = 'trash';
+		failure = undefined;
+		try {
+			await api.trashDeck(deckId);
+			leaving = true;
+			await goto(resolve('/trash'), { state: { moved: deckId } });
+		} catch (error) {
+			confirmingTrash = false;
+			failure =
+				error instanceof ApiError
+					? error.message
+					: 'Something went wrong moving the deck to the Trash.';
+		} finally {
+			busy = undefined;
+		}
+	}
+
 	function discard() {
 		confirmingDiscard = false;
 		void load();
@@ -426,8 +496,115 @@
 				>
 					Export Markdown
 				</button>
+				<button
+					type="button"
+					class="btn btn--quiet"
+					aria-expanded={confirmingTrash ? 'true' : 'false'}
+					aria-controls="trash-confirm"
+					onclick={() => {
+						confirmingTrash = !confirmingTrash;
+						confirmingReset = false;
+					}}
+				>
+					Move to Trash
+				</button>
+				<button
+					id="start-over-button"
+					type="button"
+					class="btn btn--quiet"
+					aria-expanded={confirmingReset ? 'true' : 'false'}
+					aria-controls="reset-confirm"
+					onclick={openReset}
+				>
+					Start over…
+				</button>
 			</div>
 		</header>
+
+		{#if confirmingTrash}
+			<div id="trash-confirm" class="callout stack">
+				<p>
+					<strong>Move {original.deck.title} to the Trash?</strong> It leaves your deck list and
+					your study sessions. Nothing is deleted: you can restore it from the Trash with everything
+					you studied.
+					{#if dirty}Edits you have not saved are not kept.{/if}
+				</p>
+				<p class="actions">
+					<button
+						type="button"
+						class="btn btn--primary"
+						disabled={busy !== undefined}
+						data-state={busy === 'trash' ? 'loading' : undefined}
+						onclick={moveToTrash}
+					>
+						Move to Trash
+					</button>
+					<button type="button" class="btn btn--quiet" onclick={() => (confirmingTrash = false)}>
+						Cancel
+					</button>
+				</p>
+			</div>
+		{/if}
+
+		{#if confirmingReset}
+			<form
+				id="reset-confirm"
+				class="callout stack"
+				onsubmit={(event) => {
+					event.preventDefault();
+					void startOver();
+				}}
+			>
+				<p>
+					<strong>Start {original.deck.title} over?</strong> Every card goes back to new, as if you had
+					never studied this deck. The cards themselves are not changed. Your review history is kept for
+					statistics, and a copy of your data is saved first.
+				</p>
+				<label for="reset-title">
+					Type the deck title to confirm: <strong class="typed-title">{original.deck.title}</strong>
+				</label>
+				<input
+					id="reset-title"
+					class="field field--text"
+					type="text"
+					bind:value={resetTyped}
+					autocomplete="off"
+					spellcheck="false"
+					aria-invalid={resetProblem ? 'true' : undefined}
+					aria-describedby={resetProblem ? 'reset-problem' : undefined}
+				/>
+				{#if resetProblem}
+					<p id="reset-problem" class="problem" role="alert">{resetProblem}</p>
+				{/if}
+				<p class="actions">
+					<button
+						type="submit"
+						class="btn btn--primary"
+						disabled={!resetMatches || busy !== undefined}
+						data-state={busy === 'reset' ? 'loading' : undefined}
+					>
+						Start over
+					</button>
+					<button type="button" class="btn btn--quiet" onclick={closeReset}> Cancel </button>
+				</p>
+			</form>
+		{/if}
+
+		{#if resetDone}
+			<div class="callout callout--ok" role="status">
+				<p>
+					<strong>Started over.</strong>
+					{resetDone.items}
+					{resetDone.items === 1 ? 'card is' : 'cards are'} new again, and your {resetDone.reviews}
+					{resetDone.reviews === 1 ? 'review stays' : 'reviews stay'} in the history.
+				</p>
+				<p class="muted small">
+					A copy of everything as it was just before is saved as <code
+						>{resetDone.snapshot.name}</code
+					> in the backups folder, in case you change your mind.
+				</p>
+			</div>
+		{/if}
 
 		<p class="sr-only" role="status" aria-live="polite">{announcement}</p>
 
@@ -743,6 +920,10 @@
 	.problem {
 		color: var(--color-error);
 		font-size: var(--text-sm);
+	}
+
+	.typed-title {
+		overflow-wrap: anywhere;
 	}
 
 	.stack > :global(* + *) {

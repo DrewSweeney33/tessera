@@ -88,6 +88,7 @@ describe('openDatabase on a fresh directory', () => {
 				'__drizzle_migrations',
 				'card_state',
 				'cards',
+				'deck_resets',
 				'decks',
 				'import_history',
 				'review_log',
@@ -122,9 +123,9 @@ describe('openDatabase on a fresh directory', () => {
 		expect(values).toEqual(DEFAULT_SETTINGS);
 	});
 
-	it('reports one pending migration and writes no backup', () => {
+	it('reports every migration as pending on a new database and writes no backup', () => {
 		const handle = open();
-		expect(handle.migration).toEqual({ pending: 1, backupPath: undefined });
+		expect(handle.migration).toEqual({ pending: 2, backupPath: undefined });
 		expect(readdirSync(join(dir.path, 'backups'))).toEqual([]);
 	});
 });
@@ -193,6 +194,48 @@ describe('upgrading an existing database', () => {
 		} finally {
 			backup.close();
 		}
+	});
+
+	// The upgrade 0.1.1 users make: a database made by the first migration alone, then the real current folder.
+	it('upgrades a database from the first release with the real migrations, backs it up first, and keeps its data', () => {
+		const old = join(dir.path, 'first-release');
+		cpSync('drizzle', old, { recursive: true });
+		const journalPath = join(old, 'meta', '_journal.json');
+		const journal = JSON.parse(readFileSync(journalPath, 'utf8')) as { entries: unknown[] };
+		journal.entries = journal.entries.slice(0, 1);
+		writeFileSync(journalPath, JSON.stringify(journal, null, 2));
+
+		const data = join(dir.path, 'data');
+		const before = open(data, old);
+		expect(names(before, 'table')).not.toContain('deck_resets');
+		insertDeck(before, 'kept');
+		before.close();
+
+		const after = open(data);
+		expect(after.migration.pending).toBe(1);
+		expect(names(after, 'table')).toContain('deck_resets');
+		expect(
+			(after.sqlite.prepare("select id from decks where id = 'kept'").get() as { id: string }).id
+		).toBe('kept');
+		const backups = readdirSync(join(data, 'backups'));
+		expect(backups).toHaveLength(1);
+		const backup = new Database(join(data, 'backups', backups[0]!), { readonly: true });
+		try {
+			expect(
+				(
+					backup
+						.prepare("select count(*) as n from sqlite_master where name = 'deck_resets'")
+						.get() as { n: number }
+				).n
+			).toBe(0);
+			expect(
+				(backup.prepare("select count(*) as n from decks where id = 'kept'").get() as { n: number })
+					.n
+			).toBe(1);
+		} finally {
+			backup.close();
+		}
+		after.close();
 	});
 
 	it('keeps the backup path in the error when a migration fails', () => {

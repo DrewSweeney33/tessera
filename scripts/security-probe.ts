@@ -613,6 +613,41 @@ try {
 				`got ${tokenExport.status}`
 			);
 
+			// The Trash routes read and change which decks exist, so they need the token as well.
+			check('the Trash list is refused without the token', (await status('/api/trash')) === 401);
+			for (const action of ['trash', 'restore', 'delete-forever']) {
+				check(
+					`${action} is refused without the token`,
+					(await status(`/api/decks/probe-token/${action}`, JSON_HEADERS, 'POST')) === 401
+				);
+			}
+			check(
+				'start over is refused without the token',
+				(await status('/api/decks/probe-token/start-over', JSON_HEADERS, 'POST')) === 401
+			);
+			check(
+				'and a path variant of trash is refused too',
+				(await status('/api/%64ecks/probe-token/%74rash', JSON_HEADERS, 'POST')) === 401
+			);
+			const tokenTrash = await send({
+				method: 'POST',
+				path: '/api/decks/probe-token/trash',
+				headers: { ...JSON_HEADERS, ...withToken },
+				body: '{}'
+			});
+			check(
+				'the Trash works with the token',
+				tokenTrash.status === 200,
+				`got ${tokenTrash.status}`
+			);
+			check('and the Trash list does too', (await status('/api/trash', withToken)) === 200);
+			await send({
+				method: 'POST',
+				path: '/api/decks/probe-token/restore',
+				headers: { ...JSON_HEADERS, ...withToken },
+				body: '{}'
+			});
+
 			for (const path of ['/healthz', '/api/schema', '/', '/import']) {
 				check(`${path} stays open`, (await status(path)) === 200);
 			}
@@ -1312,6 +1347,358 @@ try {
 		foreignLoad.status === 421 && !foreignLoad.text.includes(exportMarker),
 		`got ${foreignLoad.status}`
 	);
+
+	// ---- 4c. The Trash (US-13, ADR-013)
+	console.log('\n# Trash');
+	const trashMarker = 'ZQXJ-TRASH-PROBE-7741';
+	const trashTitle = 'Probe trash deck';
+	const trashDeckBody = {
+		...deck('probe-trash', [basic('t1', trashMarker, 'A'), basic('t2')]),
+		deck: { id: 'probe-trash', title: trashTitle }
+	};
+	const trashImport = await post('/api/import', trashDeckBody);
+	check('a deck to trash can be imported', trashImport.status === 200, `${trashImport.status}`);
+	const idsOf = (text: string) =>
+		(JSON.parse(text).decks as { id: string }[]).map((entry) => entry.id);
+	const trashAction = (id: string, action: string, body: unknown = {}, headers = JSON_HEADERS) =>
+		post(`/api/decks/${id}/${action}`, body, headers);
+
+	check(
+		'the Trash does not list a deck that is not in it',
+		!idsOf((await send({ path: '/api/trash' })).text).includes('probe-trash')
+	);
+	const moved = await trashAction('probe-trash', 'trash');
+	check(
+		'a deck can be moved to the Trash',
+		moved.status === 200 && JSON.parse(moved.text).deck?.id === 'probe-trash',
+		`${moved.status} ${moved.text.slice(0, 80)}`
+	);
+	const movedAgain = await trashAction('probe-trash', 'trash');
+	check('and moving it again is harmless', movedAgain.status === 200, `${movedAgain.status}`);
+	check(
+		'it is in the Trash list',
+		idsOf((await send({ path: '/api/trash' })).text).includes('probe-trash')
+	);
+	check(
+		'and gone from the deck list',
+		!idsOf((await send({ path: '/api/decks' })).text).includes('probe-trash')
+	);
+	check(
+		'it cannot be loaded for editing or exported',
+		(await send({ path: '/api/decks/probe-trash' })).status === 404 &&
+			(await send({ path: '/api/decks/probe-trash/export' })).status === 404
+	);
+	const studyTrashed = await send({ path: '/api/study/next?deckId=probe-trash' });
+	check(
+		'a study session for it serves no card',
+		!studyTrashed.text.includes(trashMarker),
+		`${studyTrashed.status}`
+	);
+	const studyAll = await send({ path: '/api/study/next' });
+	check(
+		'and neither does a session over every deck',
+		!studyAll.text.includes(trashMarker),
+		`${studyAll.status}`
+	);
+	const trashedGet = await send({ path: '/api/trash' });
+	check(
+		'the Trash list is not cached and grants no cross-origin permission',
+		trashedGet.headers['cache-control'] === 'no-store' &&
+			!('access-control-allow-origin' in trashedGet.headers)
+	);
+
+	for (const action of ['trash', 'restore', 'delete-forever']) {
+		for (const id of [
+			'..%2f..%2fpackage.json',
+			'no-such-deck',
+			'UPPER',
+			'a%20b',
+			'%00',
+			'x'.repeat(100),
+			'%3Cscript%3Ealert(1)%3C%2Fscript%3E'
+		]) {
+			const r = await trashAction(id, action, { confirmTitle: 'x' });
+			check(
+				`${action} on "${id.slice(0, 24)}" is a 404 that leaks nothing and echoes nothing`,
+				r.status === 404 &&
+					!r.text.includes('<script') &&
+					!r.text.includes('"dependencies"') &&
+					!/node_modules|\.ts:\d+/.test(r.text),
+				`${r.status} ${r.text.slice(0, 80)}`
+			);
+		}
+		for (const method of ['GET', 'PUT', 'PATCH', 'DELETE']) {
+			const r = await send({
+				method,
+				path: `/api/decks/probe-trash/${action}`,
+				headers: method === 'GET' ? {} : JSON_HEADERS,
+				...(method === 'GET' ? {} : { body: '{}' })
+			});
+			check(
+				`${method} on ${action} is refused`,
+				[400, 403, 404, 405].includes(r.status),
+				`got ${r.status}`
+			);
+		}
+		const foreign = await send({
+			method: 'POST',
+			path: `/api/decks/probe-trash/${action}`,
+			headers: { ...JSON_HEADERS, host: 'attacker.example' },
+			body: JSON.stringify({ confirmTitle: trashTitle })
+		});
+		check(
+			`${action} under a foreign host name is refused (421)`,
+			foreign.status === 421,
+			`got ${foreign.status}`
+		);
+	}
+
+	// A cross-site page must not be able to trash or delete: it cannot send JSON without a preflight.
+	await post('/api/import', deck('probe-trash-safe', [basic('s1')]));
+	for (const type of [
+		'text/plain',
+		'application/x-www-form-urlencoded',
+		'multipart/form-data; boundary=x'
+	]) {
+		for (const action of ['trash', 'delete-forever']) {
+			const evil = await send({
+				method: 'POST',
+				path: `/api/decks/probe-trash-safe/${action}`,
+				headers: { 'content-type': type, origin: 'https://evil.example' },
+				body: '{"confirmTitle":"x"}'
+			});
+			check(
+				`${action} cross-site as ${type.split(';')[0]} is refused (403 or 415)`,
+				[403, 415].includes(evil.status),
+				`got ${evil.status}`
+			);
+		}
+	}
+	const noType = await send({
+		method: 'POST',
+		path: '/api/decks/probe-trash-safe/trash',
+		body: '{}'
+	});
+	check(
+		'trash with no content type is refused (403 or 415)',
+		[403, 415].includes(noType.status),
+		`got ${noType.status}`
+	);
+	check(
+		'none of that moved the deck',
+		idsOf((await send({ path: '/api/decks' })).text).includes('probe-trash-safe')
+	);
+
+	// Deleting for good.
+	const liveDelete = await trashAction('probe-trash-safe', 'delete-forever', { confirmTitle: 'x' });
+	check(
+		'a deck that is not in the Trash cannot be deleted for good (409)',
+		liveDelete.status === 409,
+		`got ${liveDelete.status}`
+	);
+	const wrongTitle = await trashAction('probe-trash', 'delete-forever', {
+		confirmTitle: '<script>alert(9)</script>'
+	});
+	check(
+		'a wrong title is a 422 that names the field and does not echo what was typed',
+		wrongTitle.status === 422 &&
+			JSON.parse(wrongTitle.text).error?.details?.errors?.[0]?.path === 'confirmTitle' &&
+			!wrongTitle.text.includes('<script'),
+		`${wrongTitle.status} ${wrongTitle.text.slice(0, 80)}`
+	);
+	for (const [label, body] of [
+		['a missing title', {}],
+		['a title that is a number', { confirmTitle: 5 }],
+		['a title that is null', { confirmTitle: null }],
+		['an extra field', { confirmTitle: trashTitle, force: true }],
+		['an array', []],
+		['the id instead of the title', { confirmTitle: 'probe-trash' }],
+		['the title in other case', { confirmTitle: trashTitle.toUpperCase() }]
+	] as const) {
+		const r = await trashAction('probe-trash', 'delete-forever', body);
+		check(`${label} deletes nothing`, r.status === 422 || r.status === 400, `got ${r.status}`);
+	}
+	const badJson = await post('/api/decks/probe-trash/delete-forever', '{not json');
+	check('a body that is not JSON is a 400', badJson.status === 400, `got ${badJson.status}`);
+	// Sent with its true Content-Length, as browsers and curl do (a chunked upload over a small limit has its
+	// connection reset instead of getting a 413: backlog B-3).
+	const hugeText = JSON.stringify({ confirmTitle: 'x'.repeat(40_000) });
+	const hugeBody = await send({
+		method: 'POST',
+		path: '/api/decks/probe-trash/delete-forever',
+		headers: { ...JSON_HEADERS, 'content-length': String(Buffer.byteLength(hugeText)) },
+		body: hugeText
+	});
+	check(
+		'a body over the small limit is refused (413)',
+		hugeBody.status === 413,
+		`got ${hugeBody.status}`
+	);
+	check(
+		'after all of that the deck is still in the Trash, untouched',
+		idsOf((await send({ path: '/api/trash' })).text).includes('probe-trash')
+	);
+
+	const restored = await trashAction('probe-trash', 'restore');
+	check(
+		'a deck can be restored, and answers with its summary',
+		restored.status === 200 &&
+			JSON.parse(restored.text).deck?.id === 'probe-trash' &&
+			JSON.parse(restored.text).deck?.cardCount === 2,
+		`${restored.status} ${restored.text.slice(0, 80)}`
+	);
+	check(
+		'and it is back in the deck list, and loads for editing again',
+		idsOf((await send({ path: '/api/decks' })).text).includes('probe-trash') &&
+			(await send({ path: '/api/decks/probe-trash' })).status === 200
+	);
+	await trashAction('probe-trash', 'trash');
+	const gone = await trashAction('probe-trash', 'delete-forever', {
+		confirmTitle: ` ${trashTitle} `
+	});
+	const goneBody = gone.status === 200 ? JSON.parse(gone.text) : undefined;
+	check(
+		'with the right title it is deleted for good, and a snapshot taken first is named',
+		gone.status === 200 &&
+			goneBody?.deleted?.cards === 2 &&
+			/^pre-delete-probe-trash-[A-Za-z0-9._-]+\.db$/.test(goneBody?.deleted?.snapshot?.name ?? ''),
+		`${gone.status} ${gone.text.slice(0, 120)}`
+	);
+	check(
+		'it is then in neither list, and cannot be restored',
+		!idsOf((await send({ path: '/api/trash' })).text).includes('probe-trash') &&
+			!idsOf((await send({ path: '/api/decks' })).text).includes('probe-trash') &&
+			(await trashAction('probe-trash', 'restore')).status === 404
+	);
+	check('the response gives no path on the server', !gone.text.includes('/data'));
+
+	// ---- 4d. Start over (US-14, ADR-013)
+	console.log('\n# Start over');
+	const resetTitle = 'Probe start over deck';
+	await post('/api/import', {
+		...deck('probe-reset', [basic('r1'), basic('r2')]),
+		deck: { id: 'probe-reset', title: resetTitle }
+	});
+	const startOverAction = (id: string, body: unknown, headers = JSON_HEADERS) =>
+		post(`/api/decks/${id}/start-over`, body, headers);
+
+	for (const id of [
+		'..%2f..%2fpackage.json',
+		'no-such-deck',
+		'UPPER',
+		'a%20b',
+		'%00',
+		'x'.repeat(100),
+		'%3Cscript%3Ealert(1)%3C%2Fscript%3E'
+	]) {
+		const r = await startOverAction(id, { confirmTitle: 'x' });
+		check(
+			`start over on "${id.slice(0, 24)}" is a 404 that leaks nothing and echoes nothing`,
+			r.status === 404 &&
+				!r.text.includes('<script') &&
+				!r.text.includes('"dependencies"') &&
+				!/node_modules|\.ts:\d+/.test(r.text),
+			`${r.status} ${r.text.slice(0, 80)}`
+		);
+	}
+	for (const method of ['GET', 'PUT', 'PATCH', 'DELETE']) {
+		const r = await send({
+			method,
+			path: '/api/decks/probe-reset/start-over',
+			headers: method === 'GET' ? {} : JSON_HEADERS,
+			...(method === 'GET' ? {} : { body: '{}' })
+		});
+		check(
+			`${method} on start over is refused`,
+			[400, 403, 404, 405].includes(r.status),
+			`got ${r.status}`
+		);
+	}
+	const foreignReset = await send({
+		method: 'POST',
+		path: '/api/decks/probe-reset/start-over',
+		headers: { ...JSON_HEADERS, host: 'attacker.example' },
+		body: JSON.stringify({ confirmTitle: resetTitle })
+	});
+	check(
+		'start over under a foreign host name is refused (421)',
+		foreignReset.status === 421,
+		`got ${foreignReset.status}`
+	);
+	for (const type of [
+		'text/plain',
+		'application/x-www-form-urlencoded',
+		'multipart/form-data; boundary=x'
+	]) {
+		const evil = await send({
+			method: 'POST',
+			path: '/api/decks/probe-reset/start-over',
+			headers: { 'content-type': type, origin: 'https://evil.example' },
+			body: JSON.stringify({ confirmTitle: resetTitle })
+		});
+		check(
+			`start over cross-site as ${type.split(';')[0]} is refused (403 or 415)`,
+			[403, 415].includes(evil.status),
+			`got ${evil.status}`
+		);
+	}
+	const wrongReset = await startOverAction('probe-reset', {
+		confirmTitle: '<script>alert(1)</script>'
+	});
+	check(
+		'a wrong title is a 422 that names the field and does not echo what was typed',
+		wrongReset.status === 422 &&
+			JSON.parse(wrongReset.text).error?.details?.errors?.[0]?.path === 'confirmTitle' &&
+			!wrongReset.text.includes('<script'),
+		`${wrongReset.status}`
+	);
+	for (const [label, body] of [
+		['a missing title', {}],
+		['a title that is a number', { confirmTitle: 5 }],
+		['an extra field', { confirmTitle: resetTitle, force: true }],
+		['an array', []],
+		['the id instead of the title', { confirmTitle: 'probe-reset' }],
+		['the title in other case', { confirmTitle: resetTitle.toUpperCase() }]
+	] as const) {
+		const r = await startOverAction('probe-reset', body);
+		check(`${label} resets nothing`, r.status === 422 || r.status === 400, `got ${r.status}`);
+	}
+	const badResetJson = await post('/api/decks/probe-reset/start-over', '{not json');
+	check(
+		'a body that is not JSON is a 400',
+		badResetJson.status === 400,
+		`got ${badResetJson.status}`
+	);
+	const hugeResetText = JSON.stringify({ confirmTitle: 'x'.repeat(40_000) });
+	const hugeReset = await send({
+		method: 'POST',
+		path: '/api/decks/probe-reset/start-over',
+		headers: { ...JSON_HEADERS, 'content-length': String(Buffer.byteLength(hugeResetText)) },
+		body: hugeResetText
+	});
+	check(
+		'a body over the small limit is refused (413)',
+		hugeReset.status === 413,
+		`got ${hugeReset.status}`
+	);
+
+	const didReset = await startOverAction('probe-reset', { confirmTitle: ` ${resetTitle} ` });
+	const didBody = didReset.status === 200 ? JSON.parse(didReset.text) : undefined;
+	check(
+		'with the right title the deck is started over, and a snapshot taken first is named',
+		didReset.status === 200 &&
+			didBody?.reset?.items === 2 &&
+			didBody?.deck?.counts?.new === 2 &&
+			/^pre-reset-probe-reset-[A-Za-z0-9._-]+\.db$/.test(didBody?.reset?.snapshot?.name ?? ''),
+		`${didReset.status} ${didReset.text.slice(0, 120)}`
+	);
+	check('the response gives no path on the server', !didReset.text.includes('/data'));
+	await trashAction('probe-reset', 'trash');
+	check(
+		'a deck in the Trash cannot be started over (404)',
+		(await startOverAction('probe-reset', { confirmTitle: resetTitle })).status === 404
+	);
+	await trashAction('probe-reset', 'delete-forever', { confirmTitle: resetTitle });
 
 	// ---- 5. Path traversal and error leakage
 	console.log('\n# Paths and errors');

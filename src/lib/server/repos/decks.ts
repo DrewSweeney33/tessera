@@ -1,6 +1,6 @@
-import { asc, eq } from 'drizzle-orm';
+import { asc, desc, eq } from 'drizzle-orm';
 import type { Executor } from '../db/client.ts';
-import { decks, type DeckRow } from '../db/schema.ts';
+import { cards, deckResets, decks, importHistory, type DeckRow } from '../db/schema.ts';
 
 export interface DeckInput {
 	id: string;
@@ -48,4 +48,29 @@ export function upsertDeck(x: Executor, input: DeckInput, now: string): 'created
 		.where(eq(decks.id, input.id))
 		.run();
 	return 'updated';
+}
+
+// Decks in the Trash, the most recently moved there first (moving a deck there sets its updatedAt).
+export function listArchivedDecks(x: Executor): DeckRow[] {
+	return x
+		.select()
+		.from(decks)
+		.where(eq(decks.archived, true))
+		.orderBy(desc(decks.updatedAt))
+		.all();
+}
+
+// Moves a deck to the Trash (archived) or back. Cards, schedule, and history are not touched.
+export function setDeckArchived(x: Executor, id: string, archived: boolean, now: string): void {
+	x.update(decks).set({ archived, updatedAt: now }).where(eq(decks.id, id)).run();
+}
+
+// Removes a deck and everything that belongs to it: cards (their schedule and review history go with them,
+// ON DELETE CASCADE), import history, and the record of resets. Only permanent deletion from the Trash calls this (ADR-013), after
+// a snapshot. Everything else keeps review history for good.
+export function deleteDeckAndData(x: Executor, id: string): void {
+	x.delete(cards).where(eq(cards.deckId, id)).run();
+	x.delete(importHistory).where(eq(importHistory.deckId, id)).run();
+	x.delete(deckResets).where(eq(deckResets.deckId, id)).run();
+	x.delete(decks).where(eq(decks.id, id)).run();
 }

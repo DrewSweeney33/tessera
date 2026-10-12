@@ -120,6 +120,63 @@ export interface GetDeckResponse {
 	revision: string;
 }
 
+// A deck in the Trash (US-13). `trashedAt` is when it went there. `reviewCount` is the review history that deleting
+// it for good would erase.
+export interface TrashedDeckDto {
+	id: string;
+	title: string;
+	description: string | null;
+	tags: string[];
+	cardCount: number;
+	reviewCount: number;
+	trashedAt: string;
+}
+
+export interface TrashResponse {
+	decks: TrashedDeckDto[];
+}
+
+export interface TrashDeckResponse {
+	deck: TrashedDeckDto;
+}
+
+export interface RestoreDeckResponse {
+	deck: DeckSummaryDto;
+}
+
+// POST /api/decks/:id/delete-forever. The title is typed by a person, as a check that they mean it.
+export interface DeleteDeckRequest {
+	confirmTitle: string;
+}
+
+export interface DeleteDeckResponse {
+	deleted: {
+		deckId: string;
+		title: string;
+		cards: number;
+		reviews: number;
+		// The copy taken first, in the backups folder. Restoring it brings the deck back.
+		snapshot: { name: string; size: number };
+	};
+}
+
+// POST /api/decks/:id/start-over. Like deleting for good, the title is typed by a person as a check.
+export interface StartOverRequest {
+	confirmTitle: string;
+}
+
+export interface StartOverResponse {
+	reset: {
+		deckId: string;
+		// Review items put back to new, and reviews that stay in the log.
+		items: number;
+		reviews: number;
+		// The copy taken first, in the backups folder. Restoring it brings the progress back.
+		snapshot: { name: string; size: number };
+	};
+	deck: DeckSummaryDto;
+}
+
 export interface DecksResponse {
 	decks: DeckSummaryDto[];
 	// What a session across every deck would serve right now.

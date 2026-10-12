@@ -360,12 +360,22 @@ export function planImport(
 		});
 	}
 
+	if (existingDeck?.archived) {
+		warnings.push({
+			code: 'deck_in_trash',
+			message:
+				'This deck is in the Trash. Importing it brings it back to your deck list, with everything you studied.',
+			paths: []
+		});
+	}
 	warnings.push(...typeChangeWarnings(planned));
 	warnings.push(...missingCardWarnings(planned, existingCards, absent, options.archiveMissing));
 
 	// Only fields the file provides can change an existing deck. Omitted ones are left alone.
+	// A deck in the Trash is brought back by an import, so that is a change even when nothing else is.
 	const deckChanged =
 		!existingDeck ||
+		existingDeck.archived ||
 		existingDeck.title !== deck.deck.title ||
 		(deck.deck.description !== undefined &&
 			(existingDeck.description ?? undefined) !== deck.deck.description) ||

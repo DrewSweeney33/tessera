@@ -53,6 +53,7 @@
 					<a class="btn btn--primary" href={resolve('/study/[[deckId]]', {})}>Study all decks</a>
 				{/if}
 				<a class="btn" href={resolve('/decks/new')}>New deck</a>
+				<a class="btn btn--quiet" href={resolve('/trash')}>Trash</a>
 			</div>
 		</header>
 
@@ -122,6 +123,7 @@
 			<p class="head__actions">
 				<a class="btn btn--primary" href={resolve('/import')}>Import a deck</a>
 				<a class="btn" href={resolve('/decks/new')}>New deck</a>
+				<a class="btn btn--quiet" href={resolve('/trash')}>Trash</a>
 			</p>
 		</div>
 	{:else if view.kind === 'error'}

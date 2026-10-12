@@ -59,6 +59,35 @@ export function updateState(
 		.run();
 }
 
+// Puts every review item of a deck back to a card that was never studied: due now, no stability, no reps, no
+// lapses, not a leech, not buried. The same values a first import gives. Items that were removed from the queue
+// stay removed. Returns how many items were reset.
+export function resetStatesForDeck(x: Executor, deckId: string, now: string): number {
+	return x
+		.update(cardState)
+		.set({
+			due: now,
+			stability: 0,
+			difficulty: 0,
+			elapsedDays: 0,
+			scheduledDays: 0,
+			learningSteps: 0,
+			reps: 0,
+			lapses: 0,
+			phase: 0,
+			lastReview: null,
+			leech: false,
+			buriedUntil: null
+		})
+		.where(
+			inArray(
+				cardState.cardPk,
+				x.select({ pk: cards.pk }).from(cards).where(eq(cards.deckId, deckId))
+			)
+		)
+		.run().changes;
+}
+
 // Archived items keep their history but leave the study queue.
 export function setStatesArchived(
 	x: Executor,

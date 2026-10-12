@@ -744,3 +744,15 @@ Milestone L (library management) started on the owner's go-ahead (ADR-013 and AD
 **Found on the way.** axe flagged a skipped heading level (h2 to h4) and four identical "Preview of this card" landmarks; the preview now uses an h3 and no landmark. ESLint required injected randomness in core (`newCardId` takes an rng; the default uses `crypto`), and reactive Map/Set in the page.
 
 **Not done.** No reordering of cards (backlog). No Trash, Start over, or Backups page yet (L-06 to L-08).
+
+## L-06 Trash and L-07 Start over (2026-10-12)
+
+**Built.** Trash: `src/lib/server/decks/trash.ts` (move, restore, list, delete for good), `api/trash.ts`, four routes, the `/trash` page, Move to Trash in the editor, a Trash link on both home headers. Start over: `decks/reset.ts`, `api/start-over.ts`, `POST /api/decks/:id/start-over`, a panel in the editor. Shared: `api/deck-actions.ts` (the 404, the small-body typed-title reader, the mismatch answer). Queries live in the repositories (an ESLint rule keeps Drizzle out of everything else).
+
+**Decisions.** Permanent delete and Start over are POSTs with `{"confirmTitle"}` (a DELETE with a body is unreliable through proxies and the framework answers it 400). A mismatch is a 422 naming the field; a deck not in the Trash is a 409; a trashed deck cannot be started over (404). Neither answer repeats what was typed, and logs carry the deck id and the copy's name, never the title. Trashing sets `updatedAt` to the time it happened, which the Trash page shows. The Trash page is reached with the moved deck's id in page state (not the query string). **Migration `0001_deck_resets`**: the ADR says the kept review log is "marked as before a reset"; a table of reset times does that without touching the log. The migration is the first real upgrade on a live database, so a test now upgrades a database made by the first migration alone through the real folder, with the pre-migrate backup.
+
+**Found on the way.** Importing a file for a deck that is in the Trash did nothing when the file matched the deck (the plan saw no change), although the repository comment and my draft guide said it restores the deck. A test written for the guide's sentence failed. The plan now counts it as a change and the preview warns that the deck is in the Trash. Also: the "Keep editing" button on the stale-copy notice hid the only way to reload (fixed earlier in L-05); the probe's oversized body must carry its true Content-Length (B-3); two of my probe expectations were too narrow (403 and 415 are both refusals).
+
+**Checked.** Trash: 20 service tests and 20 handler tests (15 + 12 planted bugs, all caught or equivalent), 13 browser tests, axe in both themes, 320/375/768 layout. Start over: see the status row. Full gates before the Trash commit: verify, build, probe, Chromium (all), WebKit (all).
+
+**Not done.** The Backups page (L-08), restore from the list (L-09), the harness steps for download, restore, and the 0.1.1 to new upgrade (L-10).

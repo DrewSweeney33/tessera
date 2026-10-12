@@ -197,3 +197,22 @@ describe('signs that ids were changed', () => {
 		expect(plan(makeDeck([basic('a'), basic('b'), basic('c')])).warnings).toEqual([]);
 	});
 });
+
+describe('a deck in the Trash', () => {
+	it('is brought back by an import, which counts as a change and says so in the preview', () => {
+		seedDeck(handle.db, makeDeck([basic('a'), basic('b')]));
+		handle.sqlite.prepare('update decks set archived = 1 where id = ?').run('d1');
+		const p = plan(makeDeck([basic('a'), basic('b')]));
+		expect(p.deck.changed).toBe(true);
+		const warning = p.warnings.find((w) => w.code === 'deck_in_trash');
+		expect(warning?.message).toMatch(/Trash/);
+		expect(warning?.message).toMatch(/brings it back/);
+	});
+
+	it('is not mentioned for a deck that is not in the Trash', () => {
+		seedDeck(handle.db, makeDeck([basic('a'), basic('b')]));
+		const p = plan(makeDeck([basic('a'), basic('b')]));
+		expect(p.deck.changed).toBe(false);
+		expect(codes(p)).not.toContain('deck_in_trash');
+	});
+});

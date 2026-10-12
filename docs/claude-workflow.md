@@ -103,13 +103,32 @@ Nothing is saved until you press **Review changes**. That shows the same preview
 A few things to know:
 
 - **A card keeps its type.** Changing a card from basic to cloze would erase what you studied on it, so the editor does not offer it. Remove the card and add a new one.
-- **A deck needs at least one card** to be saved. To get rid of a deck you are done with, use the Trash (coming in a later version).
+- **A deck needs at least one card** to be saved. To get rid of a deck you are done with, move it to the Trash (see below).
 - **If the deck changed somewhere else** (another tab, or Claude re-importing it) after you opened the editor, saving is refused and nothing is lost. The page tells you, keeps your edits on screen so you can copy any text, and offers to reload the deck.
 - **Studying in another tab does not get in the way.** Only changes to the deck itself count.
 - **Leaving with unsaved changes** asks first.
 - **Export JSON** and **Export Markdown** are buttons at the top of the editor, the same files as the routes above.
 
 For scripts: `GET /api/decks/:id` returns the deck as a document plus a `revision`. Send that revision back as `expected_revision` on `POST /api/import` and a save made from an out-of-date copy is refused with HTTP 409 instead of overwriting newer changes.
+
+## Start a deck over
+
+Press **Start over…** at the top of a deck's editor to study the whole deck again from scratch. Every card goes back to new, as if you had never studied it. The cards themselves are not changed, and your review history is kept (it still counts in statistics, and Tessera records when the deck was started over). You have to type the deck's title to confirm, and Tessera saves a copy of your database first. The page shows its name, starting with `pre-reset-`. If that copy cannot be written, nothing changes.
+
+This is different from practising a deck again without affecting the schedule, which is planned for a later version.
+
+For scripts: `POST /api/decks/:id/start-over` with `{"confirmTitle": "..."}`.
+
+## Delete a deck: the Trash
+
+Press **Move to Trash** at the top of a deck's editor. The deck leaves your deck list and your study sessions, but nothing is deleted: its cards, its schedule, and everything you studied wait in the Trash. Open **Trash** from the deck list to see them.
+
+- **Restore** puts a deck back exactly as it was, with its progress.
+- **Delete for good** removes the deck, its cards, and its review history for good. You have to type the deck's title to confirm, and the page says how many cards and reviews go with it. Before anything is removed, Tessera saves a copy of your whole database in the `backups` folder (the page shows its name, starting with `pre-delete-`). If that copy cannot be written, for example because the disk is full, nothing is deleted. Restoring that copy brings the deck back (see the operations guide).
+- A deck's id stays taken while it is in the Trash, so a new deck cannot reuse it by accident. Once a deck is deleted for good, the id is free again.
+- Importing a file whose deck id is in the Trash brings that deck back (the same as restoring it), and then applies the import.
+
+For scripts: `GET /api/trash`, `POST /api/decks/:id/trash`, `POST /api/decks/:id/restore`, and `POST /api/decks/:id/delete-forever` with `{"confirmTitle": "..."}`. They need the API token when one is set, like every other write.
 
 ## Good cards
 
@@ -125,4 +144,4 @@ The skill asks Claude for these. You can ask for them too.
 
 ## What is not here yet
 
-Removing a deck to a Trash, practicing a deck again, starting a deck over, and backups from the web page are planned for the next version. A weak-spot report, which would let you hand Claude the cards you keep getting wrong and ask for better ones, is planned for a later version.
+Practising a deck again without changing its schedule, and backups from the web page, are planned for the next version. A weak-spot report, which would let you hand Claude the cards you keep getting wrong and ask for better ones, is planned for a later version.

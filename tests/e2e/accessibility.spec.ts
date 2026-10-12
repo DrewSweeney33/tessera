@@ -73,6 +73,64 @@ for (const scheme of ['light', 'dark'] as const) {
 			await scan(page, 'new deck done');
 		});
 
+		test('trash: with decks, the delete panel, and the editor confirm', async ({
+			page,
+			request
+		}) => {
+			const id = `a11y-trash-${scheme}`;
+			await importViaApi(request, deckOf(id, `A11y trash ${scheme}`, basicCards(2, 'q')));
+			await page.goto(`/decks/${id}/edit`);
+			await page.getByRole('button', { name: 'Move to Trash' }).click();
+			await expect(page.getByText(`Move A11y trash ${scheme} to the Trash?`)).toBeVisible();
+			await scan(page, 'editor move to trash confirm');
+
+			await page.getByRole('button', { name: 'Move to Trash' }).last().click();
+			await expect(page.getByRole('heading', { name: 'Trash', level: 1 })).toBeVisible();
+			await expect(page.getByText('is in the Trash')).toBeVisible();
+			await scan(page, 'trash with a deck');
+
+			await page
+				.getByRole('button', { name: /for good/ })
+				.first()
+				.click();
+			await expect(page.locator('.danger')).toBeVisible();
+			await scan(page, 'trash delete panel');
+
+			await page.getByLabel(/Type the deck title/).fill(`A11y trash ${scheme}`);
+			await scan(page, 'trash delete panel typed');
+		});
+
+		test('start over: the panel, typed, and the result', async ({ page, request }) => {
+			const id = `a11y-reset-${scheme}`;
+			await importViaApi(request, deckOf(id, `A11y reset ${scheme}`, basicCards(2, 'z')));
+			await page.goto(`/decks/${id}/edit`);
+			await page.getByRole('button', { name: 'Start over…' }).click();
+			await expect(page.getByLabel(/Type the deck title to confirm/)).toBeVisible();
+			await scan(page, 'start over panel');
+
+			await page.getByLabel(/Type the deck title to confirm/).fill(`A11y reset ${scheme}`);
+			await scan(page, 'start over panel typed');
+
+			await page.getByRole('button', { name: 'Start over', exact: true }).click();
+			await expect(page.locator('.callout--ok').getByText('Started over.')).toBeVisible();
+			await scan(page, 'start over result');
+		});
+
+		test('trash: empty', async ({ page, request }) => {
+			const trashed = (await (await request.get('/api/trash')).json()) as {
+				decks: { id: string }[];
+			};
+			for (const deck of trashed.decks) {
+				await request.post(`/api/decks/${deck.id}/restore`, {
+					headers: { 'content-type': 'application/json' },
+					data: '{}'
+				});
+			}
+			await page.goto('/trash');
+			await expect(page.getByText('The Trash is empty.')).toBeVisible();
+			await scan(page, 'trash empty');
+		});
+
 		test('edit deck: closed, every card type open, with problems, and the review', async ({
 			page,
 			request

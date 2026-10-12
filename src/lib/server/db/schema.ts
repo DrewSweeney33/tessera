@@ -149,6 +149,19 @@ export const importHistory = sqliteTable('import_history', {
 	createdAt: text('created_at').notNull()
 });
 
+// One row each time a deck is started over (US-14, ADR-013). The review log is kept, so this marks where the history
+// of a card's schedule starts again: reviews before resetAt belong to the earlier run. A deck's rows go with it
+// when it is deleted for good.
+export const deckResets = sqliteTable('deck_resets', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	deckId: text('deck_id')
+		.notNull()
+		.references(() => decks.id),
+	resetAt: text('reset_at').notNull(),
+	// Review items put back to new.
+	items: integer('items').notNull()
+});
+
 export type DeckRow = typeof decks.$inferSelect;
 export type NewDeckRow = typeof decks.$inferInsert;
 export type CardRow = typeof cards.$inferSelect;
@@ -158,3 +171,4 @@ export type NewCardStateRow = typeof cardState.$inferInsert;
 export type ReviewLogRow = typeof reviewLog.$inferSelect;
 export type NewReviewLogRow = typeof reviewLog.$inferInsert;
 export type ImportHistoryRow = typeof importHistory.$inferSelect;
+export type DeckResetRow = typeof deckResets.$inferSelect;

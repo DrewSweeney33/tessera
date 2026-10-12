@@ -3,12 +3,17 @@ import type {
 	CreateDeckRequest,
 	CreateDeckResponse,
 	DecksResponse,
+	DeleteDeckResponse,
 	FieldErrorDto,
 	GetDeckResponse,
 	ImportResponse,
 	NextResponse,
+	RestoreDeckResponse,
 	ReviewRequest,
-	ReviewResponse
+	ReviewResponse,
+	StartOverResponse,
+	TrashDeckResponse,
+	TrashResponse
 } from '#lib/core/api-types.ts';
 // Straight from the file, so the browser bundle does not pull in the Markdown and schema readers.
 import { CLIENT_HEADER, CLIENT_HEADER_VALUE } from '#lib/core/client-header.ts';
@@ -110,6 +115,36 @@ export const api = {
 			method: 'POST',
 			headers: JSON_HEADERS,
 			body: JSON.stringify(request)
+		}),
+
+	trash: () => call<TrashResponse>('/api/trash'),
+
+	trashDeck: (deckId: string) =>
+		call<TrashDeckResponse>(`/api/decks/${encodeURIComponent(deckId)}/trash`, {
+			method: 'POST',
+			headers: JSON_HEADERS,
+			body: '{}'
+		}),
+
+	restoreDeck: (deckId: string) =>
+		call<RestoreDeckResponse>(`/api/decks/${encodeURIComponent(deckId)}/restore`, {
+			method: 'POST',
+			headers: JSON_HEADERS,
+			body: '{}'
+		}),
+
+	deleteDeckForever: (deckId: string, confirmTitle: string) =>
+		call<DeleteDeckResponse>(`/api/decks/${encodeURIComponent(deckId)}/delete-forever`, {
+			method: 'POST',
+			headers: JSON_HEADERS,
+			body: JSON.stringify({ confirmTitle })
+		}),
+
+	startOver: (deckId: string, confirmTitle: string) =>
+		call<StartOverResponse>(`/api/decks/${encodeURIComponent(deckId)}/start-over`, {
+			method: 'POST',
+			headers: JSON_HEADERS,
+			body: JSON.stringify({ confirmTitle })
 		}),
 
 	studyNext: (deckId?: string) =>
