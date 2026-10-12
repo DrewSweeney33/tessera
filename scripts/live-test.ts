@@ -16,7 +16,8 @@
 // Everything it creates is in ~/tessera-test on the host and the compose project "tessera-test", and is removed at the end,
 // and at the start of the next run if this one was cut short. Run `docs/testing-on-your-host.md` for the details.
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -294,15 +295,25 @@ async function main(): Promise<void> {
 		console.log(
 			`building ${candidate} on the host from commit ${sha} (${Math.round(archive.stdout.length / 1024)} KB)`
 		);
+		// "timeout" runs on the host, so a hung build is cancelled there. Without it, giving up here would leave the
+		// build running on the host (it did, once: npm waited on a slow network for half an hour).
 		const build = remote(
-			`docker build --build-arg VERSION=${version} --build-arg REVISION=${sha} -t ${candidate} -`,
+			`timeout 15m docker build --progress=plain --build-arg VERSION=${version} --build-arg REVISION=${sha} -t ${candidate} -`,
 			{
 				input: archive.stdout,
-				timeoutMs: 30 * 60_000
+				timeoutMs: 17 * 60_000
 			}
 		);
 		installedCandidate = true;
-		check('the image was built on the host', build.status === 0, tail(build.stderr, 3));
+		const buildLog = join(tmpdir(), 'tessera-live-build.log');
+		writeFileSync(buildLog, `${build.stdout}\n${build.stderr}`);
+		check(
+			'the image was built on the host',
+			build.status === 0,
+			build.status === 124
+				? `timed out after 15 minutes. A host that reaches the npm registry slowly can hang in "npm prune". Test a published image with --image instead. Full log: ${buildLog}`
+				: `${tail(build.stderr, 3)}  Full log: ${buildLog}`
+		);
 		if (build.status !== 0) throw new Error('build failed');
 	}
 	const written = remote(`cat > ${TEST_DIR}/compose.yaml`, { input: composeText });
