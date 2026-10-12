@@ -177,6 +177,31 @@ export interface StartOverResponse {
 	deck: DeckSummaryDto;
 }
 
+// A copy of the database in the backups folder (US-15, ADR-014). `kind` says why it was taken. A backup is
+// named by its file name, never by a path.
+export type BackupKind =
+	'manual' | 'pre-migrate' | 'pre-delete' | 'pre-reset' | 'pre-restore' | 'other';
+
+export interface BackupDto {
+	name: string;
+	kind: BackupKind;
+	size: number;
+	// When the file was written, as an ISO time.
+	modifiedAt: string;
+}
+
+export interface BackupsResponse {
+	backups: BackupDto[];
+}
+
+export interface CreateBackupResponse {
+	backup: BackupDto;
+}
+
+export interface DeleteBackupResponse {
+	deleted: string;
+}
+
 export interface DecksResponse {
 	decks: DeckSummaryDto[];
 	// What a session across every deck would serve right now.

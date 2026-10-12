@@ -39,7 +39,9 @@ Tessera writes one log line for every request, and Docker keeps container logs f
 
 ## Backups
 
-Two kinds exist.
+**From the web page.** Open **Backups** from the deck list. **Back up now** saves a copy of everything while Tessera keeps running. The page lists every backup with why it was taken (by you, before an upgrade, before a deck was deleted for good, before a deck was started over), its date, and its size. **Download** sends one to your computer, which is the way to keep a copy on another disk. **Delete** removes one after asking. Backups are plain files in `/data/backups`, so the commands below work on the same files. Restoring is still done from the host (see Restore below).
+
+Two kinds of backup are made without the page.
 
 **Automatic, before upgrades.** When a new version changes the database layout, Tessera first writes a full copy to `/data/backups/pre-migrate-<timestamp>.db`. Nothing prunes this folder, so delete old ones when you are happy with an upgrade. Tessera creates the folder when it starts, so it is there on a fresh install too. (Version 0.1.0 did not, and the manual backup below failed until you ran `docker compose exec tessera mkdir -p /data/backups`. Upgrading to 0.1.1 fixes it.)
 

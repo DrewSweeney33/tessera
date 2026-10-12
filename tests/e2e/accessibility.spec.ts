@@ -116,6 +116,30 @@ for (const scheme of ['light', 'dark'] as const) {
 			await scan(page, 'start over result');
 		});
 
+		test('backups: with a backup, a delete question, and empty', async ({ page, request }) => {
+			await page.goto('/backups');
+			await page.getByRole('button', { name: 'Back up now' }).click();
+			const name = (await page.locator('.callout--ok code').textContent())!;
+			await expect(page.locator('.row', { hasText: name })).toBeVisible();
+			await scan(page, 'backups with a backup');
+
+			await page.getByRole('button', { name: `Delete ${name}` }).click();
+			await expect(page.getByText('Delete this backup?')).toBeVisible();
+			await scan(page, 'backups delete question');
+
+			const listed = (await (await request.get('/api/backups')).json()) as {
+				backups: { name: string }[];
+			};
+			for (const backup of listed.backups) {
+				await request.delete(`/api/backups/${encodeURIComponent(backup.name)}`, {
+					headers: { 'content-type': 'application/json' }
+				});
+			}
+			await page.goto('/backups');
+			await expect(page.getByText('There are no backups yet.')).toBeVisible();
+			await scan(page, 'backups empty');
+		});
+
 		test('trash: empty', async ({ page, request }) => {
 			const trashed = (await (await request.get('/api/trash')).json()) as {
 				decks: { id: string }[];

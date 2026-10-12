@@ -54,6 +54,7 @@
 				{/if}
 				<a class="btn" href={resolve('/decks/new')}>New deck</a>
 				<a class="btn btn--quiet" href={resolve('/trash')}>Trash</a>
+				<a class="btn btn--quiet" href={resolve('/backups')}>Backups</a>
 			</div>
 		</header>
 
@@ -124,6 +125,7 @@
 				<a class="btn btn--primary" href={resolve('/import')}>Import a deck</a>
 				<a class="btn" href={resolve('/decks/new')}>New deck</a>
 				<a class="btn btn--quiet" href={resolve('/trash')}>Trash</a>
+				<a class="btn btn--quiet" href={resolve('/backups')}>Backups</a>
 			</p>
 		</div>
 	{:else if view.kind === 'error'}

@@ -648,6 +648,46 @@ try {
 				body: '{}'
 			});
 
+			// Backups hold the whole database, so every Backups route needs the token.
+			check('the backup list is refused without the token', (await status('/api/backups')) === 401);
+			check(
+				'taking a backup is refused without the token',
+				(await status('/api/backups', JSON_HEADERS, 'POST')) === 401
+			);
+			check(
+				'a backup download is refused without the token',
+				(await status('/api/backups/manual-x.db')) === 401
+			);
+			check('and so is a path variant of it', (await status('/api/%62ackups/manual-x.db')) === 401);
+			check(
+				'deleting a backup is refused without the token',
+				(await status('/api/backups/manual-x.db', JSON_HEADERS, 'DELETE')) === 401
+			);
+			const tokenBackup = await send({
+				method: 'POST',
+				path: '/api/backups',
+				headers: { ...JSON_HEADERS, ...withToken },
+				body: '{}'
+			});
+			const tokenBackupName: string =
+				tokenBackup.status === 201 ? JSON.parse(tokenBackup.text).backup?.name : '';
+			check(
+				'a backup works with the token',
+				tokenBackup.status === 201,
+				`got ${tokenBackup.status}`
+			);
+			check(
+				'and so does its download',
+				(
+					await send({ path: `/api/backups/${tokenBackupName}`, headers: withToken })
+				).text.startsWith('SQLite format 3')
+			);
+			await send({
+				method: 'DELETE',
+				path: `/api/backups/${tokenBackupName}`,
+				headers: { ...JSON_HEADERS, ...withToken }
+			});
+
 			for (const path of ['/healthz', '/api/schema', '/', '/import']) {
 				check(`${path} stays open`, (await status(path)) === 200);
 			}
@@ -1699,6 +1739,151 @@ try {
 		(await startOverAction('probe-reset', { confirmTitle: resetTitle })).status === 404
 	);
 	await trashAction('probe-reset', 'delete-forever', { confirmTitle: resetTitle });
+
+	// ---- 4e. Backups (US-15, ADR-014)
+	console.log('\n# Backups');
+	const madeBackup = await post('/api/backups', {});
+	const backupName: string =
+		madeBackup.status === 201 ? JSON.parse(madeBackup.text).backup?.name : '';
+	check(
+		'a backup can be taken, and answers 201 with a name that is a plain file name',
+		madeBackup.status === 201 && /^manual-[A-Za-z0-9._-]+\.db$/.test(backupName),
+		`${madeBackup.status} ${madeBackup.text.slice(0, 100)}`
+	);
+	check(
+		'the answer gives no path on the server',
+		!madeBackup.text.includes('/data') && !madeBackup.text.includes('\\\\')
+	);
+	const backupList = await send({ path: '/api/backups' });
+	check(
+		'the backup is in the list, which is not cached and grants no cross-origin permission',
+		backupList.status === 200 &&
+			JSON.parse(backupList.text).backups.some((b: { name: string }) => b.name === backupName) &&
+			backupList.headers['cache-control'] === 'no-store' &&
+			!('access-control-allow-origin' in backupList.headers)
+	);
+	const downloaded = await send({ path: `/api/backups/${backupName}` });
+	check(
+		'it downloads as an attachment, and is a SQLite database',
+		downloaded.status === 200 &&
+			downloaded.headers['content-type'] === 'application/octet-stream' &&
+			(downloaded.headers['content-disposition'] ?? '').startsWith('attachment') &&
+			downloaded.text.startsWith('SQLite format 3') &&
+			!('access-control-allow-origin' in downloaded.headers),
+		`${downloaded.status} ${downloaded.headers['content-type']}`
+	);
+
+	for (const name of [
+		'..%2f..%2fpackage.json',
+		'..%2ftessera.db',
+		'%2e%2e%2ftessera.db',
+		'tessera.db',
+		'tessera.db-wal',
+		'..%5ctessera.db',
+		'sub%2fx.db',
+		'%2fetc%2fpasswd',
+		'a%00.db',
+		`${'x'.repeat(200)}.db`,
+		'%3Cscript%3Ealert(1)%3C%2Fscript%3E.db',
+		'no-such-backup.db',
+		'.hidden.db'
+	]) {
+		for (const method of ['GET', 'DELETE']) {
+			const r = await send({
+				method,
+				path: `/api/backups/${name}`,
+				headers: method === 'GET' ? {} : JSON_HEADERS
+			});
+			check(
+				`${method} of backup "${name.slice(0, 28)}" is a 404 that leaks nothing and echoes nothing`,
+				r.status === 404 &&
+					!r.text.startsWith('SQLite format') &&
+					!r.text.includes('<script') &&
+					!r.text.includes('"dependencies"') &&
+					!r.text.includes('root:x:') &&
+					!/node_modules|\.ts:\d+/.test(r.text),
+				`${r.status} ${r.text.slice(0, 60)}`
+			);
+		}
+	}
+	check(
+		'the live database was not touched by any of that',
+		(await send({ path: '/api/decks' })).status === 200
+	);
+
+	for (const [method, path] of [
+		['PUT', `/api/backups/${backupName}`],
+		['PATCH', `/api/backups/${backupName}`],
+		['POST', `/api/backups/${backupName}`],
+		['DELETE', '/api/backups'],
+		['PUT', '/api/backups']
+	] as const) {
+		const r = await send({ method, path, headers: JSON_HEADERS, body: '{}' });
+		check(
+			`${method} on ${path.slice(0, 30)} is refused`,
+			[400, 403, 404, 405].includes(r.status),
+			`got ${r.status}`
+		);
+	}
+	for (const [method, path] of [
+		['GET', '/api/backups'],
+		['POST', '/api/backups'],
+		['GET', `/api/backups/${backupName}`],
+		['DELETE', `/api/backups/${backupName}`]
+	] as const) {
+		const foreign = await send({
+			method,
+			path,
+			headers: { ...(method === 'GET' ? {} : JSON_HEADERS), host: 'attacker.example' },
+			...(method === 'POST' ? { body: '{}' } : {})
+		});
+		check(
+			`${method} ${path.slice(0, 20)} under a foreign host name is refused (421)`,
+			foreign.status === 421,
+			`got ${foreign.status}`
+		);
+	}
+	for (const type of [
+		'text/plain',
+		'application/x-www-form-urlencoded',
+		'multipart/form-data; boundary=x'
+	]) {
+		for (const [method, path] of [
+			['POST', '/api/backups'],
+			['DELETE', `/api/backups/${backupName}`]
+		] as const) {
+			const evil = await send({
+				method,
+				path,
+				headers: { 'content-type': type, origin: 'https://evil.example' },
+				body: '{}'
+			});
+			check(
+				`${method} ${path.slice(0, 20)} cross-site as ${type.split(';')[0]} is refused (400, 403, or 415)`,
+				[400, 403, 415].includes(evil.status),
+				`got ${evil.status}`
+			);
+		}
+	}
+	check(
+		'and the backup is still there',
+		(await send({ path: `/api/backups/${backupName}` })).status === 200
+	);
+	const deletedBackup = await send({
+		method: 'DELETE',
+		path: `/api/backups/${backupName}`,
+		headers: JSON_HEADERS
+	});
+	check(
+		'a backup can be deleted',
+		deletedBackup.status === 200 && JSON.parse(deletedBackup.text).deleted === backupName,
+		`${deletedBackup.status}`
+	);
+	check(
+		'and deleting it again is a 404',
+		(await send({ method: 'DELETE', path: `/api/backups/${backupName}`, headers: JSON_HEADERS }))
+			.status === 404
+	);
 
 	// ---- 5. Path traversal and error leakage
 	console.log('\n# Paths and errors');

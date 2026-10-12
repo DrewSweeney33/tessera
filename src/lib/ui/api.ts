@@ -1,8 +1,11 @@
 import type {
 	ApiErrorBody,
+	BackupsResponse,
+	CreateBackupResponse,
 	CreateDeckRequest,
 	CreateDeckResponse,
 	DecksResponse,
+	DeleteBackupResponse,
 	DeleteDeckResponse,
 	FieldErrorDto,
 	GetDeckResponse,
@@ -115,6 +118,21 @@ export const api = {
 			method: 'POST',
 			headers: JSON_HEADERS,
 			body: JSON.stringify(request)
+		}),
+
+	backups: () => call<BackupsResponse>('/api/backups'),
+
+	createBackup: () =>
+		call<CreateBackupResponse>('/api/backups', {
+			method: 'POST',
+			headers: JSON_HEADERS,
+			body: '{}'
+		}),
+
+	deleteBackup: (name: string) =>
+		call<DeleteBackupResponse>(`/api/backups/${encodeURIComponent(name)}`, {
+			method: 'DELETE',
+			headers: JSON_HEADERS
 		}),
 
 	trash: () => call<TrashResponse>('/api/trash'),
