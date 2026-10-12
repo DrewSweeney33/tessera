@@ -4,6 +4,7 @@ import type { Result } from '#lib/core/result.ts';
 import type { AppContext } from '../app.ts';
 import { readBodyText } from '../http/body.ts';
 import { mediaType } from '../http/content-type.ts';
+import { staleRevisionProblem } from '../decks/index.ts';
 import { errorResponse } from '../http/errors.ts';
 import { jsonResponse } from '../http/response.ts';
 import type { FieldChangeDto, ImportPlanSummary } from '#lib/core/api-types.ts';
@@ -81,6 +82,11 @@ function summarizePlan(plan: ImportPlan): ImportPlanSummary {
 	};
 }
 
+// A save from an old copy of the deck: 409, with the problem shaped like every other field error.
+function staleResponse(problem: ImportError, requestId: string): Response {
+	return errorResponse('conflict', problem.message, { errors: [problem] }, requestId);
+}
+
 // POST /api/import?dry_run=true&archive_missing=true&filename=deck.json
 // The body is a deck in the Tessera JSON format (application/json) or Markdown format (text/markdown).
 // The hook has already refused any other content type; the check here keeps this safe on its own.
@@ -95,6 +101,17 @@ export async function handleImport(
 	const archiveMissing = flag(url, 'archive_missing');
 	if (archiveMissing instanceof Response) return archiveMissing;
 	const filename = url.searchParams.get('filename')?.slice(0, 255) || undefined;
+	// The deck revision an editor loaded (ADR-013), so a save from an old copy is refused.
+	const revisionParam = url.searchParams.get('expected_revision');
+	if (revisionParam !== null && !/^[0-9a-f]{64}$/.test(revisionParam)) {
+		return errorResponse(
+			'bad_request',
+			'Query parameter expected_revision must be the 64 character revision a deck was loaded with.',
+			undefined,
+			requestId
+		);
+	}
+	const expectedRevision = revisionParam ?? undefined;
 
 	// The client states the format. The server does not guess from the body.
 	const reader = READERS.get(mediaType(request.headers.get('content-type')));
@@ -129,6 +146,10 @@ export async function handleImport(
 	}
 
 	if (dryRun) {
+		if (expectedRevision !== undefined) {
+			const stale = staleRevisionProblem(app.db, parsed.value.deck.id, expectedRevision);
+			if (stale) return staleResponse(stale, requestId);
+		}
 		const planned = planImport(app.db, parsed.value, { archiveMissing });
 		if (!planned.ok) {
 			return errorResponse(
@@ -144,10 +165,12 @@ export async function handleImport(
 	const committed = commitImport(
 		app.db,
 		parsed.value,
-		{ archiveMissing, format: reader.format, filename },
+		{ archiveMissing, format: reader.format, filename, expectedRevision },
 		app.clock
 	);
 	if (!committed.ok) {
+		const stale = committed.error.find((problem) => problem.code === 'changed_elsewhere');
+		if (stale) return staleResponse(stale, requestId);
 		return errorResponse(
 			'validation_failed',
 			'The deck is not valid. Fix the listed problems and import again.',

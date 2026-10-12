@@ -1,19 +1,16 @@
 import { err, ok, type Result } from '#lib/core/result.ts';
 import { serializeJson, serializeMarkdown, type SerializeProblem } from '#lib/core/parse/index.ts';
 import { FORMAT_VERSION, validateDeck, type Deck } from '#lib/core/schema/index.ts';
+import type { DeckDocumentDto } from '#lib/core/api-types.ts';
 import type { Executor } from '../db/client.ts';
 import { AppError } from '../http/errors.ts';
 import { getDeck, listCardsForDeck } from '../repos/index.ts';
 
-// A deck read back out of the database as a deck document, the inverse of import (ADR-013). Importing the
-// result again changes nothing and creates nothing: every card keeps its id, its type, its text, its tags and
-// source, and its place in the order. Cards that were removed (archived) are not in it. A deck in the Trash, or
-// one that does not exist, has nothing to export, so the answer is the same for both and says nothing about
-// which it was.
-//
-// A card that was imported without an id has the generated key it was stored under ("h-" and a hash). Exporting
-// writes that key as its id, so the exported deck matches the stored cards and a later import keeps them.
-export function exportDeck(x: Executor, deckId: string): Deck | undefined {
+// A deck as a document, without insisting on a card: a deck made by hand has none until it gets some, and an editor
+// must be able to open it. Cards that were removed (archived) are left out. A deck in the Trash, or one that does not
+// exist, has nothing to read, and the answer is the same for both. Nothing is validated here: what is stored passed
+// validation on the way in.
+export function readDeckDocument(x: Executor, deckId: string): DeckDocument | undefined {
 	const deck = getDeck(x, deckId);
 	if (!deck || deck.archived) return undefined;
 
@@ -27,13 +24,7 @@ export function exportDeck(x: Executor, deckId: string): Deck | undefined {
 			...(row.source ? { source: row.source } : {})
 		}));
 
-	// A deck document must have at least one card (the public format, served at /api/schema), so a deck with none
-	// has nothing it could export. Say so plainly: it is a state of the data, not a bug and not a bad request.
-	if (cards.length === 0) {
-		throw new AppError('conflict', 'This deck has no cards yet, so there is nothing to export.');
-	}
-
-	const checked = validateDeck({
+	return {
 		tessera: FORMAT_VERSION,
 		deck: {
 			id: deck.id,
@@ -42,7 +33,28 @@ export function exportDeck(x: Executor, deckId: string): Deck | undefined {
 			...(deck.tags.length > 0 ? { tags: deck.tags } : {})
 		},
 		cards
-	});
+	};
+}
+
+// A deck read back out of the database as a deck document, the inverse of import (ADR-013). Importing the
+// result again changes nothing and creates nothing: every card keeps its id, its type, its text, its tags and
+// source, and its place in the order. Cards that were removed (archived) are not in it. A deck in the Trash, or
+// one that does not exist, has nothing to export, so the answer is the same for both and says nothing about
+// which it was.
+//
+// A card that was imported without an id has the generated key it was stored under ("h-" and a hash). Exporting
+// writes that key as its id, so the exported deck matches the stored cards and a later import keeps them.
+export function exportDeck(x: Executor, deckId: string): Deck | undefined {
+	const document = readDeckDocument(x, deckId);
+	if (!document) return undefined;
+
+	// A deck document must have at least one card (the public format, served at /api/schema), so a deck with none
+	// has nothing it could export. Say so plainly: it is a state of the data, not a bug and not a bad request.
+	if (document.cards.length === 0) {
+		throw new AppError('conflict', 'This deck has no cards yet, so there is nothing to export.');
+	}
+
+	const checked = validateDeck(document);
 	// What is stored passed the same validation on the way in, so this is a bug, not a user error.
 	if (!checked.ok) {
 		throw new Error(
@@ -54,6 +66,8 @@ export function exportDeck(x: Executor, deckId: string): Deck | undefined {
 	}
 	return checked.value;
 }
+
+export type DeckDocument = DeckDocumentDto;
 
 export type ExportFormat = 'json' | 'markdown';
 

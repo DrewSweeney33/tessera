@@ -98,6 +98,28 @@ export interface CreateDeckResponse {
 	deck: DeckSummaryDto;
 }
 
+// A deck as one document (the deck file format), as an editor reads and writes it. A deck made by hand may have no
+// cards yet. Card fields vary by type (see the deck format reference), so they are kept loose here.
+export interface DeckDocumentDto {
+	tessera: 1;
+	deck: { id: string; title: string; description?: string; tags?: string[] };
+	cards: DeckCardDto[];
+}
+
+export type DeckCardDto = {
+	id: string;
+	type: 'basic' | 'cloze' | 'typed' | 'choice';
+	[field: string]: unknown;
+};
+
+// GET /api/decks/:id: everything an editor needs. The revision goes back with a save (expected_revision), so a save
+// made from an out-of-date copy is refused.
+export interface GetDeckResponse {
+	document: DeckDocumentDto;
+	deck: DeckSummaryDto;
+	revision: string;
+}
+
 export interface DecksResponse {
 	decks: DeckSummaryDto[];
 	// What a session across every deck would serve right now.

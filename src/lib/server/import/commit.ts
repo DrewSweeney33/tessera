@@ -2,6 +2,7 @@ import { err, ok, type Result } from '#lib/core/result.ts';
 import type { Deck } from '#lib/core/schema/deck.ts';
 import type { ImportError } from '#lib/core/schema/errors.ts';
 import type { Clock } from '../clock.ts';
+import { staleRevisionProblem } from '../decks/revision.ts';
 import { withTx, type Db, type Tx } from '../db/index.ts';
 import {
 	deleteStatesForCard,
@@ -23,6 +24,9 @@ import {
 
 export interface CommitOptions {
 	archiveMissing: boolean;
+	// The deck revision the caller loaded (ADR-013). When given, the import is refused if the deck has changed since,
+	// checked inside the transaction.
+	expectedRevision?: string | undefined;
 	format: 'json' | 'markdown';
 	filename?: string | undefined;
 }
@@ -108,6 +112,10 @@ export function commitImport(
 	clock: Clock
 ): Result<ImportResult, ImportError[]> {
 	return withTx(db, (tx) => {
+		if (options.expectedRevision !== undefined) {
+			const stale = staleRevisionProblem(tx, deck.deck.id, options.expectedRevision);
+			if (stale) return err([stale]);
+		}
 		const planned = planImport(tx, deck, { archiveMissing: options.archiveMissing });
 		if (!planned.ok) return err(planned.error);
 		const plan = planned.value;

@@ -586,6 +586,17 @@ try {
 				body: '{"title":"Made with the token"}'
 			});
 			check('and works with the token', tokenCreate.status === 201, `got ${tokenCreate.status}`);
+			// Loading a deck for editing carries the whole deck and a revision, so it needs the token too.
+			check(
+				'loading a deck for editing is refused without the token',
+				(await status('/api/decks/probe-token')) === 401
+			);
+			const tokenLoad = await send({ path: '/api/decks/probe-token', headers: withToken });
+			check(
+				'and works with the token',
+				tokenLoad.status === 200 && /^[0-9a-f]{64}$/.test(JSON.parse(tokenLoad.text).revision),
+				`got ${tokenLoad.status}`
+			);
 			// A deck export carries the whole deck, so it needs the token like every other API route.
 			check(
 				'a deck export is refused without the token',
@@ -1207,6 +1218,100 @@ try {
 			`got ${r.status}`
 		);
 	}
+
+	// ---- 4d. Editing a deck: the editor's read and the stale-write check (ADR-013)
+	console.log('\n# Editing a deck');
+	const loadedDeck = await send({ path: '/api/decks/probe-export' });
+	const loadedBody = JSON.parse(loadedDeck.text);
+	check(
+		'a deck can be loaded for editing, with its document, summary, and a 64 character revision',
+		loadedDeck.status === 200 &&
+			loadedBody.document?.cards?.length === 2 &&
+			loadedBody.deck?.id === 'probe-export' &&
+			/^[0-9a-f]{64}$/.test(loadedBody.revision),
+		`${loadedDeck.status}`
+	);
+	check(
+		'it carries no cross-origin permission and is not cached',
+		!('access-control-allow-origin' in loadedDeck.headers) &&
+			loadedDeck.headers['cache-control'] === 'no-store'
+	);
+	for (const id of [
+		'..%2f..%2fpackage.json',
+		'%2e%2e%2fetc%2fpasswd',
+		'no-such-deck',
+		'UPPER',
+		'a%20b',
+		'%00',
+		'x'.repeat(100),
+		'%3Cscript%3E'
+	]) {
+		const r = await send({ path: `/api/decks/${id}` });
+		check(
+			`loading "${id.slice(0, 24)}" is a 404 that leaks nothing and echoes nothing`,
+			r.status === 404 &&
+				!r.text.includes('"dependencies"') &&
+				!r.text.includes('root:x:') &&
+				!r.text.includes('<script') &&
+				!/node_modules|\.ts:\d+/.test(r.text),
+			`${r.status} ${r.text.slice(0, 80)}`
+		);
+	}
+	for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
+		const r = await send({
+			method,
+			path: '/api/decks/probe-export',
+			headers: JSON_HEADERS,
+			body: '{}'
+		});
+		check(`${method} on a deck is refused`, [400, 403, 405].includes(r.status), `got ${r.status}`);
+	}
+	const editedDeck = {
+		...loadedBody.document,
+		cards: loadedBody.document.cards.map((card: { id: string }, i: number) =>
+			i === 0 ? { ...card, back: 'Edited by the probe' } : card
+		)
+	};
+	const sentBody = JSON.stringify(editedDeck);
+	const saveWith = (revision: string, extra = '') =>
+		send({
+			method: 'POST',
+			path: `/api/import?expected_revision=${revision}${extra}`,
+			headers: JSON_HEADERS,
+			body: sentBody
+		});
+	const savedEdit = await saveWith(loadedBody.revision);
+	check(
+		'a save made with the revision that was loaded is accepted',
+		savedEdit.status === 200 && JSON.parse(savedEdit.text).result?.changed === true,
+		`${savedEdit.status} ${savedEdit.text.slice(0, 80)}`
+	);
+	const replay = await saveWith(loadedBody.revision);
+	check(
+		'the same revision used again is refused with 409, because the deck has changed since',
+		replay.status === 409 &&
+			JSON.parse(replay.text).error?.details?.errors?.[0]?.code === 'changed_elsewhere',
+		`${replay.status}`
+	);
+	const stalePreview = await saveWith(loadedBody.revision, '&dry_run=true');
+	check('and so is a preview made from that old copy', stalePreview.status === 409);
+	for (const bad of ['', 'abc', 'G'.repeat(64), '../etc', 'a'.repeat(65), '%00']) {
+		const r = await saveWith(bad);
+		check(
+			`a malformed revision "${bad.slice(0, 12)}" is refused with 400`,
+			r.status === 400 && !/node_modules|\.ts:\d+/.test(r.text),
+			`got ${r.status}`
+		);
+	}
+	const foreignLoad = await send({
+		path: '/api/decks/probe-export',
+		headers: { host: 'attacker.example' }
+	});
+	check(
+		'loading a deck under a foreign host name is refused (421) and shows no card',
+		foreignLoad.status === 421 && !foreignLoad.text.includes(exportMarker),
+		`got ${foreignLoad.status}`
+	);
 
 	// ---- 5. Path traversal and error leakage
 	console.log('\n# Paths and errors');

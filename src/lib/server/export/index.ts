@@ -1,2 +1,2 @@
-export { exportDeck, renderDeckExport } from './deck.ts';
-export type { ExportFormat, ExportProblem, RenderedExport } from './deck.ts';
+export { exportDeck, readDeckDocument, renderDeckExport } from './deck.ts';
+export type { DeckDocument, ExportFormat, ExportProblem, RenderedExport } from './deck.ts';

@@ -12,7 +12,7 @@ const MAX_CREATE_BODY_BYTES = 16 * 1024;
 
 // One deck as the home page lists it. Counts come from the same function a study session uses, so the numbers
 // on the home screen always match what a session will serve.
-function summarize(app: AppContext, deck: DeckRow, cardCount: number): DeckSummaryDto {
+export function summarize(app: AppContext, deck: DeckRow, cardCount: number): DeckSummaryDto {
 	return {
 		id: deck.id,
 		title: deck.title,
