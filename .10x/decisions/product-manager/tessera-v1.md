@@ -117,3 +117,9 @@ Not requirements. A list for the owner to cross out or promote, gathered from th
 3. **Editing versus re-import**: if the owner edits a card by hand and later re-imports an older Claude version of the deck, the re-import preview shows the hand edit as a change to be overwritten, and the owner decides. *Assumed this is enough, with no "locked card" feature (ADR-013).*
 4. **Restore from the GUI**: wanted now, or is download plus the documented restore steps enough for the first cut? *Assumed later (US-16 is a stretch).*
 5. **Order**: library management before or after the weak-spot work? *Recommended before: it is what the owner needs to use the app daily, and it feeds the checkpoint.*
+
+### Owner's answers (2026-10-12)
+
+The owner accepted ADR-013 and ADR-014 and said "next milestone", with no changes. That settles the five questions as the team assumed them: (1) "retrain after completion" means both practice again (no effect on the schedule) and start over (reset progress); (2) delete goes to a Trash first, with permanent delete behind it; (3) a hand edit that a later re-import overwrites is shown in the import preview and the owner decides, with no locked cards; (4) restore from the GUI comes after backup, download, and the snapshots, as a stretch (L-09) that is in the plan but built last; (5) library management (milestone L) comes before the weak-spot work. The owner has not yet listed other features, so the candidate list stands as candidates.
+
+**The checkpoint gate** (5 study days) was overridden by the owner's instruction to start the next milestone. The CTO file records this.

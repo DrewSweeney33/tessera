@@ -115,3 +115,7 @@ The owner asked for manual deck creation, editing, practice again and start over
 **Does it change the differentiator?** No. The validated file round trip, the privacy of a VPN-only deployment, and the weak-spot report (M3) remain the reasons to prefer Tessera over a connector-driven app.
 
 **Cost.** About 32 net hours (EM file). ADR-013 and ADR-014 are Proposed and wait for the owner. The scope-creep risk in the EM table still applies: each further request gets a story, a place in the order, and a size before it is built.
+
+## Checkpoint override (2026-10-12)
+
+The owner accepted ADR-013 and ADR-014 and told the team to start the next milestone, which is milestone L (library management), before the 5 study days the "continue past M2" criterion asks for. The CTO treats this as an informed override by the one person the criterion exists to protect: the owner has Tessera running at home (0.1.1 since 2026-10-12) and is asking for the features needed to use it daily. The "stop and switch to Anki plus a `.apkg` skill" criterion is **not** waived: it remains the fallback if, after the library work, the import loop is not noticeably smoother than Anki. The checkpoint is recorded as "overridden, not met", and the study-day count is still worth tracking.

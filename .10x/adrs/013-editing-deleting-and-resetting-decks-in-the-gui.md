@@ -1,6 +1,6 @@
 # ADR-013: Editing, deleting, and resetting decks in the GUI
 
-**Status:** Proposed (written 2026-10-12 for the owner's review; nothing is built)
+**Status:** Accepted by the owner on 2026-10-12, with the assumptions listed in the product requirements file ("Questions for the owner")
 **Date:** 2026-10-12
 **Feature:** tessera-v1 (library management: user stories US-11 to US-14)
 **Author:** 10x-Team (Architect + Staff Engineer + Security)

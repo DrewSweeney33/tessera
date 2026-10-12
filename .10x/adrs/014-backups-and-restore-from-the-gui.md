@@ -1,6 +1,6 @@
 # ADR-014: Backups and restore from the GUI
 
-**Status:** Proposed (written 2026-10-12 for the owner's review; nothing is built)
+**Status:** Accepted by the owner on 2026-10-12, with the assumptions listed in the product requirements file ("Questions for the owner")
 **Date:** 2026-10-12
 **Feature:** tessera-v1 (library management: user stories US-15 and US-16, and the snapshots that ADR-013 relies on)
 **Author:** 10x-Team (Architect + DevOps + Security)
