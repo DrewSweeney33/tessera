@@ -4,9 +4,9 @@ All notable changes to Tessera are written here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
-## [0.1.1-rc.1] - 2026-10-11
+## [0.1.1] - 2026-10-12
 
-A release candidate for 0.1.1, published so the fixes can be tested on a real Docker host before the final release.
+Fixes found by running 0.1.0 on a real homelab Docker host, and a tool for testing the real image on your own host.
 
 ### Added
 
