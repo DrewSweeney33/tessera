@@ -5,6 +5,7 @@
 	import { detectFormat } from '#lib/core/parse/detect.ts';
 	import { ApiError, api } from '#lib/ui/api.ts';
 	import { copyText } from '#lib/ui/clipboard.ts';
+	import Icon from '#lib/ui/Icon.svelte';
 	import ImportPlan from '#lib/ui/ImportPlan.svelte';
 
 	const MAX_BYTES = 5 * 1024 * 1024;
@@ -89,9 +90,10 @@
 
 <div class="page layout">
 	<div class="input-side stack">
-		<header>
+		<header class="page-head">
+			<p class="eyebrow">Add cards</p>
 			<h1>Import a deck</h1>
-			<p class="muted lead">
+			<p class="lead">
 				Paste a deck from Claude, or choose a file. Nothing is saved until you press Import.
 			</p>
 		</header>
@@ -140,7 +142,7 @@
 					accept=".json,.md,.markdown,.txt,application/json,text/markdown"
 					onchange={(event) => readFile(event.currentTarget.files?.[0])}
 				/>
-				Choose a file
+				<Icon name="file" /> Choose a file
 			</label>
 			<button
 				type="button"
@@ -245,7 +247,7 @@
 		{/if}
 
 		{#if !plan && !result && errors.length === 0 && !failure}
-			<aside class="hint muted">
+			<aside class="how panel">
 				<h2>How it works</h2>
 				<ol>
 					<li>Ask Claude for a deck in the Tessera format, as JSON or Markdown.</li>
@@ -265,25 +267,35 @@
 		align-items: start;
 	}
 
-	@media (min-width: 60rem) {
+	@media (min-width: 64rem) {
 		.layout {
-			grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+			grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
 			gap: var(--space-7);
 		}
-	}
 
-	.lead {
-		margin-block-start: var(--space-2);
-		max-width: var(--measure);
+		.output-side {
+			position: sticky;
+			inset-block-start: var(--space-6);
+		}
 	}
 
 	.small {
 		font-size: var(--text-sm);
 	}
 
+	/* The text box is also the drop zone: a dashed edge says so, and it lights up when a file is over it. */
+	#deck-text {
+		min-height: 14rem;
+		border-style: dashed;
+		border-width: 1.5px;
+		border-radius: var(--radius-lg);
+	}
+
 	.field--drag {
+		border-style: solid;
 		border-color: var(--color-accent);
-		outline: 2px dashed var(--color-accent);
+		background: var(--color-accent-soft);
+		outline: 2px solid var(--color-accent);
 		outline-offset: 2px;
 	}
 
@@ -301,9 +313,20 @@
 	}
 
 	.actions {
-		display: flex;
-		flex-wrap: wrap;
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: var(--space-3);
+	}
+
+	.actions .file {
+		grid-column: 1 / -1;
+	}
+
+	@media (min-width: 40rem) {
+		.actions {
+			display: flex;
+			flex-wrap: wrap;
+		}
 	}
 
 	.file:has(:focus-visible) {
@@ -344,12 +367,38 @@
 		margin-block-start: var(--space-4);
 	}
 
-	.hint ol {
-		margin: var(--space-3) 0 0;
-		padding-inline-start: 1.4em;
+	.how h2 {
+		font-size: var(--text-md);
 	}
 
-	.hint li + li {
-		margin-block-start: var(--space-2);
+	.how ol {
+		display: grid;
+		gap: var(--space-4);
+		margin: var(--space-4) 0 0;
+		padding: 0;
+		list-style: none;
+		counter-reset: step;
+	}
+
+	.how li {
+		display: grid;
+		grid-template-columns: 2rem minmax(0, 1fr);
+		gap: var(--space-3);
+		align-items: start;
+		counter-increment: step;
+		color: var(--color-muted);
+	}
+
+	.how li::before {
+		content: counter(step);
+		display: grid;
+		place-items: center;
+		width: 2rem;
+		height: 2rem;
+		border-radius: var(--radius-sm);
+		background: var(--color-accent-soft);
+		color: var(--color-accent);
+		font-family: var(--font-display);
+		font-weight: 600;
 	}
 </style>

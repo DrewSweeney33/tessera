@@ -11,6 +11,7 @@
 	import type { Grade } from '#lib/core/scheduler/types.ts';
 	import { ApiError, api } from '#lib/ui/api.ts';
 	import { cardSides } from '#lib/ui/card-sides.ts';
+	import Icon from '#lib/ui/Icon.svelte';
 	import { newId } from '#lib/ui/id.ts';
 	import Markdown from '#lib/ui/Markdown.svelte';
 	import {
@@ -64,6 +65,10 @@
 	const defaultName = $derived(GRADE_INFO.find((info) => info.grade === defaultGrade)!.name);
 	const total = $derived(answered[1] + answered[2] + answered[3] + answered[4]);
 	const deckLabel = $derived(item?.deckTitle ?? 'All decks');
+	// How far through this session: answered so far, out of answered plus what is still waiting (the card on screen
+	// counts as waiting). A lapse can put a card back, so the bar can step back a little, which is honest.
+	const waiting = $derived(counts.new + counts.learning + counts.review);
+	const progress = $derived(total + waiting === 0 ? 0 : total / (total + waiting));
 
 	async function apply(response: NextResponse) {
 		counts = response.counts;
@@ -212,8 +217,8 @@
 
 <div class="page study">
 	<header class="top">
-		<a class="back muted" href={resolve('/')}>← Decks</a>
-		<p class="deck muted">{deckLabel}</p>
+		<a class="back" href={resolve('/')}><Icon name="back" size="1.1em" /> Decks</a>
+		<p class="deck">{deckLabel}</p>
 		<p class="counts" aria-label="Items left to study">
 			{#each [['new', 'New'], ['learning', 'Learning'], ['review', 'Review']] as const as [key, label] (key)}
 				<span class="counts__item" class:counts__item--current={item?.category === key}>
@@ -221,6 +226,16 @@
 				</span>
 			{/each}
 		</p>
+		<div
+			class="progress"
+			role="progressbar"
+			aria-label="Session progress"
+			aria-valuemin="0"
+			aria-valuemax="100"
+			aria-valuenow={Math.round(progress * 100)}
+		>
+			<span class="progress__fill" style:transform="scaleX({progress})"></span>
+		</div>
 	</header>
 
 	<!-- The done screen has its own visible h1. Every other state needs one for heading navigation. -->
@@ -233,17 +248,33 @@
 	{/if}
 
 	{#if phase === 'loading'}
-		<p class="muted" role="status">Loading your next card…</p>
+		<p class="sr-only" role="status">Loading your next card…</p>
+		<div class="sheet sheet--loading" aria-hidden="true">
+			<div class="skeleton-line skeleton-line--short"></div>
+			<div class="skeleton-line"></div>
+			<div class="skeleton-line"></div>
+		</div>
 	{:else if phase === 'error'}
 		<div class="callout callout--error" role="alert">
 			<p>{errorMessage}</p>
-			<p><button type="button" class="btn" onclick={retry}>Try again</button></p>
+			<p class="retry"><button type="button" class="btn" onclick={retry}>Try again</button></p>
 		</div>
 	{:else if phase === 'done'}
 		<section class="done" aria-labelledby="done-heading">
+			<span class="done__seal" aria-hidden="true">
+				<Icon name="check" size="2.25rem" />
+			</span>
 			<h1 id="done-heading">{total > 0 ? 'Session complete' : 'Nothing to study right now'}</h1>
 			{#if total > 0}
-				<p>
+				<ul class="done__tally" aria-hidden="true">
+					{#each GRADE_INFO as info (info.grade)}
+						<li class="done__tile done__tile--{info.grade}">
+							<strong>{answered[info.grade]}</strong>
+							<span>{info.name}</span>
+						</li>
+					{/each}
+				</ul>
+				<p class="done__text">
 					You answered <strong>{total}</strong>
 					{total === 1 ? 'card' : 'cards'}: {answered[1]} Again, {answered[2]} Hard, {answered[3]} Good,
 					{answered[4]}
@@ -262,10 +293,12 @@
 			</p>
 		</section>
 	{:else if item && sides}
-		<section class="card" bind:this={cardEl} tabindex="-1" aria-label="Flashcard">
+		<section class="card sheet" bind:this={cardEl} tabindex="-1" aria-label="Flashcard">
 			<p class="card__meta">
-				<span>{sides.kind}</span>
-				<span class="card__category">{CATEGORY_LABEL[item.category]}</span>
+				<span class="card__kind">{sides.kind}</span>
+				<span class="card__category card__category--{item.category}"
+					>{CATEGORY_LABEL[item.category]}</span
+				>
 			</p>
 
 			<div class="card__front">
@@ -284,11 +317,12 @@
 						<label for="typed-answer">Your answer</label>
 						<input
 							id="typed-answer"
-							class="field"
+							class="field typed__input"
 							type="text"
 							autocomplete="off"
 							autocapitalize="off"
 							spellcheck="false"
+							enterkeyhint="done"
 							bind:value={typedInput}
 							bind:this={typedEl}
 						/>
@@ -336,7 +370,7 @@
 						class="btn btn--quiet hint-button"
 						onclick={() => (showHint = true)}
 					>
-						Show hint <kbd>H</kbd>
+						<Icon name="hint" size="1.1em" /> Show hint <kbd>H</kbd>
 					</button>
 				{/if}
 			{/if}
@@ -359,78 +393,105 @@
 			{/if}
 		</section>
 
-		{#if phase === 'front'}
-			{#if !typed && !choices}
-				<div class="reveal">
-					<button type="button" class="btn btn--primary btn--wide" onclick={() => reveal()}>
-						Show answer <kbd>Space</kbd>
-					</button>
-				</div>
-			{:else if choices}
-				<div class="reveal">
-					<button type="button" class="btn" onclick={() => reveal()}>I don’t know</button>
-					<p class="muted keys">
-						Press <kbd>1</kbd> to <kbd>{choices.shown.length}</kbd> to choose.
+		<div class="dock">
+			{#if phase === 'front'}
+				{#if !typed && !choices}
+					<div class="reveal">
+						<button type="button" class="btn btn--primary btn--wide" onclick={() => reveal()}>
+							Show answer <kbd>Space</kbd>
+						</button>
+					</div>
+				{:else if choices}
+					<div class="reveal">
+						<button type="button" class="btn" onclick={() => reveal()}>I don’t know</button>
+						<p class="muted keys">
+							Press <kbd>1</kbd> to <kbd>{choices.shown.length}</kbd> to choose.
+						</p>
+					</div>
+				{/if}
+			{:else}
+				{#if outcome}
+					<p class="suggest">
+						Suggested: <strong>{defaultName}</strong>. {outcome.correct
+							? 'It was right.'
+							: 'It was not right.'} You can pick any grade.
 					</p>
+				{/if}
+				<div
+					class="grades"
+					role="group"
+					aria-label="How well did you remember it?"
+					bind:this={gradesEl}
+				>
+					{#each GRADE_INFO as info (info.grade)}
+						<button
+							type="button"
+							class="btn grade grade--{info.grade}"
+							class:grade--suggested={outcome !== undefined && info.grade === defaultGrade}
+							disabled={phase === 'submitting'}
+							onclick={() => grade(info.grade)}
+						>
+							<kbd>{info.key}</kbd>
+							<span class="grade__tile" aria-hidden="true"></span>
+							<span class="grade__name">{info.name}</span>
+							<span class="grade__interval">{item.previews[info.grade].label}</span>
+						</button>
+					{/each}
 				</div>
-			{/if}
-		{:else}
-			<div
-				class="grades"
-				role="group"
-				aria-label="How well did you remember it?"
-				bind:this={gradesEl}
-			>
-				{#each GRADE_INFO as info (info.grade)}
-					<button
-						type="button"
-						class="btn grade grade--{info.grade}"
-						class:grade--suggested={outcome !== undefined && info.grade === defaultGrade}
-						disabled={phase === 'submitting'}
-						onclick={() => grade(info.grade)}
-					>
-						<kbd>{info.key}</kbd>
-						<span class="grade__tile" aria-hidden="true"></span>
-						<span class="grade__name">{info.name}</span>
-						<span class="grade__interval">{item.previews[info.grade].label}</span>
-					</button>
-				{/each}
-			</div>
-			{#if outcome}
-				<p class="suggest">
-					Suggested: <strong>{defaultName}</strong>. {outcome.correct
-						? 'It was right.'
-						: 'It was not right.'} You can pick any grade.
+				<p class="muted keys">
+					Press <kbd>1</kbd> to <kbd>4</kbd> to answer, or <kbd>Space</kbd> for {defaultName}.
 				</p>
 			{/if}
-			<p class="muted keys">
-				Press <kbd>1</kbd> to <kbd>4</kbd> to answer, or <kbd>Space</kbd> for {defaultName}.
-			</p>
-		{/if}
+		</div>
 	{/if}
 </div>
 
 <style>
 	.study {
-		max-width: 46rem;
+		display: flex;
+		flex-direction: column;
+		width: min(100% - 2 * var(--gutter), 46rem);
+		min-height: 100dvh;
+		padding-block: var(--space-3) 0;
+	}
+
+	@media (min-width: 64rem) {
+		.study {
+			padding-block-start: var(--space-6);
+		}
 	}
 
 	.top {
 		display: grid;
 		grid-template-columns: auto minmax(0, 1fr);
 		gap: var(--space-2) var(--space-4);
-		align-items: baseline;
-		margin-block-end: var(--space-5);
+		align-items: center;
+		margin-block-end: var(--space-4);
 	}
 
 	.back {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
+		min-height: var(--hit);
+		margin-inline-start: calc(-1 * var(--space-2));
+		padding-inline: var(--space-2);
+		border-radius: var(--radius);
+		color: var(--color-muted);
 		text-decoration: none;
 		white-space: nowrap;
+	}
+
+	.back:hover {
+		background: var(--color-sunken);
+		color: var(--color-ink);
 	}
 
 	.deck {
 		margin: 0;
 		overflow: hidden;
+		color: var(--color-muted);
+		font-weight: 500;
 		text-align: end;
 		text-overflow: ellipsis;
 		white-space: nowrap;
@@ -440,10 +501,16 @@
 		grid-column: 1 / -1;
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--space-2) var(--space-5);
+		gap: var(--space-2);
 		margin: 0;
 		font-size: var(--text-sm);
 		color: var(--color-muted);
+	}
+
+	.counts__item {
+		padding: 0.1rem 0.7rem;
+		border-radius: 999px;
+		background: var(--color-sunken);
 	}
 
 	.counts__item strong {
@@ -451,58 +518,151 @@
 	}
 
 	.counts__item--current {
+		background: var(--color-accent-soft);
 		color: var(--color-ink);
-		box-shadow: inset 0 -2px 0 var(--color-accent);
+		box-shadow: inset 0 0 0 1.5px var(--color-accent);
 	}
 
-	.card {
+	.progress {
+		grid-column: 1 / -1;
+		height: 0.375rem;
+		overflow: hidden;
+		border-radius: 999px;
+		background: var(--color-sunken);
+	}
+
+	.progress__fill {
+		display: block;
+		width: 100%;
+		height: 100%;
+		border-radius: 999px;
+		background: linear-gradient(90deg, var(--color-accent-deep), var(--color-accent));
+		transform-origin: left center;
+		transition: transform var(--dur-slow) var(--ease-out);
+	}
+
+	.retry {
+		margin-block-start: var(--space-3);
+	}
+
+	/* The card: a raised sheet of paper. The reading serif is for the words on it only. */
+	.sheet {
+		position: relative;
 		padding: var(--space-5);
-		border: 1px solid var(--color-rule-strong);
-		border-radius: var(--radius);
+		border: 1px solid var(--color-rule);
+		border-radius: var(--radius-xl);
 		background: var(--color-surface);
+		box-shadow: var(--shadow-3);
 		font-family: var(--font-display);
 		font-size: var(--text-card);
 		line-height: 1.45;
+		animation: card-in var(--dur-slow) var(--ease-out);
+	}
+
+	@keyframes card-in {
+		from {
+			transform: translateY(10px) scale(0.985);
+		}
 	}
 
 	@media (min-width: 40rem) {
-		.card {
+		.sheet {
 			padding: var(--space-6);
 		}
 	}
 
-	.card:focus {
+	.sheet:focus {
 		outline: none;
 	}
 
-	.card:focus-visible {
+	.sheet:focus-visible {
 		outline: 2px solid var(--color-focus);
 		outline-offset: 3px;
+	}
+
+	.sheet--loading {
+		display: grid;
+		gap: var(--space-4);
+		min-height: 14rem;
+		animation: none;
+	}
+
+	.skeleton-line {
+		height: 1.25rem;
+		border-radius: var(--radius-sm);
+		background: linear-gradient(
+			100deg,
+			var(--color-sunken) 30%,
+			var(--color-raised) 50%,
+			var(--color-sunken) 70%
+		);
+		background-size: 200% 100%;
+		animation: shimmer 1.4s linear infinite;
+	}
+
+	.skeleton-line--short {
+		width: 40%;
+	}
+
+	@keyframes shimmer {
+		to {
+			background-position: -200% 0;
+		}
 	}
 
 	.card__meta {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--space-2) var(--space-4);
+		gap: var(--space-2);
 		margin: 0 0 var(--space-4);
-		color: var(--color-muted);
 		font-family: var(--font-body);
-		font-size: var(--text-sm);
+		font-size: var(--text-xs);
+		font-weight: 600;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
 	}
 
+	.card__kind,
 	.card__category {
-		padding-inline-start: var(--space-4);
-		border-inline-start: 1px solid var(--color-rule-strong);
+		padding: 0.15rem 0.7rem;
+		border-radius: 999px;
+		background: var(--color-sunken);
+		color: var(--color-muted);
+	}
+
+	.card__category--new {
+		background: var(--color-easy-soft);
+		color: var(--color-new);
+	}
+
+	.card__category--learning {
+		background: var(--color-hard-soft);
+		color: var(--color-learning);
+	}
+
+	.card__category--review {
+		background: var(--color-accent-soft);
+		color: var(--color-review);
 	}
 
 	.card__front {
-		min-height: 6rem;
+		min-height: 5rem;
+	}
+
+	.card__back {
+		animation: reveal var(--dur-slow) var(--ease-out);
+	}
+
+	@keyframes reveal {
+		from {
+			transform: translateY(8px);
+		}
 	}
 
 	.card__back hr {
 		margin: var(--space-5) 0;
 		border: 0;
-		border-block-start: 1px solid var(--color-rule-strong);
+		border-block-start: 2px dashed var(--color-rule);
 	}
 
 	.typed {
@@ -515,6 +675,12 @@
 
 	.typed label {
 		font-weight: 600;
+	}
+
+	.typed__input {
+		min-height: 3.25rem;
+		font-family: var(--font-body);
+		font-size: 1.0625rem;
 	}
 
 	.typed__actions {
@@ -535,23 +701,34 @@
 
 	.choice {
 		display: flex;
-		align-items: baseline;
+		align-items: center;
 		flex-wrap: wrap;
 		gap: var(--space-2) var(--space-3);
 		width: 100%;
-		min-height: var(--hit);
+		min-height: 3.25rem;
 		padding: var(--space-3) var(--space-4);
-		border: 1px solid var(--color-rule-strong);
+		border: 1.5px solid var(--color-rule);
 		border-radius: var(--radius);
-		background: var(--color-paper);
+		background: var(--color-raised);
 		color: var(--color-ink);
+		box-shadow: var(--shadow-1);
 		font: inherit;
 		text-align: start;
 		cursor: pointer;
+		touch-action: manipulation;
+		transition:
+			border-color var(--dur-fast) var(--ease-out),
+			transform var(--dur-fast) var(--ease-out),
+			background-color var(--dur-fast) var(--ease-out);
 	}
 
 	.choice:hover:not(:disabled) {
 		border-color: var(--color-accent);
+		background: var(--color-accent-soft);
+	}
+
+	.choice:active:not(:disabled) {
+		transform: scale(0.99);
 	}
 
 	.choice:focus-visible {
@@ -571,15 +748,15 @@
 	}
 
 	.choice--right {
-		border-width: 2px;
 		border-color: var(--color-accent);
 		background: var(--color-accent-soft);
+		box-shadow: inset 0 0 0 1px var(--color-accent);
 	}
 
 	.choice--wrong {
-		border-width: 2px;
 		border-color: var(--color-again);
 		background: var(--color-error-soft);
+		box-shadow: inset 0 0 0 1px var(--color-again);
 	}
 
 	.choice__mark {
@@ -605,19 +782,12 @@
 		font-size: var(--text-base);
 	}
 
-	.suggest {
-		margin-block-start: var(--space-3);
-		font-size: var(--text-sm);
-	}
-
-	.grade--suggested {
-		border-color: var(--color-accent);
-		box-shadow: inset 0 0 0 1px var(--color-accent);
-	}
-
 	.hint {
 		margin-block-start: var(--space-4);
-		color: var(--color-muted);
+		padding: var(--space-3) var(--space-4);
+		border-inline-start: 3px solid var(--color-hard);
+		border-radius: var(--radius-sm);
+		background: var(--color-hard-soft);
 		font-family: var(--font-body);
 		font-size: var(--text-base);
 	}
@@ -626,96 +796,232 @@
 		margin-block-start: var(--space-3);
 		margin-inline-start: calc(-1 * var(--space-3));
 		color: var(--color-muted);
+		font-family: var(--font-body);
 		font-size: var(--text-sm);
 	}
 
+	/* The dock holds the one thing to do next. On a phone it stays at the bottom, in reach of a thumb. */
+	.dock {
+		position: sticky;
+		inset-block-end: 0;
+		z-index: 10;
+		margin-block-start: auto;
+		padding-block: var(--space-5) calc(var(--space-3) + env(safe-area-inset-bottom));
+		background: linear-gradient(to top, var(--color-paper) 72%, transparent);
+	}
+
 	.reveal {
-		margin-block-start: var(--space-5);
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-3);
 	}
 
 	/* Full width on a phone so it is an easy thumb target, a compact button on larger screens. */
 	.btn--wide {
 		width: 100%;
-		min-height: 3.25rem;
+		min-height: 3.5rem;
+		border-radius: var(--radius-lg);
+		font-size: 1.0625rem;
 	}
 
 	@media (min-width: 40rem) {
 		.btn--wide {
 			width: auto;
-			min-width: 14rem;
+			min-width: 16rem;
 		}
+	}
+
+	.suggest {
+		margin-block-end: var(--space-3);
+		font-size: var(--text-sm);
 	}
 
 	.grades {
 		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--space-3);
-		margin-block-start: var(--space-5);
-	}
-
-	@media (min-width: 40rem) {
-		.grades {
-			grid-template-columns: repeat(4, minmax(0, 1fr));
-		}
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: var(--space-2);
 	}
 
 	.grade {
-		justify-content: flex-start;
-		gap: var(--space-2);
-		min-height: 3.25rem;
-		padding-inline: var(--space-3);
+		position: relative;
+		flex-direction: column;
+		justify-content: center;
+		gap: 2px;
+		min-height: 4rem;
+		padding: var(--space-2) 2px;
+		overflow: hidden;
+		border-radius: var(--radius-lg);
+		line-height: 1.2;
 	}
 
-	.grade kbd {
-		min-width: 1.5em;
+	/* The coloured edge: each grade has its colour, and also its name and interval, so colour is never alone. */
+	.grade::after {
+		content: '';
+		position: absolute;
+		inset-inline: 0;
+		inset-block-end: 0;
+		height: 4px;
+		background: var(--grade-colour, var(--color-muted));
 	}
 
+	.grade--1 {
+		--grade-colour: var(--color-again);
+		background: var(--color-again-soft);
+	}
+
+	.grade--2 {
+		--grade-colour: var(--color-hard);
+		background: var(--color-hard-soft);
+	}
+
+	.grade--3 {
+		--grade-colour: var(--color-good);
+		background: var(--color-accent-soft);
+	}
+
+	.grade--4 {
+		--grade-colour: var(--color-easy);
+		background: var(--color-easy-soft);
+	}
+
+	.grade:hover:not(:disabled) {
+		background: var(--color-raised);
+	}
+
+	.grade--suggested {
+		border-color: var(--grade-colour);
+		box-shadow:
+			0 0 0 2px var(--grade-colour),
+			var(--shadow-2);
+	}
+
+	/* Keys are for keyboards. A phone does not need to be told about them. */
+	.grade kbd,
 	.grade__tile {
-		flex: none;
-		width: 0.625rem;
-		height: 0.625rem;
-		border-radius: 2px;
-		background: var(--color-muted);
-	}
-
-	.grade--1 .grade__tile {
-		background: var(--color-again);
-	}
-
-	.grade--2 .grade__tile {
-		background: var(--color-hard);
-	}
-
-	.grade--3 .grade__tile {
-		background: var(--color-good);
-	}
-
-	.grade--4 .grade__tile {
-		background: var(--color-easy);
+		display: none;
 	}
 
 	.grade__name {
 		min-width: 0;
+		font-weight: 600;
 	}
 
 	.grade__interval {
-		margin-inline-start: auto;
 		color: var(--color-muted);
+		font-size: var(--text-sm);
 		font-variant-numeric: tabular-nums;
 	}
 
 	.keys {
+		display: none;
 		margin-block-start: var(--space-3);
 		font-size: var(--text-sm);
 	}
 
-	.done > * + * {
-		margin-block-start: var(--space-4);
+	@media (hover: hover) and (pointer: fine) {
+		.keys {
+			display: block;
+		}
+
+		.grade kbd {
+			display: inline-block;
+			position: absolute;
+			inset-block-start: 6px;
+			inset-inline-start: 6px;
+			min-width: 0;
+			padding: 0 0.35em;
+			font-size: 0.6875rem;
+			line-height: 1.4;
+		}
+	}
+
+	@media (max-width: 22rem) {
+		.grade__interval {
+			font-size: var(--text-xs);
+		}
+	}
+
+	.done {
+		display: grid;
+		justify-items: center;
+		gap: var(--space-4);
+		margin-block: auto;
+		padding-block: var(--space-6);
+		text-align: center;
+	}
+
+	.done__seal {
+		display: grid;
+		place-items: center;
+		width: 5rem;
+		height: 5rem;
+		border-radius: 50%;
+		background: linear-gradient(135deg, var(--color-accent), var(--color-accent-deep));
+		color: var(--color-accent-ink);
+		box-shadow: var(--shadow-3);
+		animation: seal var(--dur-slow) var(--ease-spring);
+	}
+
+	@keyframes seal {
+		from {
+			transform: scale(0.6);
+		}
+	}
+
+	.done__tally {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 5.5rem));
+		gap: var(--space-2);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.done__tile {
+		display: grid;
+		gap: 2px;
+		padding: var(--space-3) var(--space-1);
+		border-radius: var(--radius);
+		background: var(--color-sunken);
+		font-size: var(--text-sm);
+	}
+
+	.done__tile strong {
+		font-family: var(--font-display);
+		font-size: var(--text-lg);
+		line-height: 1.1;
+	}
+
+	.done__tile--1 {
+		background: var(--color-again-soft);
+	}
+
+	.done__tile--2 {
+		background: var(--color-hard-soft);
+	}
+
+	.done__tile--3 {
+		background: var(--color-accent-soft);
+	}
+
+	.done__tile--4 {
+		background: var(--color-easy-soft);
+	}
+
+	.done__text {
+		max-width: var(--measure);
+		color: var(--color-muted);
+	}
+
+	.done__text strong {
+		color: var(--color-ink);
 	}
 
 	.done__actions {
 		display: flex;
 		flex-wrap: wrap;
+		justify-content: center;
 		gap: var(--space-3);
 	}
 </style>

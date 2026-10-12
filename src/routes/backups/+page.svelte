@@ -10,6 +10,7 @@
 	} from '#lib/core/api-types.ts';
 	import { ApiError, api, fetchFile } from '#lib/ui/api.ts';
 	import { saveBlob } from '#lib/ui/download.ts';
+	import Icon from '#lib/ui/Icon.svelte';
 	import { formatBytes } from '#lib/ui/format.ts';
 
 	type View =
@@ -196,10 +197,10 @@
 </svelte:head>
 
 <div class="page stack">
-	<header>
-		<p class="muted small"><a href={resolve('/')}>All decks</a></p>
+	<header class="page-head">
+		<a class="crumb" href={resolve('/')}><Icon name="back" size="1em" /> All decks</a>
 		<h1>Backups</h1>
-		<p class="muted lead">
+		<p class="lead">
 			A backup is a copy of everything in Tessera: your decks, your cards, and everything you
 			studied. Tessera also saves one by itself before an upgrade, before it deletes a deck for
 			good, and before it starts a deck over.
@@ -223,7 +224,7 @@
 			data-state={busy === 'create' ? 'loading' : undefined}
 			onclick={backUpNow}
 		>
-			Back up now
+			<Icon name="backups" /> Back up now
 		</button>
 	</p>
 
@@ -315,7 +316,7 @@
 							aria-label="Download {backup.name}"
 							onclick={() => download(backup)}
 						>
-							Download
+							<Icon name="download" /> Download
 						</button>
 						<button
 							id="restore-{backup.name}"
@@ -474,11 +475,6 @@
 		font-size: var(--text-sm);
 	}
 
-	.lead {
-		margin-block-start: var(--space-2);
-		max-width: var(--measure);
-	}
-
 	.page.stack > :global(* + *) {
 		margin-block-start: var(--space-5);
 	}
@@ -494,20 +490,11 @@
 		margin-inline: 0.5ch;
 	}
 
-	.ledger {
-		margin: 0;
-		padding: 0;
-		list-style: none;
-		border-block-start: 1px solid var(--color-rule-strong);
-	}
-
 	.row {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-3) var(--space-5);
 		align-items: center;
-		padding-block: var(--space-4);
-		border-block-end: 1px solid var(--color-rule);
 	}
 
 	.row__main {
@@ -515,6 +502,7 @@
 	}
 
 	.row__title {
+		font-family: var(--font-body);
 		font-size: var(--text-base);
 		font-weight: 500;
 		overflow-wrap: anywhere;
@@ -528,14 +516,13 @@
 	}
 
 	.problem {
-		color: var(--color-error);
 		font-size: var(--text-sm);
 	}
 
 	.danger {
 		padding: var(--space-4) var(--space-5);
 		border: 1px solid var(--color-error);
-		border-radius: var(--radius);
+		border-radius: var(--radius-lg);
 		background: var(--color-error-soft);
 	}
 
@@ -551,7 +538,7 @@
 
 	.compare th,
 	.compare td {
-		padding: var(--space-1) var(--space-3);
+		padding: var(--space-2) var(--space-3);
 		text-align: start;
 		border-block-end: 1px solid var(--color-rule);
 		overflow-wrap: anywhere;

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from './Icon.svelte';
 	import {
 		THEME_LABEL,
 		applyTheme,
@@ -15,40 +16,44 @@
 		applyTheme(choice);
 		saveTheme(choice);
 	}
+
+	const ICON = { auto: 'auto', light: 'sun', dark: 'moon' } as const;
 </script>
 
 <button
 	type="button"
-	class="btn btn--quiet toggle"
+	class="toggle"
 	onclick={cycle}
 	aria-label={`Theme: ${THEME_LABEL[choice]}. Activate to change.`}
+	title={`Theme: ${THEME_LABEL[choice]}`}
 >
-	<svg viewBox="0 0 24 24" width="1.25em" height="1.25em" aria-hidden="true" focusable="false">
-		<circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2" />
-		{#if choice === 'light'}
-			<circle cx="12" cy="12" r="3.5" fill="currentColor" />
-		{:else if choice === 'dark'}
-			<path d="M12 4a8 8 0 0 0 0 16A6.5 6.5 0 0 1 12 4z" fill="currentColor" />
-		{:else}
-			<path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" />
-		{/if}
-	</svg>
-	<span class="toggle__text">{THEME_LABEL[choice]}</span>
+	<Icon name={ICON[choice]} size="1.2rem" />
 </button>
 
 <style>
 	.toggle {
-		padding-inline: var(--space-3);
+		display: inline-grid;
+		place-items: center;
+		width: var(--hit);
+		height: var(--hit);
+		border: 1px solid transparent;
+		border-radius: 50%;
+		background: transparent;
+		color: var(--color-muted);
+		cursor: pointer;
+		touch-action: manipulation;
+		transition:
+			background-color var(--dur-fast) var(--ease-out),
+			color var(--dur-fast) var(--ease-out),
+			transform var(--dur-fast) var(--ease-out);
 	}
 
-	.toggle__text {
-		display: none;
-		font-size: var(--text-sm);
+	.toggle:hover {
+		background: var(--color-sunken);
+		color: var(--color-ink);
 	}
 
-	@media (min-width: 40rem) {
-		.toggle__text {
-			display: inline;
-		}
+	.toggle:active {
+		transform: scale(0.92);
 	}
 </style>

@@ -4,6 +4,7 @@
 	import type { SettingsDto, SettingsResponse } from '#lib/core/api-types.ts';
 	import { settingProblems, type SettingKey, type SettingProblem } from '#lib/core/settings.ts';
 	import { ApiError, api } from '#lib/ui/api.ts';
+	import Icon from '#lib/ui/Icon.svelte';
 
 	type View =
 		| { kind: 'loading' }
@@ -144,10 +145,10 @@
 </svelte:head>
 
 <div class="page narrow stack">
-	<header>
-		<p class="muted small"><a href={resolve('/')}>All decks</a></p>
+	<header class="page-head">
+		<a class="crumb" href={resolve('/')}><Icon name="back" size="1em" /> All decks</a>
 		<h1>Settings</h1>
-		<p class="muted lead">How many cards Tessera gives you, and when. Changes apply at once.</p>
+		<p class="lead">How many cards Tessera gives you, and when. Changes apply at once.</p>
 	</header>
 
 	{#if view.kind === 'loading'}
@@ -341,6 +342,20 @@
 				</button>
 			</p>
 		</form>
+
+		<section class="housekeeping" aria-labelledby="housekeeping-heading">
+			<h2 id="housekeeping-heading">Housekeeping</h2>
+			<a class="housekeeping__link" href={resolve('/trash')}>
+				<Icon name="trash" />
+				<span>Trash</span>
+				<Icon name="chevron" size="1em" />
+			</a>
+			<a class="housekeeping__link" href={resolve('/backups')}>
+				<Icon name="backups" />
+				<span>Backups</span>
+				<Icon name="chevron" size="1em" />
+			</a>
+		</section>
 	{/if}
 </div>
 
@@ -353,13 +368,7 @@
 		font-size: var(--text-sm);
 	}
 
-	.lead {
-		margin-block-start: var(--space-2);
-		max-width: var(--measure);
-	}
-
 	.problem {
-		color: var(--color-error);
 		font-size: var(--text-sm);
 	}
 
@@ -372,26 +381,37 @@
 	}
 
 	form.stack > :global(* + *) {
-		margin-block-start: var(--space-6);
+		margin-block-start: var(--space-5);
 	}
 
 	.group {
 		margin: 0;
-		padding: 0;
-		border: 0;
+		padding: var(--space-5);
+		border: 1px solid var(--color-rule);
+		border-radius: var(--radius-xl);
+		background: var(--color-surface);
+		box-shadow: var(--shadow-2);
 		min-width: 0;
 	}
 
 	.group legend {
+		float: left;
+		width: 100%;
 		padding: 0;
-		margin-block-end: var(--space-3);
+		margin-block-end: var(--space-4);
 		font-family: var(--font-display);
 		font-size: var(--text-md);
 		font-weight: 600;
 	}
 
+	.group legend + :global(*) {
+		clear: both;
+	}
+
 	.group > :global(div + div) {
 		margin-block-start: var(--space-5);
+		padding-block-start: var(--space-5);
+		border-block-start: 1px solid var(--color-rule);
 	}
 
 	.field--short {
@@ -413,5 +433,42 @@
 		gap: var(--space-3);
 		align-items: center;
 		margin: 0;
+	}
+
+	/* Trash and Backups have no tab on a phone, so they are one tap from here. */
+	.housekeeping {
+		display: grid;
+		gap: var(--space-2);
+	}
+
+	.housekeeping h2 {
+		margin-block-end: var(--space-1);
+		font-size: var(--text-md);
+	}
+
+	.housekeeping__link {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		gap: var(--space-3);
+		align-items: center;
+		min-height: 3.25rem;
+		padding-inline: var(--space-4);
+		border: 1px solid var(--color-rule);
+		border-radius: var(--radius-lg);
+		background: var(--color-surface);
+		box-shadow: var(--shadow-1);
+		color: var(--color-ink);
+		text-decoration: none;
+	}
+
+	.housekeeping__link:hover {
+		border-color: var(--color-rule-strong);
+		color: var(--color-ink);
+	}
+
+	@media (min-width: 64rem) {
+		.housekeeping {
+			display: none;
+		}
 	}
 </style>

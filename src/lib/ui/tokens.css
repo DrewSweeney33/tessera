@@ -1,14 +1,12 @@
-/* Hallmark · scope: app shell (no page macrostructure) · genre: editorial reading surface
- * theme: custom "Tessera Desk" · tone: utilitarian, quiet study desk
+/* Hallmark · scope: app shell + every screen · genre: editorial reading surface, made tactile
+ * theme: custom "Tessera Desk" v2 · tone: calm, warm, quietly premium
  * anchor hue: 80 (warm oat paper) · accent: verdigris, hue 185
  * display: Newsreader · body: Geist · outlier: JetBrains Mono (code and key hints only)
- * axes: paper light and dark (both ship) / reading serif / cool accent
+ * axes: paper light and dark (both ship) / reading serif / one cool accent / layered surfaces with soft shadow
  * Every colour in the app is defined here and nowhere else. Font families are named here and in
  * fonts.css (the @font-face rules) only. Everything else references a token.
- * Hallmark · pre-emit critique (self-assessed): P4 H4 E4 S4 R4 V3
- *   V is 3 because this is an app with three screens, not a page set with room for structural variety.
- *   Measured, not judged: contrast 36 of 36 pairs pass in both themes, no horizontal scroll and no wrapped
- *   buttons at 320, 375, 414, 768 px, 20 XSS payloads neutralized in Chrome (see tests/e2e).
+ * v2 keeps the v1 palette (so the measured contrast pairs still hold) and adds depth: raised surfaces,
+ * shadows, larger radii, category colours, and a few gradients built only from the existing hues.
  */
 :root {
 	color-scheme: light dark;
@@ -18,13 +16,14 @@
 	--font-body: 'Geist', ui-sans-serif, 'Segoe UI', system-ui, sans-serif;
 	--font-code: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
 
-	/* Surfaces. Higher surfaces are lighter in dark mode, not shadowed. */
+	/* Surfaces. Higher surfaces are lighter in dark mode, and also carry a soft shadow in light mode. */
 	--color-paper: light-dark(oklch(97.5% 0.01 80), oklch(18% 0.012 80));
 	--color-surface: light-dark(oklch(99% 0.006 80), oklch(23% 0.013 80));
+	--color-raised: light-dark(oklch(100% 0.003 80), oklch(26.5% 0.014 80));
 	--color-sunken: light-dark(oklch(94.5% 0.013 80), oklch(15% 0.011 80));
 
 	/* Lines. rule is decorative. rule-strong draws control edges and meets 3:1. */
-	--color-rule: light-dark(oklch(88% 0.012 80), oklch(31% 0.012 80));
+	--color-rule: light-dark(oklch(90% 0.012 80), oklch(31% 0.012 80));
 	--color-rule-strong: light-dark(oklch(60% 0.014 80), oklch(56% 0.014 80));
 
 	/* Text. */
@@ -35,6 +34,7 @@
 	--color-accent: light-dark(oklch(46% 0.1 185), oklch(77% 0.1 182));
 	--color-accent-ink: light-dark(oklch(98% 0.01 185), oklch(17% 0.03 185));
 	--color-accent-soft: light-dark(oklch(93.5% 0.035 185), oklch(28% 0.045 185));
+	--color-accent-deep: light-dark(oklch(37% 0.09 188), oklch(66% 0.1 182));
 	--color-focus: light-dark(oklch(45% 0.13 185), oklch(80% 0.11 182));
 
 	/* Grades. Always shown with a name and an interval, never as colour alone. */
@@ -43,18 +43,48 @@
 	--color-good: var(--color-accent);
 	--color-easy: light-dark(oklch(48% 0.13 255), oklch(74% 0.11 255));
 
+	/* Soft tints of the grade colours, for the backgrounds behind them. */
+	--color-again-soft: light-dark(oklch(95% 0.03 28), oklch(27% 0.05 28));
+	--color-hard-soft: light-dark(oklch(95% 0.045 85), oklch(28% 0.05 80));
+	--color-easy-soft: light-dark(oklch(94.5% 0.03 255), oklch(27% 0.045 255));
+
+	/* Queue categories, as people know them from other study apps: new is blue, learning amber, review green. */
+	--color-new: var(--color-easy);
+	--color-learning: var(--color-hard);
+	--color-review: var(--color-accent);
+
+	/* On the Today card, which is green in both themes: tints for its bar and legend, and a light button. */
+	--color-tint-new: oklch(88% 0.07 255);
+	--color-tint-learning: oklch(90% 0.11 85);
+	--color-tint-review: oklch(97% 0.02 185);
+	--color-button-light: oklch(98% 0.01 185);
+	--color-button-light-ink: oklch(28% 0.07 188);
+
 	/* Status. */
 	--color-error: var(--color-again);
-	--color-error-soft: light-dark(oklch(95% 0.03 28), oklch(27% 0.05 28));
+	--color-error-soft: var(--color-again-soft);
 	--color-success: var(--color-accent);
 
+	/* Depth. One shadow colour, three heights. The dark theme leans on lighter surfaces instead, so its shadows are
+	 * only a deep, quiet edge. */
+	--shadow-color: light-dark(oklch(32% 0.03 80 / 0.16), oklch(5% 0.01 80 / 0.55));
+	--shadow-1: 0 1px 2px var(--shadow-color);
+	--shadow-2:
+		0 1px 2px var(--shadow-color), 0 6px 18px -6px var(--shadow-color),
+		inset 0 1px 0 light-dark(oklch(100% 0 0 / 0.7), oklch(100% 0 0 / 0.04));
+	--shadow-3:
+		0 2px 4px var(--shadow-color), 0 18px 40px -14px var(--shadow-color),
+		inset 0 1px 0 light-dark(oklch(100% 0 0 / 0.8), oklch(100% 0 0 / 0.05));
+
 	/* Type scale: major third (1.25). Body is 1rem. */
+	--text-xs: 0.75rem;
 	--text-sm: 0.875rem;
 	--text-base: 1rem;
 	--text-md: 1.25rem;
 	--text-lg: 1.5625rem;
 	--text-xl: 1.9531rem;
 	--text-2xl: 2.4414rem;
+	--text-hero: clamp(3.5rem, 2.4rem + 5vw, 5.5rem);
 	--text-card: clamp(1.25rem, 1rem + 1.1vw, 1.625rem);
 	--weight-body: 400;
 	--leading-body: 1.6;
@@ -71,17 +101,24 @@
 	--space-8: 4rem;
 	--gutter: clamp(1rem, 4vw, 2rem);
 
-	/* Shape. Squared tiles, a nod to the name. */
-	--radius-sm: 4px;
-	--radius: 6px;
+	/* Shape. Soft tiles: a tessera is a small, evenly cut piece. */
+	--radius-sm: 8px;
+	--radius: 12px;
+	--radius-lg: 18px;
+	--radius-xl: 26px;
 	--measure: 65ch;
-	--page-width: 64rem;
+	--page-width: 72rem;
+	--rail-width: 15.5rem;
+	--bar-height: 3.5rem;
+	--tabs-height: 4.25rem;
 	--hit: 2.75rem;
 
-	/* Motion: transform and opacity only, three easings' worth of discipline. */
+	/* Motion: transform and opacity only. Short, with one springy easing for things that arrive. */
 	--ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+	--ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
 	--dur-fast: 120ms;
 	--dur: 180ms;
+	--dur-slow: 320ms;
 }
 
 /* A manual choice overrides the system preference. */

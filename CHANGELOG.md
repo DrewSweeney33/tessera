@@ -4,6 +4,10 @@ All notable changes to Tessera are written here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Changed
+
+- **A new look, for a phone and a computer.** Every screen was redesigned. On a phone, the navigation is a tab bar under your thumb (Decks, Import, Leeches, Settings, with a count on Leeches), and Trash and Backups are one tap away at the bottom of Settings. On a computer it is a rail down the left side. The deck list now opens with a Today card that shows how much is waiting and starts a session in one tap, followed by a tile for each deck with its new, learning, and review counts. The study screen keeps the card in the middle with a progress bar above it and the next action docked at the bottom, so a thumb can reach Show answer and the four grade buttons. Nothing about how studying, importing, or editing works has changed. The look keeps Tessera's warm paper and verdigris colours, in light and dark, and every screen is checked for contrast and keyboard use as before. The notes are in `docs/design.md`.
+
 ### Added
 
 - **New deck** in the web page: make an empty deck by hand from a title, with an optional description, tags, and id. The id is made from the title and shown while you type (a second deck with the same title gets a number), and a taken or invalid id is explained next to the field. A deck with no cards says so on the home page. Add cards to it by importing a file with its deck id. Also `POST /api/decks`. A deck with no cards answers an export request with a clear message instead of an error.

@@ -6,7 +6,9 @@
 	import { ApiError, api } from '#lib/ui/api.ts';
 	import { cardSides } from '#lib/ui/card-sides.ts';
 	import { copyText } from '#lib/ui/clipboard.ts';
+	import Icon from '#lib/ui/Icon.svelte';
 	import Markdown from '#lib/ui/Markdown.svelte';
+	import { refreshShell } from '#lib/ui/shell.svelte.ts';
 
 	type View =
 		| { kind: 'loading' }
@@ -57,6 +59,7 @@
 						? 'Suspended. The card is out of your study sessions.'
 						: 'Put back in your study sessions.';
 			await load();
+			void refreshShell();
 		} catch (error) {
 			problem =
 				error instanceof ApiError ? error.message : 'Something went wrong. Nothing was changed.';
@@ -96,10 +99,10 @@
 </svelte:head>
 
 <div class="page stack">
-	<header>
-		<p class="muted small"><a href={resolve('/')}>All decks</a></p>
+	<header class="page-head">
+		<a class="crumb" href={resolve('/')}><Icon name="back" size="1em" /> All decks</a>
 		<h1>Leeches</h1>
-		<p class="muted lead">
+		<p class="lead">
 			Cards you keep forgetting. Tessera flags a card after it lapses eight times. Ask Claude to
 			rewrite them, fix them yourself in the editor, or set one aside.
 		</p>
@@ -129,7 +132,7 @@
 			data-state={busy === 'report' ? 'loading' : undefined}
 			onclick={copyReport}
 		>
-			Copy the weak-spot report for Claude
+			<Icon name="copy" /> Copy the weak-spot report for Claude
 		</button>
 	</div>
 
@@ -312,11 +315,6 @@
 		font-size: var(--text-sm);
 	}
 
-	.lead {
-		margin-block-start: var(--space-2);
-		max-width: var(--measure);
-	}
-
 	.page.stack > :global(* + *) {
 		margin-block-start: var(--space-5);
 	}
@@ -342,19 +340,10 @@
 		margin-inline: 0.5ch;
 	}
 
-	.ledger {
-		margin: 0;
-		padding: 0;
-		list-style: none;
-		border-block-start: 1px solid var(--color-rule-strong);
-	}
-
 	.row {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-3) var(--space-5);
-		padding-block: var(--space-4);
-		border-block-end: 1px solid var(--color-rule);
 	}
 
 	.row--set-aside .card-text {
@@ -405,9 +394,7 @@
 
 	.badge {
 		margin-inline-start: var(--space-2);
-		padding: 0 0.5em;
-		border: 1px solid var(--color-rule-strong);
-		border-radius: var(--radius-sm);
+		background: var(--color-hard-soft);
 	}
 
 	.tags {
@@ -418,7 +405,7 @@
 
 	.tags th,
 	.tags td {
-		padding: var(--space-2) var(--space-3);
+		padding: var(--space-3);
 		text-align: start;
 		border-block-end: 1px solid var(--color-rule);
 		overflow-wrap: anywhere;

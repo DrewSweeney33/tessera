@@ -50,7 +50,11 @@
 	};
 </script>
 
-<section class="callout preview" class:preview--stale={stale} aria-labelledby="preview-heading">
+<section
+	class="callout panel preview"
+	class:preview--stale={stale}
+	aria-labelledby="preview-heading"
+>
 	<h2 id="preview-heading">
 		{plan.deck.action === 'created' ? 'New deck' : 'Updating deck'}: {plan.deck.title}
 	</h2>
@@ -170,9 +174,15 @@
 
 	.tally {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
-		gap: var(--space-4);
+		grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+		gap: var(--space-3);
 		margin: 0;
+	}
+
+	.tally > div {
+		padding: var(--space-3) var(--space-4);
+		border-radius: var(--radius);
+		background: var(--color-sunken);
 	}
 
 	.tally dt {
@@ -191,19 +201,27 @@
 		padding: var(--space-3) var(--space-4);
 		border: 1px solid var(--color-hard);
 		border-radius: var(--radius);
+		background: var(--color-hard-soft);
 	}
 
 	.changes {
 		margin: 0;
-		padding: 0;
+		padding: 0 var(--space-3);
 		list-style: none;
 		max-height: 18rem;
 		overflow-y: auto;
+		border: 1px solid var(--color-rule);
+		border-radius: var(--radius);
+		background: var(--color-paper);
 	}
 
 	.changes li {
-		padding-block: var(--space-2);
+		padding-block: var(--space-3);
 		border-block-end: 1px solid var(--color-rule);
+	}
+
+	.changes li:last-child {
+		border-block-end: 0;
 	}
 
 	.change-head {
@@ -242,6 +260,7 @@
 		margin: 0;
 		padding: var(--space-1) var(--space-3);
 		border-inline-start: 3px solid var(--color-rule-strong);
+		border-radius: var(--radius-sm);
 		background: var(--color-sunken);
 	}
 

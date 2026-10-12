@@ -28,6 +28,7 @@
 	import { ApiError, api, fetchFile } from '#lib/ui/api.ts';
 	import { cardFieldElementId } from '#lib/ui/card-fields.ts';
 	import CardEditor from '#lib/ui/CardEditor.svelte';
+	import Icon from '#lib/ui/Icon.svelte';
 	import { saveBlob } from '#lib/ui/download.ts';
 	import ImportPlan from '#lib/ui/ImportPlan.svelte';
 
@@ -470,8 +471,8 @@
 		</div>
 	{:else if draft && original}
 		<header class="head">
-			<div>
-				<p class="muted small"><a href={resolve('/')}>All decks</a></p>
+			<div class="page-head">
+				<a class="crumb" href={resolve('/')}><Icon name="back" size="1em" /> All decks</a>
 				<h1>Edit deck</h1>
 				<p class="muted small">
 					<code>{draft.deck.id}</code> · {original.cards.length}
@@ -479,14 +480,16 @@
 				</p>
 			</div>
 			<div class="head__actions">
-				<a class="btn" href={resolve('/study/[[deckId]]', { deckId: draft.deck.id })}>Study</a>
+				<a class="btn btn--primary" href={resolve('/study/[[deckId]]', { deckId: draft.deck.id })}
+					><Icon name="play" /> Study</a
+				>
 				<button
 					type="button"
 					class="btn"
 					disabled={busy === 'export'}
 					onclick={() => exportDeck('json')}
 				>
-					Export JSON
+					<Icon name="download" /> Export JSON
 				</button>
 				<button
 					type="button"
@@ -494,7 +497,7 @@
 					disabled={busy === 'export'}
 					onclick={() => exportDeck('md')}
 				>
-					Export Markdown
+					<Icon name="download" /> Export Markdown
 				</button>
 				<button
 					type="button"
@@ -506,7 +509,7 @@
 						confirmingReset = false;
 					}}
 				>
-					Move to Trash
+					<Icon name="trash" /> Move to Trash
 				</button>
 				<button
 					id="start-over-button"
@@ -655,7 +658,7 @@
 			{/if}
 		{/if}
 
-		<section class="stack" aria-labelledby="details-heading">
+		<section class="stack panel" aria-labelledby="details-heading">
 			<h2 id="details-heading">Deck details</h2>
 			<div class="stack">
 				<label for="deck-title">Title</label>
@@ -726,7 +729,7 @@
 						disabled={draft.cards.length >= LIMITS.maxCards}
 						onclick={addCard}
 					>
-						Add a card
+						<Icon name="plus" /> Add a card
 					</button>
 				</div>
 			</div>
@@ -896,10 +899,7 @@
 
 <style>
 	.head {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: flex-end;
-		justify-content: space-between;
+		display: grid;
 		gap: var(--space-4);
 	}
 
@@ -908,7 +908,7 @@
 	.add {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--space-3);
+		gap: var(--space-2) var(--space-3);
 		align-items: center;
 		margin: 0;
 	}
@@ -918,7 +918,6 @@
 	}
 
 	.problem {
-		color: var(--color-error);
 		font-size: var(--text-sm);
 	}
 
@@ -931,7 +930,7 @@
 	}
 
 	.page.stack > :global(* + *) {
-		margin-block-start: var(--space-6);
+		margin-block-start: var(--space-5);
 	}
 
 	.cards-head {
@@ -948,14 +947,27 @@
 	}
 
 	.cards {
+		display: grid;
+		gap: var(--space-3);
 		margin: 0;
 		padding: 0;
 		list-style: none;
-		border-block-start: 1px solid var(--color-rule-strong);
 	}
 
 	.card {
-		border-block-end: 1px solid var(--color-rule);
+		padding-inline: var(--space-4);
+		border: 1px solid var(--color-rule);
+		border-radius: var(--radius-lg);
+		background: var(--color-surface);
+		box-shadow: var(--shadow-1);
+		transition:
+			border-color var(--dur) var(--ease-out),
+			box-shadow var(--dur) var(--ease-out);
+	}
+
+	.card--open {
+		border-color: var(--color-accent);
+		box-shadow: var(--shadow-2);
 	}
 
 	.card__head {
@@ -967,10 +979,15 @@
 	}
 
 	.card__number {
-		min-width: 2ch;
+		display: grid;
+		place-items: center;
+		min-width: 2rem;
+		height: 2rem;
+		border-radius: var(--radius-sm);
+		background: var(--color-sunken);
 		color: var(--color-muted);
+		font-size: var(--text-sm);
 		font-variant-numeric: tabular-nums;
-		text-align: end;
 	}
 
 	.card__summary {
@@ -995,11 +1012,9 @@
 
 	.badge {
 		margin-inline-start: var(--space-2);
-		padding: 0 0.5em;
-		border: 1px solid var(--color-accent);
-		border-radius: var(--radius-sm);
+		border-color: var(--color-accent);
+		background: var(--color-accent-soft);
 		color: var(--color-accent);
-		font-size: var(--text-sm);
 	}
 
 	.removed {
@@ -1023,10 +1038,11 @@
 		overflow-wrap: anywhere;
 	}
 
+	/* The save bar floats above the phone tab bar, and sits at the bottom edge on a desktop. */
 	.savebar {
 		position: sticky;
-		inset-block-end: 0;
-		z-index: 5;
+		inset-block-end: calc(var(--tabs-height) + env(safe-area-inset-bottom) + var(--space-2));
+		z-index: 15;
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
@@ -1034,8 +1050,11 @@
 		gap: var(--space-3);
 		padding: var(--space-3) var(--space-4);
 		border: 1px solid var(--color-rule-strong);
-		border-radius: var(--radius);
-		background: var(--color-surface);
+		border-radius: var(--radius-lg);
+		background: color-mix(in oklch, var(--color-raised) 92%, transparent);
+		-webkit-backdrop-filter: blur(14px);
+		backdrop-filter: blur(14px);
+		box-shadow: var(--shadow-3);
 	}
 
 	#save-panel:focus-visible {
@@ -1044,6 +1063,16 @@
 	}
 
 	@media (min-width: 48rem) {
+		.head {
+			grid-template-columns: minmax(0, 1fr) auto;
+			align-items: end;
+		}
+
+		.head__actions {
+			justify-content: flex-end;
+			max-width: 34rem;
+		}
+
 		.card__head {
 			grid-template-columns: auto minmax(0, 1fr) auto;
 		}
@@ -1053,7 +1082,13 @@
 		}
 
 		.card__body {
-			padding-inline-start: calc(2ch + var(--space-4));
+			padding-inline-start: calc(2rem + var(--space-4));
+		}
+	}
+
+	@media (min-width: 64rem) {
+		.savebar {
+			inset-block-end: var(--space-3);
 		}
 	}
 </style>

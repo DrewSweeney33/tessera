@@ -403,7 +403,7 @@
 	.preview {
 		padding: var(--space-4);
 		border: 1px dashed var(--color-rule-strong);
-		border-radius: var(--radius);
+		border-radius: var(--radius-lg);
 		background: var(--color-sunken);
 	}
 

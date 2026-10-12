@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import type { DeleteDeckResponse, TrashedDeckDto } from '#lib/core/api-types.ts';
 	import { ApiError, api } from '#lib/ui/api.ts';
+	import Icon from '#lib/ui/Icon.svelte';
 
 	type View =
 		| { kind: 'loading' }
@@ -108,10 +109,10 @@
 </svelte:head>
 
 <div class="page stack">
-	<header>
-		<p class="muted small"><a href={resolve('/')}>All decks</a></p>
+	<header class="page-head">
+		<a class="crumb" href={resolve('/')}><Icon name="back" size="1em" /> All decks</a>
 		<h1>Trash</h1>
-		<p class="muted lead">
+		<p class="lead">
 			A deck you delete waits here, with its cards and everything you studied. Nothing is lost until
 			you delete a deck for good.
 		</p>
@@ -187,7 +188,7 @@
 							aria-label="Restore {deck.title}"
 							onclick={() => restore(deck)}
 						>
-							Restore
+							<Icon name="undo" /> Restore
 						</button>
 						<button
 							id="delete-{deck.id}"
@@ -265,11 +266,6 @@
 		font-size: var(--text-sm);
 	}
 
-	.lead {
-		margin-block-start: var(--space-2);
-		max-width: var(--measure);
-	}
-
 	.page.stack > :global(* + *) {
 		margin-block-start: var(--space-5);
 	}
@@ -278,20 +274,11 @@
 		margin-inline: 0.5ch;
 	}
 
-	.ledger {
-		margin: 0;
-		padding: 0;
-		list-style: none;
-		border-block-start: 1px solid var(--color-rule-strong);
-	}
-
 	.row {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-3) var(--space-5);
 		align-items: center;
-		padding-block: var(--space-4);
-		border-block-end: 1px solid var(--color-rule);
 	}
 
 	.row__main {
@@ -311,7 +298,7 @@
 	.danger {
 		padding: var(--space-4) var(--space-5);
 		border: 1px solid var(--color-error);
-		border-radius: var(--radius);
+		border-radius: var(--radius-lg);
 		background: var(--color-error-soft);
 	}
 
@@ -324,7 +311,6 @@
 	}
 
 	.problem {
-		color: var(--color-error);
 		font-size: var(--text-sm);
 	}
 
@@ -334,17 +320,6 @@
 		gap: var(--space-3);
 		align-items: center;
 		margin: 0;
-	}
-
-	.btn--danger {
-		border-color: var(--color-error);
-		background: var(--color-error);
-		color: var(--color-paper);
-	}
-
-	.btn--danger:hover {
-		background: color-mix(in oklch, var(--color-error), var(--color-ink) 14%);
-		color: var(--color-paper);
 	}
 
 	@media (min-width: 48rem) {

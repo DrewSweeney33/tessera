@@ -5,6 +5,7 @@
 	import { ID_PATTERN, LIMITS } from '#lib/core/schema/limits.ts';
 	import { slugifyTitle } from '#lib/core/slug.ts';
 	import { ApiError, api } from '#lib/ui/api.ts';
+	import Icon from '#lib/ui/Icon.svelte';
 
 	let title = $state('');
 	let description = $state('');
@@ -107,7 +108,8 @@
 
 <div class="page narrow stack">
 	{#if created}
-		<section class="callout callout--ok stack" aria-labelledby="done-heading">
+		<section class="callout callout--ok stack success" aria-labelledby="done-heading">
+			<span class="success__seal" aria-hidden="true"><Icon name="check" size="1.75rem" /></span>
 			<h1 id="done-heading">Deck created</h1>
 			<p>
 				<strong>{created.title}</strong> has the id <code>{created.id}</code> and no cards yet.
@@ -123,9 +125,10 @@
 			</p>
 		</section>
 	{:else}
-		<header>
+		<header class="page-head">
+			<a class="crumb" href={resolve('/')}><Icon name="back" size="1em" /> All decks</a>
 			<h1>New deck</h1>
-			<p class="muted lead">
+			<p class="lead">
 				Make an empty deck by hand. Add cards to it afterwards by importing a file.
 			</p>
 		</header>
@@ -242,17 +245,11 @@
 		max-width: 40rem;
 	}
 
-	.lead {
-		margin-block-start: var(--space-2);
-		max-width: var(--measure);
-	}
-
 	.small {
 		font-size: var(--text-sm);
 	}
 
 	.problem {
-		color: var(--color-error);
 		font-size: var(--text-sm);
 	}
 
@@ -278,7 +275,31 @@
 		margin-block-start: var(--space-2);
 	}
 
+	form.stack {
+		padding: var(--space-5);
+		border: 1px solid var(--color-rule);
+		border-radius: var(--radius-xl);
+		background: var(--color-surface);
+		box-shadow: var(--shadow-2);
+	}
+
 	form.stack > :global(* + *) {
 		margin-block-start: var(--space-5);
+	}
+
+	.success {
+		padding: var(--space-6);
+		border-radius: var(--radius-xl);
+	}
+
+	.success__seal {
+		display: grid;
+		place-items: center;
+		width: 3.5rem;
+		height: 3.5rem;
+		border-radius: 50%;
+		background: var(--color-accent);
+		color: var(--color-accent-ink);
+		box-shadow: var(--shadow-2);
 	}
 </style>

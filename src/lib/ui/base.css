@@ -14,6 +14,8 @@ body {
 html {
 	-webkit-text-size-adjust: 100%;
 	text-size-adjust: 100%;
+	-webkit-tap-highlight-color: transparent;
+	scroll-padding-block: var(--space-6);
 }
 
 body {
@@ -27,6 +29,28 @@ body {
 	line-height: var(--leading-body);
 	font-variant-numeric: tabular-nums;
 	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+}
+
+/* A faint verdigris glow behind the top of the page. It is a fixed layer, so the body keeps one solid colour
+ * and contrast stays measurable. */
+body::before {
+	content: '';
+	position: fixed;
+	inset: 0;
+	z-index: -1;
+	pointer-events: none;
+	background:
+		radial-gradient(
+			55rem 28rem at 85% -8%,
+			color-mix(in oklch, var(--color-accent) 11%, transparent),
+			transparent 70%
+		),
+		radial-gradient(
+			40rem 24rem at -5% 105%,
+			color-mix(in oklch, var(--color-hard) 7%, transparent),
+			transparent 70%
+		);
 }
 
 h1,
@@ -37,7 +61,7 @@ h3 {
 	font-weight: 600;
 	font-style: normal;
 	line-height: var(--leading-tight);
-	letter-spacing: -0.012em;
+	letter-spacing: -0.015em;
 	text-wrap: balance;
 	overflow-wrap: anywhere;
 }
@@ -52,6 +76,12 @@ h2 {
 
 h3 {
 	font-size: var(--text-md);
+}
+
+@media (min-width: 40rem) {
+	h1 {
+		font-size: var(--text-2xl);
+	}
 }
 
 p {
@@ -100,6 +130,13 @@ pre {
 	font-size: 0.9em;
 }
 
+/* Key hints are for keyboards. A touch screen has no keys to press, so it does not show them. */
+@media (hover: none) {
+	.btn kbd {
+		display: none;
+	}
+}
+
 .sr-only {
 	position: absolute;
 	width: 1px;
@@ -116,7 +153,7 @@ pre {
 	position: absolute;
 	inset-block-start: var(--space-2);
 	inset-inline-start: var(--space-2);
-	z-index: 10;
+	z-index: 30;
 	padding: var(--space-2) var(--space-4);
 	background: var(--color-accent);
 	color: var(--color-accent-ink);
@@ -132,7 +169,13 @@ pre {
 .page {
 	width: min(100% - 2 * var(--gutter), var(--page-width));
 	margin-inline: auto;
-	padding-block: var(--space-6) var(--space-8);
+	padding-block: var(--space-5) var(--space-8);
+}
+
+@media (min-width: 64rem) {
+	.page {
+		padding-block-start: var(--space-7);
+	}
 }
 
 .stack > * + * {
@@ -143,6 +186,42 @@ pre {
 	color: var(--color-muted);
 }
 
+/* The breadcrumb on inner pages: one quiet way back. */
+.crumb {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+	min-height: 1.75rem;
+	color: var(--color-muted);
+	font-size: var(--text-sm);
+	text-decoration: none;
+}
+
+.crumb:hover {
+	color: var(--color-accent);
+}
+
+/* The title block at the top of a page. */
+.page-head {
+	display: grid;
+	gap: var(--space-2);
+}
+
+.page-head .lead {
+	max-width: var(--measure);
+	color: var(--color-muted);
+}
+
+/* A small label above a heading or number. */
+.eyebrow {
+	margin: 0;
+	color: var(--color-muted);
+	font-size: var(--text-xs);
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
 /* Buttons. All eight states: default, hover, focus-visible, active, disabled, loading, error, success. */
 .btn {
 	display: inline-flex;
@@ -151,10 +230,11 @@ pre {
 	gap: var(--space-2);
 	min-height: var(--hit);
 	padding: 0 var(--space-4);
-	border: 1px solid var(--color-rule-strong);
+	border: 1px solid var(--color-rule);
 	border-radius: var(--radius);
-	background: var(--color-surface);
+	background: var(--color-raised);
 	color: var(--color-ink);
+	box-shadow: var(--shadow-1);
 	font-family: var(--font-body);
 	font-size: var(--text-base);
 	font-weight: 500;
@@ -162,15 +242,22 @@ pre {
 	white-space: nowrap;
 	text-decoration: none;
 	cursor: pointer;
+	user-select: none;
+	-webkit-user-select: none;
+	touch-action: manipulation;
 	transition:
 		background-color var(--dur-fast) var(--ease-out),
+		border-color var(--dur-fast) var(--ease-out),
+		box-shadow var(--dur-fast) var(--ease-out),
 		transform var(--dur-fast) var(--ease-out);
 }
 
 .btn:hover,
 .btn.is-hover {
-	background: var(--color-sunken);
+	border-color: var(--color-rule-strong);
+	background: var(--color-surface);
 	color: var(--color-ink);
+	box-shadow: var(--shadow-2);
 }
 
 .btn:focus-visible,
@@ -182,7 +269,8 @@ pre {
 
 .btn:active,
 .btn.is-active {
-	transform: translateY(1px);
+	transform: translateY(1px) scale(0.99);
+	box-shadow: none;
 }
 
 .btn:disabled,
@@ -190,6 +278,7 @@ pre {
 	opacity: 0.55;
 	cursor: not-allowed;
 	transform: none;
+	box-shadow: none;
 }
 
 .btn[data-state='loading'] {
@@ -217,20 +306,45 @@ pre {
 }
 
 .btn--primary {
-	background: var(--color-accent);
-	border-color: var(--color-accent);
+	border-color: var(--color-accent-deep);
+	background: linear-gradient(180deg, var(--color-accent), var(--color-accent-deep));
 	color: var(--color-accent-ink);
+	box-shadow:
+		0 1px 2px var(--shadow-color),
+		0 8px 18px -8px color-mix(in oklch, var(--color-accent) 70%, transparent),
+		inset 0 1px 0 oklch(100% 0 0 / 0.2);
 }
 
 .btn--primary:hover,
 .btn--primary.is-hover {
-	background: color-mix(in oklch, var(--color-accent), var(--color-ink) 14%);
+	border-color: var(--color-accent-deep);
+	background: var(--color-accent-deep);
 	color: var(--color-accent-ink);
 }
 
 .btn--quiet {
 	border-color: transparent;
 	background: transparent;
+	box-shadow: none;
+}
+
+.btn--quiet:hover {
+	border-color: transparent;
+	background: var(--color-sunken);
+	box-shadow: none;
+}
+
+.btn--danger {
+	border-color: var(--color-error);
+	background: var(--color-error);
+	color: var(--color-paper);
+	box-shadow: var(--shadow-1);
+}
+
+.btn--danger:hover {
+	border-color: var(--color-error);
+	background: color-mix(in oklch, var(--color-error), var(--color-ink) 14%);
+	color: var(--color-paper);
 }
 
 @keyframes spin {
@@ -254,9 +368,13 @@ label,
 	border-radius: var(--radius);
 	background: var(--color-surface);
 	color: var(--color-ink);
+	box-shadow: inset 0 1px 2px light-dark(oklch(30% 0.03 80 / 0.07), oklch(0% 0 0 / 0.25));
 	font-family: var(--font-code);
 	font-size: 0.875rem;
 	line-height: 1.5;
+	transition:
+		border-color var(--dur-fast) var(--ease-out),
+		box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .field--text {
@@ -268,9 +386,36 @@ label,
 	color: var(--color-muted);
 }
 
+.field:hover {
+	border-color: var(--color-ink);
+}
+
 .field:focus-visible {
 	outline: 2px solid var(--color-focus);
 	outline-offset: 1px;
+	border-color: var(--color-focus);
+}
+
+.field[aria-invalid='true'] {
+	border-color: var(--color-error);
+}
+
+select.field {
+	appearance: none;
+	padding-inline-end: 2.5rem;
+	background-image:
+		linear-gradient(45deg, transparent 50%, var(--color-muted) 50%),
+		linear-gradient(135deg, var(--color-muted) 50%, transparent 50%);
+	background-position:
+		calc(100% - 1.25rem) 50%,
+		calc(100% - 0.9rem) 50%;
+	background-size: 0.35rem 0.35rem;
+	background-repeat: no-repeat;
+	cursor: pointer;
+}
+
+textarea.field {
+	resize: vertical;
 }
 
 input[type='checkbox'] {
@@ -280,22 +425,72 @@ input[type='checkbox'] {
 	accent-color: var(--color-accent);
 }
 
+.problem {
+	color: var(--color-error);
+	font-size: var(--text-sm);
+}
+
 /* Messages. */
 .callout {
 	padding: var(--space-4) var(--space-5);
-	border: 1px solid var(--color-rule-strong);
-	border-radius: var(--radius);
+	border: 1px solid var(--color-rule);
+	border-radius: var(--radius-lg);
 	background: var(--color-surface);
+	box-shadow: var(--shadow-1);
 }
 
 .callout--error {
 	border-color: var(--color-error);
 	background: var(--color-error-soft);
+	box-shadow: none;
 }
 
 .callout--ok {
 	border-color: var(--color-success);
 	background: var(--color-accent-soft);
+	box-shadow: none;
+}
+
+/* A raised panel for grouped content. */
+.panel {
+	padding: var(--space-5);
+	border: 1px solid var(--color-rule);
+	border-radius: var(--radius-lg);
+	background: var(--color-surface);
+	box-shadow: var(--shadow-2);
+}
+
+/* A list of records: deck rows, trash rows, backups, leeches. Each row is a raised tile with its own edge. */
+.ledger {
+	display: grid;
+	gap: var(--space-3);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.ledger > .row {
+	padding: var(--space-4) var(--space-5);
+	border: 1px solid var(--color-rule);
+	border-radius: var(--radius-lg);
+	background: var(--color-surface);
+	box-shadow: var(--shadow-1);
+	transition:
+		border-color var(--dur) var(--ease-out),
+		box-shadow var(--dur) var(--ease-out);
+}
+
+/* Small labelled badge. */
+.badge {
+	display: inline-flex;
+	align-items: center;
+	padding: 0 0.6em;
+	border: 1px solid var(--color-rule-strong);
+	border-radius: 999px;
+	font-size: var(--text-xs);
+	font-weight: 600;
+	line-height: 1.7;
+	white-space: nowrap;
 }
 
 @media (prefers-reduced-motion: reduce) {
