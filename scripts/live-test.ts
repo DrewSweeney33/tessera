@@ -13,7 +13,7 @@
 //   --soak MINUTES        also run a sustained load for this long (default: none)
 //   --dry-run             print the plan and the generated compose file, change nothing
 //
-// Everything it creates is in /opt/tessera-test and the compose project "tessera-test", and is removed at the end,
+// Everything it creates is in ~/tessera-test on the host and the compose project "tessera-test", and is removed at the end,
 // and at the start of the next run if this one was cut short. Run `docs/testing-on-your-host.md` for the details.
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -240,6 +240,23 @@ let installedCandidate = false;
 async function main(): Promise<void> {
 	// ---- 0. Preflight and a clean start
 	heading('Preflight');
+	// The test folder is in the ssh user's home. With the real path known, check the live folder against it too.
+	const home = remote('echo $HOME').stdout.trim();
+	if (
+		!check(
+			'the host reports a home folder for the test folder',
+			/^\/[A-Za-z0-9_./-]+$/.test(home) && home !== '/',
+			home
+		)
+	)
+		throw new Error('cannot find the ssh user home folder');
+	assertSafe({
+		basePort,
+		livePort,
+		...(liveDir === undefined ? {} : { liveDir }),
+		testDir: `${home}/tessera-test`
+	});
+	console.log(`INFO  the test folder is ${home}/tessera-test`);
 	const pre = remote('docker --version && docker compose version');
 	if (
 		!check(

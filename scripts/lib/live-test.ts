@@ -4,9 +4,10 @@
 import { parse, stringify } from 'yaml';
 import { PROBE_ALLOWED_HOSTS, PROBE_TOKEN } from './probe-config.ts';
 
-// One fixed folder and one fixed compose project name. The live instance can never have either.
+// One fixed folder and one fixed compose project name. The live instance can never have either. The folder is
+// in the ssh user's home (the remote shell expands $HOME), so no root access is needed on the host.
 export const TEST_NAME = 'tessera-test';
-export const TEST_DIR = '/opt/tessera-test';
+export const TEST_DIR = '$HOME/tessera-test';
 export const MARKER_FILE = '.tessera-test-marker';
 
 export interface SshTarget {
@@ -62,8 +63,10 @@ export function assertSafe(options: {
 	basePort: number;
 	livePort: number;
 	liveDir?: string;
+	// The test folder as an absolute path, once the host's home folder is known.
+	testDir?: string;
 }): void {
-	const { basePort, livePort, liveDir } = options;
+	const { basePort, livePort, liveDir, testDir } = options;
 	if (!Number.isInteger(basePort) || basePort < 1024 || basePort > 65530) {
 		throw new Error(
 			`The base port ${basePort} is not usable. Use a whole number from 1024 to 65530.`
@@ -78,18 +81,24 @@ export function assertSafe(options: {
 	}
 	if (liveDir !== undefined) {
 		const live = liveDir.replace(/\/+$/, '');
-		const test = TEST_DIR;
-		const inside = (inner: string, outer: string) =>
-			inner === outer || inner.startsWith(`${outer}/`);
-		if (inside(live, test) || inside(test, live)) {
+		const refuse = () => {
 			throw new Error(
-				`The live folder ${JSON.stringify(liveDir)} is the test folder ${test}, or contains it, or is inside it. Refusing: the test would risk the live data.`
+				`The live folder ${JSON.stringify(liveDir)} is a test folder, or contains the test folder, or is inside it. Refusing: the test would risk the live data.`
 			);
+		};
+		// Before the host's home is known: anything named like the test folder is refused wherever it is.
+		if (/(^|\/)tessera-test(\/|$)/.test(live)) refuse();
+		// Once it is known (the harness asks the host and checks again), the exact folder, its parents, and its insides.
+		if (testDir !== undefined) {
+			const test = testDir.replace(/\/+$/, '');
+			const inside = (inner: string, outer: string) =>
+				inner === outer || inner.startsWith(`${outer}/`);
+			if (inside(live, test) || inside(test, live)) refuse();
 		}
 	}
 }
 
-// ---- Commands (strings for the remote shell). Every path starts with TEST_DIR.
+// ---- Commands (strings for the remote shell). Every path is TEST_DIR or inside it.
 
 export function composeCommand(args: string): string {
 	return `docker compose -p ${TEST_NAME} -f ${TEST_DIR}/compose.yaml ${args}`;

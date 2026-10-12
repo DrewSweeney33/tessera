@@ -97,14 +97,43 @@ describe('the safety rules', () => {
 		}
 	);
 
-	it('refuse a live folder that is the test folder, inside it, or around it', () => {
-		for (const liveDir of [TEST_DIR, `${TEST_DIR}/sub`, '/opt', '/', '/opt/']) {
+	it('refuse a live folder named like the test folder, or inside one, wherever it is', () => {
+		for (const liveDir of [
+			'/opt/tessera-test',
+			'/home/andrew/tessera-test',
+			'/home/andrew/tessera-test/',
+			'/srv/x/tessera-test/sub'
+		]) {
 			expect(() => assertSafe({ ...ok, liveDir }), liveDir).toThrow(/folder/i);
+		}
+	});
+
+	it('refuse, once the host home is known, a live folder that is the test folder, inside it, or around it', () => {
+		const testDir = '/home/andrew/tessera-test';
+		for (const liveDir of [
+			'/home/andrew/tessera-test',
+			'/home/andrew/tessera-test/sub',
+			'/home/andrew',
+			'/home',
+			'/',
+			'/home/andrew/'
+		]) {
+			expect(() => assertSafe({ ...ok, liveDir, testDir }), liveDir).toThrow(/folder/i);
 		}
 	});
 
 	it('are not fooled by a live folder that merely starts with the same letters', () => {
 		expect(() => assertSafe({ ...ok, liveDir: '/opt/tessera-test2' })).not.toThrow();
+		expect(() =>
+			assertSafe({
+				...ok,
+				liveDir: '/home/andrew/tessera-test2',
+				testDir: '/home/andrew/tessera-test'
+			})
+		).not.toThrow();
+		expect(() =>
+			assertSafe({ ...ok, liveDir: '/home/andrew/tessera', testDir: '/home/andrew/tessera-test' })
+		).not.toThrow();
 	});
 
 	it('work without a live folder given', () => {
@@ -113,17 +142,26 @@ describe('the safety rules', () => {
 });
 
 describe('the test folder and its marker', () => {
-	it('is one fixed folder whose name says it is a test', () => {
-		expect(TEST_DIR).toBe('/opt/tessera-test');
+	it('is one fixed folder in the ssh user home, whose name says it is a test, so no root access is needed', () => {
+		expect(TEST_DIR).toBe('$HOME/tessera-test');
 		expect(TEST_NAME).toBe('tessera-test');
 	});
 
 	it('has every command stay inside it', () => {
 		for (const command of [setupCommand(), teardownCommand()]) {
-			const paths = command.match(/\/[A-Za-z0-9_./-]+/g) ?? [];
+			// Every path in a command is the test folder or something inside it, and nothing is an absolute path.
+			const paths = command.match(/\$HOME[A-Za-z0-9_./-]*/g) ?? [];
+			expect(paths.length, command).toBeGreaterThan(0);
 			for (const path of paths)
 				expect(path.startsWith(TEST_DIR), `${path} in ${command}`).toBe(true);
+			expect(command, command).not.toMatch(/(^|[\s'"=])\/[A-Za-z]/);
 		}
+	});
+
+	it('removes exactly the test folder, never its parent, and nothing when the variable is empty', () => {
+		const rm = /rm -rf (\S+);/.exec(teardownCommand())?.[1];
+		expect(rm).toBe(TEST_DIR);
+		expect(teardownCommand()).toContain(`-f ${TEST_DIR}/${MARKER_FILE}`);
 	});
 
 	it('removes the folder only when it carries the marker', () => {

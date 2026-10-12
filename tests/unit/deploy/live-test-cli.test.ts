@@ -45,7 +45,11 @@ describe('the harness refuses, before any connection, to run', () => {
 	});
 
 	it('when the live folder is the test folder or around it', () => {
-		for (const dir of ['/opt/tessera-test', '/opt', '/']) {
+		for (const dir of [
+			'/opt/tessera-test',
+			'/home/andrew/tessera-test',
+			'/srv/x/tessera-test/sub'
+		]) {
 			const result = run('--dry-run', ...target, '--live-dir', dir);
 			expect(result.status, dir).toBe(2);
 			expect(result.out).toMatch(/test folder/);
@@ -59,7 +63,7 @@ describe('the dry run', () => {
 	it('changes nothing and says what it would do', () => {
 		expect(result.status).toBe(0);
 		expect(result.out).toContain('Plan (nothing is changed)');
-		expect(result.out).toContain('/opt/tessera-test');
+		expect(result.out).toContain('$HOME/tessera-test');
 		expect(result.out).toContain('project tessera-test');
 	});
 
@@ -70,7 +74,7 @@ describe('the dry run', () => {
 	});
 
 	it('shows a teardown that only removes a folder with the marker', () => {
-		expect(result.out).toMatch(/teardown:.*\.tessera-test-marker.*rm -rf \/opt\/tessera-test/);
+		expect(result.out).toMatch(/teardown:.*\.tessera-test-marker.*rm -rf \$HOME\/tessera-test/);
 	});
 
 	it('names the image: the published one for the package version, or the one built here', () => {

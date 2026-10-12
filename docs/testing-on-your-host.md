@@ -50,7 +50,7 @@ A check that cannot run is printed as `SKIP` with the reason. A skip is not a pa
 
 ## How it protects your real Tessera
 
-- It works only in the folder `/opt/tessera-test` and the Compose project `tessera-test`, and it writes a marker file there. It removes a folder only if the marker is present.
+- It works only in the folder `~/tessera-test` (in the SSH user's home, so no root access is needed) and the Compose project `tessera-test`, and it writes a marker file there. It removes a folder only if the marker is present.
 - It refuses to run on your live port, or if your live folder is, contains, or sits inside the test folder. These rules are tested, including by trying to break them.
 - Every test service has its own volume. None is your live volume.
 - The full-disk test uses a memory-backed volume with a hard size limit.
