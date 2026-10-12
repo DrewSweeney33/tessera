@@ -1,22 +1,22 @@
 // The logic of scripts/check-image-scan.ts, kept apart so it can be tested without running the command.
 import { existsSync, readFileSync } from 'node:fs';
 
-interface Vulnerability {
-	VulnerabilityID?: string;
-	PkgName?: string;
-	InstalledVersion?: string;
-	FixedVersion?: string;
-	Severity?: string;
-	Title?: string;
-	PrimaryURL?: string;
+export interface Vulnerability {
+	VulnerabilityID?: string | undefined;
+	PkgName?: string | undefined;
+	InstalledVersion?: string | undefined;
+	FixedVersion?: string | undefined;
+	Severity?: string | undefined;
+	Title?: string | undefined;
+	PrimaryURL?: string | undefined;
 }
-interface ScanResult {
+export interface ScanResult {
 	Target?: string;
 	Class?: string;
 	Type?: string;
 	Vulnerabilities?: Vulnerability[] | null;
 }
-interface Report {
+export interface Report {
 	ArtifactName?: string;
 	Metadata?: { OS?: { Family?: string; Name?: string } };
 	Results?: ScanResult[] | null;

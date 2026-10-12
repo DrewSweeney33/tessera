@@ -3,13 +3,18 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { describeScope, seriousFixableFindings } from '../../../scripts/lib/image-scan.ts';
+import {
+	describeScope,
+	seriousFixableFindings,
+	type Report,
+	type Vulnerability
+} from '../../../scripts/lib/image-scan.ts';
 
 // The image scan gate reads Trivy's JSON result. Its job is to fail on serious findings that can be fixed, to say
 // exactly what they are (in the log and as GitHub annotations, because the job log cannot be read without logging
 // in), and never to pass because a scan looked at nothing.
 
-const vulnerability = (overrides: Record<string, unknown> = {}) => ({
+const vulnerability = (overrides: Vulnerability = {}): Vulnerability => ({
 	VulnerabilityID: 'CVE-2026-0001',
 	PkgName: 'libexample',
 	InstalledVersion: '1.0.0',
@@ -20,7 +25,7 @@ const vulnerability = (overrides: Record<string, unknown> = {}) => ({
 	...overrides
 });
 
-const report = (vulnerabilities: unknown[] | null | undefined = [vulnerability()]) => ({
+const report = (vulnerabilities: Vulnerability[] | null = [vulnerability()]): Report => ({
 	ArtifactName: 'tessera:ci',
 	Metadata: { OS: { Family: 'debian', Name: '13.1' } },
 	Results: [
