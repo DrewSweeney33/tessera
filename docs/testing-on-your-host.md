@@ -8,7 +8,7 @@ This is for people who run Tessera or work on it. You do not need it to use Tess
 
 - A Docker host you can reach over SSH with a key (no password prompt), with Docker Engine and the Compose plugin. The user must be able to run `docker`.
 - This repository on the machine you run the script from, with Node 24 (`npm ci` once).
-- Five free ports on the host (the default is 3001 to 3005), reachable from your machine.
+- Six free ports on the host (the default is 3001 to 3006), reachable from your machine.
 - About 100 MB of free memory on the host for the test instances, and, for the full-disk check, permission to mount a small memory-backed Docker volume (an unprivileged LXC with nesting turned on allows it).
 
 ## Run it
@@ -25,15 +25,18 @@ TESSERA_LIVE_SSH=you@your-docker-host npm run live:test
 
 On Windows PowerShell, set the variable first: `$env:TESSERA_LIVE_SSH = 'you@your-docker-host'`.
 
-| Option            | What it does                                                                                                                                                          |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--image REF`     | Test this image. The default is the published image for the version in `package.json`.                                                                                |
-| `--build`         | Build the image on the host from the committed `HEAD` and test that. This tests code that has not been released yet. Changes you have not committed are not included. |
-| `--port N`        | The first of five consecutive ports. Default 3001.                                                                                                                    |
-| `--live-port N`   | The port your real Tessera uses, which the harness refuses to use. Default 3000.                                                                                      |
-| `--live-dir PATH` | The folder of your real Tessera, only so the harness can say whether it runs the same image as the one under test. It is read, never changed.                         |
-| `--soak MINUTES`  | Also run a sustained load for this long and watch memory. Four to ten minutes finds most problems.                                                                    |
-| `--dry-run`       | Print the plan and stop.                                                                                                                                              |
+| Option                 | What it does                                                                                                                                                                                        |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--image REF`          | Test this image. The default is the published image for the version in `package.json`.                                                                                                              |
+| `--build`              | Build the image on the host from the committed `HEAD` and test that. This tests code that has not been released yet. Changes you have not committed are not included.                               |
+| `--port N`             | The first of six consecutive ports. Default 3001.                                                                                                                                                   |
+| `--live-port N`        | The port your real Tessera uses, which the harness refuses to use. Default 3000.                                                                                                                    |
+| `--live-dir PATH`      | The folder of your real Tessera, only so the harness can say whether it runs the same image as the one under test. It is read, never changed.                                                       |
+| `--previous-image REF` | The previous release, for the upgrade test. The default is the published `latest`, which is the previous release while the new one is still a release candidate.                                    |
+| `--expect-migration`   | This release changes the database layout. Require the backup made before the upgrade, and test the rollback (the old release must refuse the upgraded database, and the backup must bring it back). |
+| `--no-upgrade`         | Skip the upgrade test.                                                                                                                                                                              |
+| `--soak MINUTES`       | Also run a sustained load for this long and watch memory. Four to ten minutes finds most problems.                                                                                                  |
+| `--dry-run`            | Print the plan and stop.                                                                                                                                                                            |
 
 ## What it checks
 
@@ -41,10 +44,12 @@ On Windows PowerShell, set the variable first: `$env:TESSERA_LIVE_SSH = 'you@you
 2. **Hardening.** Docker really applies the settings in `compose.yaml` on your host: non-root user, read-only root filesystem, no capabilities, `no-new-privileges`, memory limit, restart policy, log rotation.
 3. **Application tests** from your machine over the network: the smoke test, the security probe (with its token and host-name variants running against two more test instances, and the server logs read over SSH), and the benchmark.
 4. **Backup and restore**, using the commands printed in [operations.md](operations.md) exactly as written: take a backup, check it, copy it out, restore it into a fresh volume, start a second instance, and compare the decks and card counts.
-5. **A hard kill and a graceful stop.** A grade is saved, the container is killed (`SIGKILL`), Docker restarts it, and the grade must still be there. Then a graceful stop must exit cleanly and quickly, and the grade must survive that too.
-6. **A full disk**, on an 8 MB memory-backed volume (never your real disk): imports must fail with a clear answer, not a crash or a dropped connection, reads must keep working, and imports must work again once space is freed.
-7. **Soak**, only with `--soak`.
-8. **Teardown**, always.
+5. **Library features**, on the real image over the network: load a deck for editing, a save with its revision, the same revision refused as stale, export, a backup taken from the API and downloaded whole, the integrity check on it, a deck moved to the Trash and deleted for good with the copy taken first found inside the container, and a deck started over.
+6. **Upgrade from the previous release.** The previous release is started, a deck is studied on it, then the new image takes over the same data. The deck and its progress must come through, the new routes must work, and the database must pass its integrity check. With `--expect-migration` it also requires the backup made before the upgrade, then rolls back as the operations guide says: the old release must refuse the upgraded database, and putting the backup back must bring the old release up again with the deck as it was.
+7. **A hard kill and a graceful stop.** A grade is saved, the container is killed (`SIGKILL`), Docker restarts it, and the grade must still be there. Then a graceful stop must exit cleanly and quickly, and the grade must survive that too.
+8. **A full disk**, on an 8 MB memory-backed volume (never your real disk): imports must fail with a clear answer, not a crash or a dropped connection, reads must keep working, and imports must work again once space is freed.
+9. **Soak**, only with `--soak`.
+10. **Teardown**, always.
 
 A check that cannot run is printed as `SKIP` with the reason. A skip is not a pass.
 

@@ -7,9 +7,12 @@
 //   --target user@host    the Docker host over SSH (or TESSERA_LIVE_SSH). Key login only, no password prompt.
 //   --image REF           the image to test (default: ghcr.io/drewsweeney33/tessera:<version in package.json>)
 //   --build               instead, build the image from the committed HEAD on the host and test that one
-//   --port N              base port, five consecutive ports are used (default 3001)
+//   --port N              base port, six consecutive ports are used (default 3001)
 //   --live-port N         the live instance's port, which must not be used (default 3000)
 //   --live-dir PATH       the live instance's folder, only to compare its image with the one under test
+//   --previous-image REF  the previous release, for the upgrade test (default: ghcr.io/drewsweeney33/tessera:latest)
+//   --expect-migration    this release changes the database: require the backup made before the upgrade, and test the rollback
+//   --no-upgrade          skip the upgrade test
 //   --soak MINUTES        also run a sustained load for this long (default: none)
 //   --dry-run             print the plan and the generated compose file, change nothing
 //
@@ -53,6 +56,9 @@ const basePort = Number(flag('--port') ?? 3001);
 const livePort = Number(flag('--live-port') ?? 3000);
 const liveDir = flag('--live-dir');
 const soakMinutes = Number(flag('--soak') ?? 0);
+const previousImage = flag('--previous-image') ?? 'ghcr.io/drewsweeney33/tessera:latest';
+const expectMigration = has('--expect-migration');
+const skipUpgrade = has('--no-upgrade');
 const candidate = 'tessera-test:candidate';
 const image = buildHere
 	? candidate
@@ -145,6 +151,7 @@ function remote(
 
 const composeText = buildCompose({
 	image,
+	previousImage,
 	bindHost,
 	ports,
 	repoCompose: readFileSync(join(root, 'compose.yaml'), 'utf8')
@@ -164,7 +171,7 @@ if (dryRun) {
 	);
 	console.log(`soak          ${soakMinutes > 0 ? `${soakMinutes} minutes` : 'none'}\n`);
 	console.log(
-		'Steps: start, hardening, application tests, backup and restore, kill and stop, full disk, soak, teardown\n'
+		`Steps: start, hardening, application tests, backup and restore, library features, ${skipUpgrade ? '' : `upgrade from ${previousImage}${expectMigration ? ' with rollback' : ''}, `}kill and stop, full disk, soak, teardown\n`
 	);
 	console.log(`setup:     ${setupCommand()}`);
 	console.log(`teardown:  ${teardownCommand()}\n`);
@@ -272,7 +279,7 @@ async function main(): Promise<void> {
 	const busy = Object.values(ports).filter((p) => new RegExp(`:${p}\\s`).test(listening));
 	if (
 		!check(
-			'the five test ports are free on the host',
+			'the six test ports are free on the host',
 			busy.length === 0,
 			`in use: ${busy.join(', ')}`
 		)
@@ -498,6 +505,18 @@ async function main(): Promise<void> {
 		`${before.status} / ${after.status}`
 	);
 
+	// ---- 4b. The library features, on the real image
+	heading('Library features: edit, export, Backups, Trash, and Start over');
+	await libraryFeatures();
+
+	// ---- 4c. Upgrade from the previous release
+	if (skipUpgrade) {
+		skip('the upgrade from the previous release', 'run with --no-upgrade');
+	} else {
+		heading(`Upgrade from the previous release (${previousImage})`);
+		await upgradeFromPrevious();
+	}
+
 	// ---- 5. A crash, a hard kill, and a graceful stop
 	heading('A crash, a hard kill, and a graceful stop');
 	await postJson(url('main'), '/api/import', deck('live-keep', 3));
@@ -648,6 +667,266 @@ async function main(): Promise<void> {
 	heading('Soak');
 	if (soakMinutes > 0) await soak(soakMinutes);
 	else skip('the soak', 'not requested (--soak MINUTES)');
+}
+
+// What the library checks read from the server's JSON answers.
+interface LoadedDeck {
+	revision?: string;
+	document?: { cards: Record<string, unknown>[] };
+}
+interface Counted {
+	id: string;
+	counts?: { new: number; learning: number; review: number };
+}
+interface Named {
+	backup?: { name: string; size: number };
+	deleted?: { snapshot?: { name: string } };
+	reset?: { snapshot?: { name: string }; items?: number };
+}
+const asJson = <T>(body: unknown): T | undefined => body as T | undefined;
+const JSON_TYPE = { 'content-type': 'application/json' };
+
+// Grades the first card the server serves for a deck, so the deck has something studied in it.
+async function gradeOne(base: string, deckId: string): Promise<boolean> {
+	const next = await http(base, `/api/study/next?deckId=${deckId}`);
+	const item = next.body?.['item'];
+	if (!item) return false;
+	const graded = await postJson(base, '/api/study/review', {
+		reviewId: crypto.randomUUID(),
+		cardPk: item.cardPk,
+		ordinal: item.ordinal,
+		grade: 4,
+		servedAt: item.servedAt,
+		deckId
+	});
+	return graded.status === 200;
+}
+
+async function newCount(base: string, deckId: string): Promise<number | undefined> {
+	const list = await http(base, '/api/decks');
+	return asJson<{ decks?: Counted[] }>(list.body)?.decks?.find((d) => d.id === deckId)?.counts?.new;
+}
+
+const listBackupsInContainer = (service: string) =>
+	compose(`exec -T ${service} ls /data/backups`)
+		.stdout.split('\n')
+		.map((l) => l.trim());
+
+// Editing, export, Trash, Start over, and the Backups page, on the main test instance. Each check uses the real
+// image over the network, and the copies it takes are looked for inside the container.
+async function libraryFeatures(): Promise<void> {
+	const main = url('main');
+	const guide = extractGuideCommands(readFileSync(join(root, 'docs', 'operations.md'), 'utf8'));
+
+	// Edit with the stale-copy check, and export.
+	await postJson(main, '/api/import', deck('live-edit', 3));
+	const loaded = await http(main, '/api/decks/live-edit');
+	const load = asJson<LoadedDeck>(loaded.body);
+	check(
+		'a deck loads for editing with its document and a revision',
+		loaded.status === 200 &&
+			/^[0-9a-f]{64}$/.test(load?.revision ?? '') &&
+			load?.document?.cards.length === 3,
+		`${loaded.status}`
+	);
+	if (load?.document && load.revision) {
+		load.document.cards[0]!['back'] = 'Edited on the host';
+		const save = (revision: string) =>
+			http(main, `/api/import?expected_revision=${revision}`, {
+				method: 'POST',
+				headers: JSON_TYPE,
+				body: JSON.stringify(load.document)
+			});
+		check('a save made with that revision is accepted', (await save(load.revision)).status === 200);
+		check(
+			'the same revision used again is refused (409)',
+			(await save(load.revision)).status === 409
+		);
+		const exported = await http(main, '/api/decks/live-edit/export');
+		check(
+			'the export holds the edited text',
+			exported.status === 200 && exported.text.includes('Edited on the host')
+		);
+	}
+
+	// Backups, from the page's routes.
+	const made = await postJson(main, '/api/backups', {});
+	const backup = asJson<Named>(made.body)?.backup;
+	check(
+		'a backup can be taken from the API',
+		made.status === 201 && /^manual-.*\.db$/.test(backup?.name ?? ''),
+		made.text.slice(0, 80)
+	);
+	if (backup) {
+		check(
+			'and it is in the backups folder inside the container',
+			listBackupsInContainer('main').includes(backup.name)
+		);
+		const response = await fetch(`${main}/api/backups/${backup.name}`);
+		const bytes = Buffer.from(await response.arrayBuffer());
+		check(
+			'its download is the whole file, and a SQLite database',
+			response.status === 200 &&
+				bytes.length === backup.size &&
+				bytes.subarray(0, 15).toString('utf8') === 'SQLite format 3',
+			`${response.status}, ${bytes.length} of ${backup.size} bytes`
+		);
+		const sound = compose(
+			`exec -T main node -e "${guide.checkScript}" /data/backups/${backup.name}`
+		);
+		check('and the documented integrity check on it prints ok', sound.stdout.trim() === 'ok');
+		const traversal = await http(main, '/api/backups/..%2ftessera.db');
+		check('the live database cannot be fetched by a path', traversal.status === 404);
+		const removed = await http(main, `/api/backups/${backup.name}`, {
+			method: 'DELETE',
+			headers: JSON_TYPE
+		});
+		check(
+			'a backup can be deleted, and is then gone from the folder',
+			removed.status === 200 && !listBackupsInContainer('main').includes(backup.name)
+		);
+	}
+
+	// Trash and permanent delete.
+	await postJson(main, '/api/import', deck('live-trash', 2));
+	check(
+		'a deck can be moved to the Trash',
+		(await postJson(main, '/api/decks/live-trash/trash', {})).status === 200
+	);
+	const decksNow = asJson<{ decks?: Counted[] }>((await http(main, '/api/decks')).body);
+	check('it is off the deck list', !(decksNow?.decks ?? []).some((d) => d.id === 'live-trash'));
+	check(
+		'a wrong title does not delete it (422)',
+		(await postJson(main, '/api/decks/live-trash/delete-forever', { confirmTitle: 'nope' }))
+			.status === 422
+	);
+	const gone = await postJson(main, '/api/decks/live-trash/delete-forever', {
+		confirmTitle: 'live-trash'
+	});
+	const deletedCopy = asJson<Named>(gone.body)?.deleted?.snapshot?.name ?? '';
+	check(
+		'the right title deletes it, and a copy was taken first',
+		gone.status === 200 &&
+			/^pre-delete-live-trash-/.test(deletedCopy) &&
+			listBackupsInContainer('main').includes(deletedCopy),
+		gone.text.slice(0, 100)
+	);
+
+	// Start over.
+	await postJson(main, '/api/import', deck('live-reset', 3));
+	check('a card of the deck was studied', await gradeOne(main, 'live-reset'));
+	check('so two are still new', (await newCount(main, 'live-reset')) === 2);
+	check(
+		'a wrong title does not start the deck over (422)',
+		(await postJson(main, '/api/decks/live-reset/start-over', { confirmTitle: 'nope' })).status ===
+			422
+	);
+	const reset = await postJson(main, '/api/decks/live-reset/start-over', {
+		confirmTitle: 'live-reset'
+	});
+	const resetCopy = asJson<Named>(reset.body)?.reset?.snapshot?.name ?? '';
+	check(
+		'the right title starts it over, with a copy taken first',
+		reset.status === 200 &&
+			/^pre-reset-live-reset-/.test(resetCopy) &&
+			listBackupsInContainer('main').includes(resetCopy),
+		reset.text.slice(0, 100)
+	);
+	check('and all three cards are new again', (await newCount(main, 'live-reset')) === 3);
+	const integrity = compose(`exec -T main node -e "${guide.checkScript}" /data/tessera.db`);
+	check(
+		'the database passes its integrity check after all of that',
+		integrity.stdout.trim() === 'ok'
+	);
+}
+
+// The upgrade a real user makes: the previous release has been used, then the new image takes over the same data.
+// A schema change makes the new release write a backup first, and the old release then refuses the upgraded
+// database, which is how a rollback is told apart from a working install (operations guide, Roll back).
+async function upgradeFromPrevious(): Promise<void> {
+	const pull = remote(`docker pull ${previousImage}`, { timeoutMs: 10 * 60_000 });
+	if (
+		!check(
+			`the previous release ${previousImage} was pulled`,
+			pull.status === 0,
+			tail(pull.stderr, 3)
+		)
+	)
+		return;
+	const guide = extractGuideCommands(readFileSync(join(root, 'docs', 'operations.md'), 'utf8'));
+	const base = url('upgrade');
+
+	compose('up -d previous', { timeoutMs: 5 * 60_000 });
+	if (!check('the previous release starts healthy', await waitHealthy('previous'))) return;
+	const before = await http(base, '/healthz');
+	console.log(`INFO  the previous release reports version ${String(before.body?.['version'])}`);
+	await postJson(base, '/api/import', deck('upgrade-check', 3));
+	check('a deck was studied on the previous release', await gradeOne(base, 'upgrade-check'));
+	check('leaving two new cards', (await newCount(base, 'upgrade-check')) === 2);
+
+	compose('stop previous', { timeoutMs: 120_000 });
+	compose('up -d upgraded', { timeoutMs: 5 * 60_000 });
+	if (!check('the new image starts healthy on the same data', await waitHealthy('upgraded')))
+		return;
+	const after = await http(base, '/healthz');
+	check(
+		`and reports version ${version}`,
+		after.body?.['version'] === version,
+		String(after.body?.['version'])
+	);
+	check(
+		'the deck and its progress came through the upgrade',
+		(await newCount(base, 'upgrade-check')) === 2
+	);
+	check(
+		'the new routes work on the upgraded data',
+		(await http(base, '/api/decks/upgrade-check')).status === 200 &&
+			(await http(base, '/api/trash')).status === 200
+	);
+	const sound = compose(`exec -T upgraded node -e "${guide.checkScript}" /data/tessera.db`);
+	check('the upgraded database passes its integrity check', sound.stdout.trim() === 'ok');
+
+	const backups = listBackupsInContainer('upgraded');
+	const preMigrate = backups.find((name) => name.startsWith('pre-migrate-'));
+	if (expectMigration) {
+		check(
+			'a backup was taken before the database was upgraded',
+			preMigrate !== undefined,
+			backups.join(', ')
+		);
+		if (!preMigrate) return;
+
+		// Roll back as the guide says: the old release must refuse the upgraded database, and the pre-upgrade
+		// backup must bring the old release back with its data.
+		compose('stop upgraded', { timeoutMs: 120_000 });
+		compose('up -d previous', { timeoutMs: 5 * 60_000 });
+		await sleep(8000);
+		const logs = compose('logs --no-color previous').stdout;
+		check(
+			'the previous release refuses the upgraded database, saying it is newer',
+			/newer version/i.test(logs) && !(await waitHealthy('previous', 6)),
+			tail(logs, 2)
+		);
+		compose('stop previous', { timeoutMs: 120_000 });
+		const restore = compose(
+			`run --rm --no-deps --entrypoint sh upgraded -c "cp /data/backups/${preMigrate} /data/tessera.db && rm -f /data/tessera.db-wal /data/tessera.db-shm"`
+		);
+		check(
+			'the pre-upgrade backup was put back as the database',
+			restore.status === 0,
+			tail(restore.stderr, 2)
+		);
+		compose('up -d previous', { timeoutMs: 5 * 60_000 });
+		check('the previous release is healthy again on it', await waitHealthy('previous'));
+		check(
+			'with the deck and its progress as they were before the upgrade',
+			(await newCount(base, 'upgrade-check')) === 2
+		);
+	} else {
+		console.log(
+			`INFO  ${preMigrate ? `a backup ${preMigrate} was taken` : 'no backup was taken (no schema change)'}. Run with --expect-migration to require it and test the rollback.`
+		);
+	}
 }
 
 async function soak(minutes: number): Promise<void> {

@@ -45,16 +45,19 @@ export interface Layout {
 	token: number;
 	tiny: number;
 	restored: number;
+	// The previous release and the new one take turns on this port in the upgrade test.
+	upgrade: number;
 }
 
-// Five consecutive ports, one per test service.
+// Six consecutive ports, one per test service, the last shared by the two services of the upgrade test.
 export function layoutFor(basePort: number): Layout {
 	return {
 		main: basePort,
 		hosts: basePort + 1,
 		token: basePort + 2,
 		tiny: basePort + 3,
-		restored: basePort + 4
+		restored: basePort + 4,
+		upgrade: basePort + 5
 	};
 }
 
@@ -122,6 +125,8 @@ export function teardownCommand(): string {
 
 export interface ComposeOptions {
 	image: string;
+	// The previous release, which the upgrade test starts first and then replaces with `image` on the same data.
+	previousImage: string;
 	// The address the ports are published on (the Docker host's own address).
 	bindHost: string;
 	ports: Layout;
@@ -129,7 +134,15 @@ export interface ComposeOptions {
 	repoCompose: string;
 }
 
-const SERVICE_NAMES = ['main', 'hosts', 'token', 'tiny', 'restored'] as const;
+const SERVICE_NAMES = [
+	'main',
+	'hosts',
+	'token',
+	'tiny',
+	'restored',
+	'previous',
+	'upgraded'
+] as const;
 
 export function buildCompose(options: ComposeOptions): string {
 	const parsed = parse(options.repoCompose) as {
@@ -143,23 +156,29 @@ export function buildCompose(options: ComposeOptions): string {
 		hosts: { TESSERA_ALLOWED_HOSTS: PROBE_ALLOWED_HOSTS },
 		token: { TESSERA_API_TOKEN: PROBE_TOKEN },
 		tiny: {},
-		restored: {}
+		restored: {},
+		previous: {},
+		upgraded: {}
 	};
 
 	const services: Record<string, unknown> = {};
 	for (const name of SERVICE_NAMES) {
 		const service = structuredClone(base);
 		delete service['build'];
-		service['image'] = options.image;
-		service['ports'] = [`${options.bindHost}:${options.ports[name]}:3000`];
+		const upgradeStep = name === 'previous' || name === 'upgraded';
+		service['image'] = name === 'previous' ? options.previousImage : options.image;
+		service['ports'] = [
+			`${options.bindHost}:${upgradeStep ? options.ports.upgrade : options.ports[name as keyof Layout]}:3000`
+		];
 		service['environment'] = { TZ: 'UTC', ...extraEnvironment[name] };
-		service['volumes'] = [`${name}_data:/data`];
+		// The two upgrade services use one volume: the old release writes it, the new one then upgrades it.
+		service['volumes'] = [`${name === 'upgraded' ? 'previous' : name}_data:/data`];
 		service['mem_limit'] = '512m';
 		services[name] = service;
 	}
 
 	const volumes: Record<string, unknown> = {};
-	for (const name of SERVICE_NAMES) volumes[`${name}_data`] = null;
+	for (const name of SERVICE_NAMES) if (name !== 'upgraded') volumes[`${name}_data`] = null;
 	// The small volume lives in memory with a hard size, so a full-disk test fills this and never the host disk.
 	volumes['tiny_data'] = {
 		driver: 'local',

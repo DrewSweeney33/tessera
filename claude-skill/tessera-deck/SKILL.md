@@ -142,6 +142,7 @@ Use a blank per fact, not per word. `The {{c1::DR}} is elected by highest {{c2::
 - **When revising a deck, keep every existing id exactly.** Changing an id makes a new card and leaves the old one behind with its history. Add new cards with new ids. If you remove a card, just leave it out.
 - Do not change a card's type unless the user asks: it resets that card's review history.
 - Reply with the **whole** deck, not only the changed cards.
+- **Work from the user's current deck, not from your earlier answer.** The user can edit cards by hand in Tessera (Edit on a deck), so your earlier version may be out of date. Ask them to export the deck (Edit, then Export JSON or Export Markdown) and paste it, then change that and keep every id. Importing a revised deck shows the user the old and new text of every card that changes, so they can keep their own edits.
 
 ## Fixing import errors
 

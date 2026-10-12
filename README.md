@@ -9,6 +9,9 @@ Self-hosted flashcards that Claude can write for you. Ask Claude for a deck, pas
 - **Import a deck** in Markdown or JSON by pasting it from Claude or choosing a file. A preview shows exactly what will change before anything is saved.
 - **Fix mistakes in one round trip.** If a deck has problems, Tessera lists them with line numbers and offers a ready-made message to paste back to Claude, which names every problem and tells it to keep the card ids.
 - **Re-import safely.** Cards are matched by their `id`. Re-importing a revised deck updates the text and keeps your review history. Importing the same file again changes nothing.
+- **Manage decks by hand.** Make a new deck from a title, edit any card with a live preview (all four card types), add and remove cards, and change the title and tags. A save goes through the import code, so an edited card keeps its history, and a save from an out-of-date tab is refused instead of overwriting newer changes.
+- **Delete safely.** A deleted deck waits in the Trash with everything you studied, and is removed for good only when you type its title. Start a deck over to study it from scratch, keeping the review history.
+- **Back up from the page.** Back up now, download a backup to keep on another disk, and see the copies Tessera takes by itself before an upgrade or before anything it deletes.
 - **Study with FSRS** (the same family of algorithm used by Anki). Four grades, intervals shown on the buttons, daily new and review limits, and cloze blanks that are scheduled separately.
 - **Keyboard first.** Space shows the answer, 1 to 4 grade it, H shows a hint.
 - **Four card types** in the format: basic, cloze, typed answer, and multiple choice. Typed cards check what you type (case, spacing, and a final full stop are ignored), choice cards shuffle their options, and both suggest a grade that you can always change.

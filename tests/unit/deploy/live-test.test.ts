@@ -27,6 +27,7 @@ const own = (parse(repoCompose) as { services: Record<string, Record<string, unk
 function composeOf(options: Partial<Parameters<typeof buildCompose>[0]> = {}) {
 	const text = buildCompose({
 		image: 'ghcr.io/drewsweeney33/tessera:0.1.0',
+		previousImage: 'ghcr.io/drewsweeney33/tessera:0.0.9',
 		bindHost: '192.168.30.102',
 		ports: layoutFor(3001),
 		repoCompose,
@@ -63,13 +64,14 @@ describe('the ssh target', () => {
 });
 
 describe('the port layout', () => {
-	it('uses five consecutive ports starting at the base', () => {
+	it('uses six consecutive ports starting at the base, the last for the upgrade test', () => {
 		expect(layoutFor(3001)).toEqual({
 			main: 3001,
 			hosts: 3002,
 			token: 3003,
 			tiny: 3004,
-			restored: 3005
+			restored: 3005,
+			upgrade: 3006
 		});
 	});
 });
@@ -191,24 +193,38 @@ describe('the generated compose file', () => {
 		expect(file.name).toBe(TEST_NAME);
 		for (const service of Object.values(file.services)) {
 			expect(service['build']).toBeUndefined();
-			expect(service['image']).toBe('ghcr.io/drewsweeney33/tessera:0.1.0');
 			expect(service['container_name']).toBeUndefined();
 		}
 	});
 
-	it('has the five services, each on its own port of the host address', () => {
+	it('runs the image under test everywhere except the one service that plays the previous release', () => {
+		for (const [name, service] of Object.entries(file.services)) {
+			expect(service['image'], name).toBe(
+				name === 'previous'
+					? 'ghcr.io/drewsweeney33/tessera:0.0.9'
+					: 'ghcr.io/drewsweeney33/tessera:0.1.0'
+			);
+		}
+	});
+
+	it('has the seven services, each on a port of the host address', () => {
 		expect(Object.keys(file.services).sort()).toEqual([
 			'hosts',
 			'main',
+			'previous',
 			'restored',
 			'tiny',
-			'token'
+			'token',
+			'upgraded'
 		]);
 		expect(file.services['main']!['ports']).toEqual(['192.168.30.102:3001:3000']);
 		expect(file.services['hosts']!['ports']).toEqual(['192.168.30.102:3002:3000']);
 		expect(file.services['token']!['ports']).toEqual(['192.168.30.102:3003:3000']);
 		expect(file.services['tiny']!['ports']).toEqual(['192.168.30.102:3004:3000']);
 		expect(file.services['restored']!['ports']).toEqual(['192.168.30.102:3005:3000']);
+		// The previous release and the new one take turns on one port, never running together.
+		expect(file.services['previous']!['ports']).toEqual(['192.168.30.102:3006:3000']);
+		expect(file.services['upgraded']!['ports']).toEqual(['192.168.30.102:3006:3000']);
 	});
 
 	it.each(['init', 'restart', 'read_only', 'tmpfs', 'cap_drop', 'security_opt', 'logging'])(
@@ -245,13 +261,23 @@ describe('the generated compose file', () => {
 		expect(file.services['token']!.environment?.['TESSERA_ALLOWED_HOSTS']).toBeUndefined();
 	});
 
-	it('gives every service its own volume, none of them the live one', () => {
-		const used = Object.values(file.services).map((service) => service['volumes']);
-		const names = used.map((list) => String((list as string[])[0]).split(':')[0]);
-		expect(new Set(names).size).toBe(5);
+	it('gives every service its own volume, none of them the live one, except that the two upgrade services share one', () => {
+		const volumeOf = (name: string) =>
+			String((file.services[name]!['volumes'] as string[])[0]).split(':')[0];
+		const names = Object.keys(file.services).map(volumeOf);
+		expect(new Set(names).size).toBe(6);
 		for (const name of names) expect(name).not.toBe('tessera-data');
+		expect(volumeOf('previous')).toBe(volumeOf('upgraded'));
+		expect(volumeOf('previous')).not.toBe(volumeOf('main'));
 		expect(Object.keys(file.volumes).sort()).toEqual(
-			['hosts_data', 'main_data', 'restored_data', 'tiny_data', 'token_data'].sort()
+			[
+				'hosts_data',
+				'main_data',
+				'previous_data',
+				'restored_data',
+				'tiny_data',
+				'token_data'
+			].sort()
 		);
 	});
 
@@ -266,6 +292,7 @@ describe('the generated compose file', () => {
 	it('publishes nothing on the live port', () => {
 		const text = buildCompose({
 			image: 'x:1',
+			previousImage: 'x:0',
 			bindHost: '10.0.0.5',
 			ports: layoutFor(3001),
 			repoCompose

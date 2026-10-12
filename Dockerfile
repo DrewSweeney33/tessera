@@ -7,10 +7,12 @@ WORKDIR /app
 
 # Dependencies first so this layer is cached until the lockfile changes.
 COPY package.json package-lock.json .npmrc ./
-RUN npm ci
+RUN npm ci --no-audit --no-fund
 
 COPY . .
-RUN npm run build && npm prune --omit=dev
+# No audit or fund request: "npm prune" sends one by default, and on a host whose network cannot reach the audit endpoint
+# it waited for half an hour (a build on the homelab hung there). Nothing here needs it.
+RUN npm run build && npm prune --omit=dev --no-audit --no-fund
 
 FROM node:24-trixie-slim AS runtime
 
