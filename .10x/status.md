@@ -139,7 +139,7 @@ Manual deck creation, editing, practice again and start over, deck deletion (Tra
 
 - [x] L-01 `exportDeck` and the export route (pulled forward from M3-06) (M). Done 2026-10-12. `src/lib/server/export/` and `GET /api/decks/:id/export?format=json|md`. 34 new tests: the round trip (export, then import again, changes nothing and creates nothing) on every golden deck, both file formats, cards without ids, and generated decks (property test). 13 deliberate bugs, 12 caught, the 13th equivalent. 27 new probe checks (242 total): traversal and bad ids, bad formats, wrong methods, foreign host, token and path variants. No UI button yet (comes with the editor and the Backups page).
 - [ ] L-02 Create a deck: empty deck in the planner, create route, "New deck" form (M)
-- [ ] L-03 Snapshot-before-destructive-action helper (S)
+- [x] L-03 Snapshot-before-destructive-action helper (S). Done 2026-10-12. `src/lib/server/backups/`: `createSnapshot`, `withSnapshot` (no snapshot, no action, proven with an injected full disk that answers 507), `listSnapshots`, and `isSafeBackupName` (a name is never a path). 46 tests; 14 deliberate bugs, 14 caught after one test was added for the one that survived. Not wired to a route yet (L-06 to L-09 use it).
 - [ ] L-04 Card editor component for the four types with live preview (M)
 - [ ] L-05 Edit a deck through the import pipeline, with the stale-write check (M)
 - [ ] L-06 Trash: delete, restore, permanent delete with typed confirmation (M)

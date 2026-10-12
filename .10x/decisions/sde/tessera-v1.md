@@ -705,3 +705,13 @@ Milestone L (library management) started on the owner's go-ahead (ADR-013 and AD
 **Found and decided on the way.** A `DELETE` that carries a body answers 400 from the framework, not 405. The probe accepts 400, 403, or 405 as a refusal, as its older cross-site check already did. Not a defect: nothing is executed.
 
 **Not done.** No export button in the page (the editor and the Backups page bring it). The guide says so.
+
+## L-03 snapshot helper (2026-10-12)
+
+**Built.** `src/lib/server/backups/snapshots.ts`: `createSnapshot` (a named, consistent copy in `<dataDir>/backups` using the same `VACUUM INTO` as the guide, named `<kind>[-<deck>]-<time>[-<n>].db`, never overwriting, leaving nothing half-written on failure), `withSnapshot` (takes the snapshot first and runs the action only if it succeeded), `listSnapshots` (newest first, with kind, size, and time; folders, hidden files, and names that would not be served are left out; a missing folder is an empty list), `isSafeBackupName` and `BACKUP_NAME_PATTERN` (letters, digits, dot, underscore, hyphen, 120 characters at most, ending in `.db`, no `..`, never the live database file), and `snapshotKindOf`. A snapshot subject must pass the deck id rules, so nothing but a safe id ends up in a file name.
+
+**Checked.** 46 tests, including that a full disk (injected `SQLITE_FULL`) stops the action and gives a plain 507, that a half-written file is removed, that an error from the action keeps the snapshot, and that unsafe names are refused (traversal, backslash, percent-encoding, NUL, over-length). Mutation check of 14 planted bugs: 13 caught at first, and the survivor (removing the `..` rule, which no test case exercised) got two test cases and is now caught.
+
+**Process note.** A temporary edit to an untracked file was not undone by `git checkout` (it only restores tracked files) and was restored by hand. Mutation scripts that restore from an in-memory copy are safe. Hand edits to untracked files need a copy first.
+
+**Not done.** Nothing calls it yet. L-06 (permanent delete), L-07 (start over), L-08 (the Backups page), and L-09 (restore) will.
