@@ -15,17 +15,15 @@
 
 	let root = $state<HTMLElement>();
 
+	function render(text: string): string {
+		if (!links) return renderInlineMarkdownWithoutLinks(text);
+		return inline ? renderInlineMarkdown(text) : renderMarkdown(text);
+	}
+
 	// If rendering fails, the raw text is shown so the card can still be read and graded.
 	const rendered = $derived.by(() => {
 		try {
-			return {
-				ok: true as const,
-				html: !links
-					? renderInlineMarkdownWithoutLinks(source)
-					: inline
-						? renderInlineMarkdown(source)
-						: renderMarkdown(source)
-			};
+			return { ok: true as const, html: render(source) };
 		} catch {
 			return { ok: false as const };
 		}

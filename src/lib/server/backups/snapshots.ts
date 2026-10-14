@@ -130,3 +130,9 @@ export function listSnapshots(dataDir: string): SnapshotInfo[] {
 		})
 		.sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt) || b.name.localeCompare(a.name));
 }
+
+// The listed backup with this name, if there is one. Looking a name up in the listing, rather than building a path
+// from it, is what keeps a name from ever being a path.
+export function findSnapshot(dataDir: string, name: string): SnapshotInfo | undefined {
+	return listSnapshots(dataDir).find((entry) => entry.name === name);
+}

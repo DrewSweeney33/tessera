@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { err, ok, type Result } from '../result.ts';
-import { CardSchema } from './card.ts';
+import { CardSchema, TagListSchema } from './card.ts';
 import { toImportErrors, type ImportError } from './errors.ts';
-import { ID_MESSAGE, ID_PATTERN, LIMITS, TAG_MESSAGE, TAG_PATTERN } from './limits.ts';
+import { ID_MESSAGE, ID_PATTERN, LIMITS } from './limits.ts';
 
 export const FORMAT_VERSION = 1;
 
@@ -27,18 +27,7 @@ export const DeckMetaSchema = z.strictObject({
 		})
 		.optional()
 		.describe('Optional short description.'),
-	tags: z
-		.array(
-			z
-				.string()
-				.max(LIMITS.maxTagLength, {
-					message: `a tag is too long (maximum ${LIMITS.maxTagLength} characters)`
-				})
-				.regex(TAG_PATTERN, { message: `a tag ${TAG_MESSAGE}` })
-		)
-		.max(LIMITS.maxTags, { message: `too many tags (maximum ${LIMITS.maxTags})` })
-		.optional()
-		.describe('Optional deck-level tags.')
+	tags: TagListSchema.optional().describe('Optional deck-level tags.')
 });
 
 export const DeckFileSchema = z

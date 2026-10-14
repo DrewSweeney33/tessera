@@ -39,6 +39,7 @@ import {
 	type Layout,
 	type SshTarget
 } from './lib/live-test.ts';
+import { sleep } from './lib/net.ts';
 import { PROBE_TOKEN } from './lib/probe-config.ts';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -80,7 +81,6 @@ function skip(name: string, reason: string): void {
 function heading(text: string): void {
 	console.log(`\n# ${text}`);
 }
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const targetText = flag('--target') ?? process.env['TESSERA_LIVE_SSH'] ?? '';
 let target: SshTarget;

@@ -1,7 +1,7 @@
 import { parseDocument, LineCounter, isMap, isScalar } from 'yaml';
 import { err, type Result } from '../result.ts';
 import { validateDeck, type Deck } from '../schema/deck.ts';
-import type { ImportError } from '../schema/errors.ts';
+import { capErrors, type ImportError } from '../schema/errors.ts';
 import { LIMITS } from '../schema/limits.ts';
 import {
 	CHOICE_ITEM,
@@ -339,11 +339,8 @@ function readChoices(
 	const lines: number[] = [];
 	const marked: number[] = [];
 	const markedLines: number[] = [];
-	const rows = block.lines;
-
-	rows.forEach((row, offset) => {
+	block.lines.forEach((row, offset) => {
 		const lineNo = block.line + offset;
-		if (offset === 0 && row.trim() === '') return;
 		if (row.trim() === '') return;
 		const item = CHOICE_ITEM.exec(row);
 		if (item) {
@@ -412,6 +409,9 @@ function readChoices(
 	};
 }
 
+// The card type that each kind of answer under a Q: makes.
+const TYPE_OF_ANSWER = { choices: 'choice', answer: 'typed', a: 'basic' } as const;
+
 // What the card is, from its labels, unless a Type: line says. Q: with Choices: is a choice card, with
 // Answer: a typed card, with A: a basic card.
 function inferType(
@@ -422,8 +422,7 @@ function inferType(
 	if (labels.has('cloze')) return 'cloze';
 	if (labels.has('q')) {
 		const kinds = (['choices', 'answer', 'a'] as const).filter((label) => labels.has(label));
-		if (kinds.length === 1)
-			return kinds[0] === 'choices' ? 'choice' : kinds[0] === 'answer' ? 'typed' : 'basic';
+		if (kinds.length === 1) return TYPE_OF_ANSWER[kinds[0]!];
 		errors.push(
 			problem(
 				`cards[${card.index}]`,
@@ -531,15 +530,7 @@ function lineFor(path: string, map: SourceMap): number | undefined {
 }
 
 function cap(errors: ImportError[]): ImportError[] {
-	const sorted = [...errors].sort((a, b) => (a.line ?? 0) - (b.line ?? 0));
-	if (sorted.length <= LIMITS.maxReportedErrors) return sorted;
-	const shown = sorted.slice(0, LIMITS.maxReportedErrors);
-	shown.push({
-		path: '(root)',
-		code: 'too_many_errors',
-		message: `${sorted.length - LIMITS.maxReportedErrors} more errors not shown. Fix the ones above and import again.`
-	});
-	return shown;
+	return capErrors([...errors].sort((a, b) => (a.line ?? 0) - (b.line ?? 0)));
 }
 
 function readMarkdown(input: string): Result<Deck, ImportError[]> {

@@ -20,6 +20,25 @@ const browsers = {
 if (!(browser in browsers)) {
 	throw new Error(`E2E_BROWSER must be chromium, firefox, or webkit, not "${browser}".`);
 }
+
+// A production server for the tests on its own port, with what it does not share with the other in `env`.
+function e2eServer(listenPort: number, env: Record<string, string>) {
+	return {
+		command: 'node scripts/e2e-server.ts',
+		url: `http://127.0.0.1:${listenPort}/healthz`,
+		reuseExistingServer: false,
+		timeout: 30_000,
+		env: {
+			NODE_ENV: 'production',
+			PORT: String(listenPort),
+			BODY_SIZE_LIMIT: '5M',
+			TZ: 'America/Chicago',
+			LOG_LEVEL: 'warn',
+			...env
+		}
+	};
+}
+
 export default defineConfig({
 	testDir: 'tests/e2e',
 	testMatch: '**/*.spec.ts',
@@ -41,38 +60,13 @@ export default defineConfig({
 		trace: 'retain-on-failure'
 	},
 	webServer: [
-		{
-			command: 'node scripts/e2e-server.ts',
-			url: `${baseURL}/healthz`,
-			reuseExistingServer: false,
-			timeout: 30_000,
-			env: {
-				NODE_ENV: 'production',
-				PORT: String(port),
-				HOST: '127.0.0.1',
-				DATA_DIR: '.e2e-data',
-				BODY_SIZE_LIMIT: '5M',
-				TZ: 'America/Chicago',
-				LOG_LEVEL: 'warn'
-			}
-		},
+		e2eServer(port, { HOST: '127.0.0.1', DATA_DIR: '.e2e-data' }),
 		// A second server with an API token set, listening on every address so a test can reach it by the machine's
 		// LAN address over plain HTTP, as a homelab user would (ADR-011).
-		{
-			command: 'node scripts/e2e-server.ts',
-			url: `http://127.0.0.1:${tokenPort}/healthz`,
-			reuseExistingServer: false,
-			timeout: 30_000,
-			env: {
-				NODE_ENV: 'production',
-				PORT: String(tokenPort),
-				HOST: '0.0.0.0',
-				DATA_DIR: '.e2e-data-token',
-				BODY_SIZE_LIMIT: '5M',
-				TZ: 'America/Chicago',
-				LOG_LEVEL: 'warn',
-				TESSERA_API_TOKEN: tokenValue
-			}
-		}
+		e2eServer(tokenPort, {
+			HOST: '0.0.0.0',
+			DATA_DIR: '.e2e-data-token',
+			TESSERA_API_TOKEN: tokenValue
+		})
 	]
 });

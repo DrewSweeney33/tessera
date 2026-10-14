@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { ID_PATTERN } from '#lib/core/schema/limits.ts';
 import type { AppContext } from '../app.ts';
-import { readBodyText } from '../http/body.ts';
+import { readJsonBody } from '../http/body.ts';
 import { errorResponse, type ApiErrorCode } from '../http/errors.ts';
 import { jsonResponse } from '../http/response.ts';
 import { fieldErrors } from '../http/validation.ts';
@@ -13,8 +13,6 @@ import {
 	type NextResponse,
 	type ReviewFailureCode
 } from '../study/index.ts';
-
-const MAX_BODY_BYTES = 16 * 1024;
 
 // A review plus the deck being studied (optional), so the response can include the next item.
 // Still strict: unknown fields are rejected.
@@ -67,22 +65,10 @@ export async function handleStudyReview(
 	request: Request,
 	requestId: string
 ): Promise<Response> {
-	const text = await readBodyText(
-		request,
-		MAX_BODY_BYTES,
-		'The request body is too large.',
-		requestId
-	);
-	if (text instanceof Response) return text;
+	const body = await readJsonBody(request, requestId);
+	if (body instanceof Response) return body;
 
-	let body: unknown;
-	try {
-		body = JSON.parse(text);
-	} catch {
-		return errorResponse('bad_request', 'The body must be valid JSON.', undefined, requestId);
-	}
-
-	const parsed = StudyReviewBodySchema.safeParse(body);
+	const parsed = StudyReviewBodySchema.safeParse(body.value);
 	if (!parsed.success) {
 		return errorResponse(
 			'validation_failed',

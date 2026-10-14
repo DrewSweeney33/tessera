@@ -3,7 +3,6 @@ import Database from 'better-sqlite3';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { openDatabase, type DatabaseHandle } from '#lib/server/db/index.ts';
-import { commitImport } from '#lib/server/import/index.ts';
 import { createSnapshot } from '#lib/server/backups/index.ts';
 import {
 	PENDING_FILE,
@@ -18,6 +17,7 @@ import {
 import { basic, makeDeck } from '../../helpers/decks.ts';
 import { fakeClock, type FakeClock } from '../../helpers/fake-clock.ts';
 import { makeTempDir, type TempDir } from '../../helpers/temp-dir.ts';
+import { importForSetup } from '../../helpers/setup-import.ts';
 
 // Restore from the Backups list (US-15, ADR-014). The server never swaps a database it has open: it stages the
 // choice in a marker file and stops, and the next start applies it before the database is opened. These tests cover
@@ -29,16 +29,14 @@ let handle: DatabaseHandle;
 const NOW = '2026-10-12T12:00:00.000Z';
 
 function seed(id: string, cards = 2) {
-	const result = commitImport(
+	importForSetup(
 		handle.db,
 		makeDeck(
 			Array.from({ length: cards }, (_, i) => basic(`${id}-${i}`)),
 			{ id, title: id }
 		),
-		{ archiveMissing: false, format: 'json' },
 		clock
 	);
-	if (!result.ok) throw new Error('setup import failed');
 }
 
 const decksIn = (path: string): string[] => {

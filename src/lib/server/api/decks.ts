@@ -2,14 +2,12 @@ import type { DecksResponse, DeckSummaryDto } from '#lib/core/api-types.ts';
 import type { AppContext } from '../app.ts';
 import type { DeckRow } from '../db/schema.ts';
 import { createDeck } from '../decks/index.ts';
-import { readBodyText } from '../http/body.ts';
+import { readJsonBody } from '../http/body.ts';
 import { errorResponse } from '../http/errors.ts';
 import { jsonResponse } from '../http/response.ts';
 import { countActiveCardsByDeck, listDecks } from '../repos/index.ts';
 import { countLeeches } from '../leeches/index.ts';
 import { countQueue } from '../study/index.ts';
-
-const MAX_CREATE_BODY_BYTES = 16 * 1024;
 
 // One deck as the home page lists it. Counts come from the same function a study session uses, so the numbers
 // on the home screen always match what a session will serve.
@@ -52,22 +50,10 @@ export async function handleCreateDeck(
 	request: Request,
 	requestId: string
 ): Promise<Response> {
-	const text = await readBodyText(
-		request,
-		MAX_CREATE_BODY_BYTES,
-		'The request body is too large.',
-		requestId
-	);
-	if (text instanceof Response) return text;
+	const body = await readJsonBody(request, requestId);
+	if (body instanceof Response) return body;
 
-	let body: unknown;
-	try {
-		body = JSON.parse(text);
-	} catch {
-		return errorResponse('bad_request', 'The body must be valid JSON.', undefined, requestId);
-	}
-
-	const made = createDeck(app.db, body, app.clock.now().toISOString());
+	const made = createDeck(app.db, body.value, app.clock.now().toISOString());
 	if (!made.ok) {
 		return made.error.kind === 'invalid'
 			? errorResponse(

@@ -36,6 +36,12 @@ export function typedAnswers(item: Pick<StudyItemDto, 'content'>): {
 	return { answer: text(item.content['answer']), accept: strings(item.content['accept']) };
 }
 
+function typedSummary(correct: boolean, typed: string): string {
+	if (correct) return 'Your answer matches.';
+	if (typed === '') return 'You did not type an answer.';
+	return 'Your answer does not match.';
+}
+
 export function checkTyped(item: Pick<StudyItemDto, 'content'>, input: string): Outcome {
 	const { answer, accept } = typedAnswers(item);
 	const typed = input.trim();
@@ -43,11 +49,7 @@ export function checkTyped(item: Pick<StudyItemDto, 'content'>, input: string): 
 	return {
 		correct: result.correct,
 		suggestedGrade: result.suggestedGrade,
-		summary: result.correct
-			? 'Your answer matches.'
-			: typed === ''
-				? 'You did not type an answer.'
-				: 'Your answer does not match.',
+		summary: typedSummary(result.correct, typed),
 		typed: typed === '' ? undefined : typed,
 		position: undefined
 	};

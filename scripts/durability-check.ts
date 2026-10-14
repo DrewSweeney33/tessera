@@ -4,10 +4,10 @@
 // leaves either nothing or the whole deck, never half of one. Exits 1 on any failure.
 import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
-import { createServer, type AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
+import { freePort, sleep } from './lib/net.ts';
 
 let failures = 0;
 function check(name: string, ok: boolean, detail = ''): void {
@@ -15,18 +15,6 @@ function check(name: string, ok: boolean, detail = ''): void {
 	if (!ok) failures++;
 }
 
-function freePort(): Promise<number> {
-	return new Promise((resolve, reject) => {
-		const server = createServer();
-		server.listen(0, '127.0.0.1', () => {
-			const { port } = server.address() as AddressInfo;
-			server.close(() => resolve(port));
-		});
-		server.on('error', reject);
-	});
-}
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const dataDir = mkdtempSync(join(tmpdir(), 'tessera-durability-'));
 let port = 0;
 let base = '';

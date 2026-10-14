@@ -9,11 +9,11 @@ import { createLogger } from '#lib/server/log.ts';
 import { handleStartOver } from '#lib/server/api/start-over.ts';
 import { handleTrashDeck } from '#lib/server/api/trash.ts';
 import { cards, cardState } from '#lib/server/db/schema.ts';
-import { commitImport } from '#lib/server/import/index.ts';
 import { listStatesForDeck } from '#lib/server/repos/index.ts';
 import { basic, makeDeck } from '../../helpers/decks.ts';
 import { fakeClock } from '../../helpers/fake-clock.ts';
 import { makeTempDir, type TempDir } from '../../helpers/temp-dir.ts';
+import { importForSetup } from '../../helpers/setup-import.ts';
 
 // Start over over HTTP (US-14, ADR-013): POST /api/decks/:id/start-over with the deck title typed.
 
@@ -35,13 +35,11 @@ beforeEach(() => {
 		['alpha', 'Alpha deck'],
 		['beta', 'Beta deck']
 	] as const) {
-		const result = commitImport(
+		importForSetup(
 			app.db,
 			makeDeck([basic(`${id}-1`), basic(`${id}-2`)], { id, title }),
-			{ archiveMissing: false, format: 'json' },
 			app.clock
 		);
-		if (!result.ok) throw new Error('setup import failed');
 	}
 	// Alpha has been studied.
 	const alphaCards = app.db.select().from(cards).where(eq(cards.deckId, 'alpha')).all();

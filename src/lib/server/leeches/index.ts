@@ -1,3 +1,4 @@
+import { compareText } from '#lib/core/compare.ts';
 import { err, ok, type Result } from '#lib/core/result.ts';
 import type { Db } from '../db/client.ts';
 import {
@@ -118,11 +119,6 @@ export function weakTags(
 			lapseRate: (total.reviews - total.remembered) / total.reviews,
 			cards: total.cards
 		}))
-		.sort(
-			(a, b) =>
-				a.retention - b.retention ||
-				b.reviews - a.reviews ||
-				(a.tag < b.tag ? -1 : a.tag > b.tag ? 1 : 0)
-		)
+		.sort((a, b) => a.retention - b.retention || b.reviews - a.reviews || compareText(a.tag, b.tag))
 		.slice(0, limit);
 }

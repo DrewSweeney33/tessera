@@ -17,10 +17,11 @@ import {
 	truncateSync,
 	writeFileSync
 } from 'node:fs';
-import { createServer, type AddressInfo } from 'node:net';
+import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
+import { freePort, sleep } from './lib/net.ts';
 
 let failures = 0;
 function check(name: string, ok: boolean, detail = ''): void {
@@ -28,21 +29,9 @@ function check(name: string, ok: boolean, detail = ''): void {
 	if (!ok) failures++;
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const base = mkdtempSync(join(tmpdir(), 'tessera-ops-'));
 const launched: ChildProcess[] = [];
 const sha = (file: string) => createHash('sha256').update(readFileSync(file)).digest('hex');
-
-function freePort(): Promise<number> {
-	return new Promise((resolve, reject) => {
-		const server = createServer();
-		server.listen(0, '127.0.0.1', () => {
-			const { port } = server.address() as AddressInfo;
-			server.close(() => resolve(port));
-		});
-		server.on('error', reject);
-	});
-}
 
 interface Running {
 	proc: ChildProcess;

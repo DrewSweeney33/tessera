@@ -4,9 +4,9 @@
 // Exits 1 if any check fails. Run `npm run build` first when it starts the server itself.
 import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { createServer, type AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { freePort } from './lib/net.ts';
 
 const args = process.argv.slice(2);
 const baseArg = args.includes('--base') ? args[args.indexOf('--base') + 1] : undefined;
@@ -25,17 +25,6 @@ function dig(value: unknown, ...path: (string | number)[]): unknown {
 		current = (current as Record<string | number, unknown>)[key];
 	}
 	return current;
-}
-
-function freePort(): Promise<number> {
-	return new Promise((resolve, reject) => {
-		const server = createServer();
-		server.listen(0, '127.0.0.1', () => {
-			const { port } = server.address() as AddressInfo;
-			server.close(() => resolve(port));
-		});
-		server.on('error', reject);
-	});
 }
 
 async function waitForHealth(base: string, child: ChildProcess | undefined, seconds = 30) {

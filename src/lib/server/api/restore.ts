@@ -1,48 +1,36 @@
 import { z } from 'zod';
 import type {
-	BackupDto,
 	DataSummaryDto,
 	RestorePreviewResponse,
 	RestoreResponse
 } from '#lib/core/api-types.ts';
 import type { AppContext } from '../app.ts';
-import { createSnapshot, listSnapshots } from '../backups/index.ts';
-import { readBodyText } from '../http/body.ts';
+import { createSnapshot, findSnapshot } from '../backups/index.ts';
+import { readJsonBody } from '../http/body.ts';
 import { errorResponse } from '../http/errors.ts';
 import { jsonResponse } from '../http/response.ts';
 import { fieldErrors } from '../http/validation.ts';
 import { summarizeLive } from '../repos/index.ts';
 import { inspectBackup, stageRestore } from '../restore/index.ts';
+import { backupNotFound, toBackupDto } from './backups.ts';
 
 // Restore from the Backups list (US-15, ADR-014). The server never swaps a database it has open. A restore is
 // staged in a marker file, the server stops, and the next start applies it before opening the database. That needs
 // something to start the server again: the restart policy in compose.yaml does.
-
-const MAX_BODY_BYTES = 16 * 1024;
-
-function notFound(requestId: string): Response {
-	return errorResponse('not_found', 'There is no such backup.', undefined, requestId);
-}
-
-const toDto = (info: BackupDto): BackupDto => ({
-	name: info.name,
-	kind: info.kind,
-	size: info.size,
-	modifiedAt: info.modifiedAt
-});
 
 // GET /api/backups/:name/preview: what restoring this backup would bring back, beside what is there now. A backup
 // that cannot be restored is still a 200 with the reason, so the page can show it where the button would be.
 export function handlePreviewRestore(app: AppContext, name: string, requestId: string): Response {
 	const inspected = inspectBackup(app.config.dataDir, name);
 	const current: DataSummaryDto = summarizeLive(app.db);
-	if (!inspected.ok && inspected.error.kind === 'not_found') return notFound(requestId);
+	if (!inspected.ok && inspected.error.kind === 'not_found') return backupNotFound(requestId);
 
-	const listed = listSnapshots(app.config.dataDir).find((entry) => entry.name === name);
-	if (!listed) return notFound(requestId);
+	const listed = findSnapshot(app.config.dataDir, name);
+	if (!listed) return backupNotFound(requestId);
+	const backup = toBackupDto(listed);
 	const body: RestorePreviewResponse = inspected.ok
-		? { backup: toDto(listed), restorable: true, summary: inspected.value.summary, current }
-		: { backup: toDto(listed), restorable: false, reason: inspected.error.message, current };
+		? { backup, restorable: true, summary: inspected.value.summary, current }
+		: { backup, restorable: false, reason: inspected.error.message, current };
 	return jsonResponse(body);
 }
 
@@ -59,25 +47,14 @@ export async function handleRestore(
 	request: Request,
 	requestId: string
 ): Promise<Response> {
-	const text = await readBodyText(
-		request,
-		MAX_BODY_BYTES,
-		'The request body is too large.',
-		requestId
-	);
-	if (text instanceof Response) return text;
+	const body = await readJsonBody(request, requestId);
+	if (body instanceof Response) return body;
 
-	let raw: unknown;
-	try {
-		raw = JSON.parse(text);
-	} catch {
-		return errorResponse('bad_request', 'The body must be valid JSON.', undefined, requestId);
-	}
 	// Before the body is judged, so a caller learns nothing about which names exist from the body's shape.
 	const inspected = inspectBackup(app.config.dataDir, name);
-	if (!inspected.ok && inspected.error.kind === 'not_found') return notFound(requestId);
+	if (!inspected.ok && inspected.error.kind === 'not_found') return backupNotFound(requestId);
 
-	const parsed = RestoreBodySchema.safeParse(raw);
+	const parsed = RestoreBodySchema.safeParse(body.value);
 	if (!parsed.success) {
 		return errorResponse(
 			'validation_failed',
@@ -102,8 +79,8 @@ export async function handleRestore(
 		backup: name,
 		safetyCopy: safety.name
 	});
-	const body: RestoreResponse = { restoring: { name, safetyCopy: safety.name } };
-	const response = jsonResponse(body, { status: 202 });
+	const answer: RestoreResponse = { restoring: { name, safetyCopy: safety.name } };
+	const response = jsonResponse(answer, { status: 202 });
 	app.requestShutdown();
 	return response;
 }

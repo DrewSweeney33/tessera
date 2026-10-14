@@ -19,11 +19,11 @@ import {
 	handleRestoreDeck,
 	handleTrashDeck
 } from '#lib/server/api/trash.ts';
-import { commitImport } from '#lib/server/import/index.ts';
 import { getDeck } from '#lib/server/repos/index.ts';
 import { basic, makeDeck } from '../../helpers/decks.ts';
 import { fakeClock } from '../../helpers/fake-clock.ts';
 import { makeTempDir, type TempDir } from '../../helpers/temp-dir.ts';
+import { importForSetup } from '../../helpers/setup-import.ts';
 
 // The Trash over HTTP (US-13, ADR-013): move a deck there, restore it, and delete it for good with the title typed.
 
@@ -45,13 +45,11 @@ beforeEach(() => {
 		['alpha', 'Alpha deck'],
 		['beta', 'Beta deck']
 	] as const) {
-		const result = commitImport(
+		importForSetup(
 			app.db,
 			makeDeck([basic(`${id}-1`), basic(`${id}-2`)], { id, title }),
-			{ archiveMissing: false, format: 'json' },
 			app.clock
 		);
-		if (!result.ok) throw new Error('setup import failed');
 	}
 });
 

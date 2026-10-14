@@ -1,13 +1,22 @@
 import { z } from 'zod';
 import { ID_PATTERN } from '#lib/core/schema/limits.ts';
-import { readBodyText } from '../http/body.ts';
+import type { AppContext } from '../app.ts';
+import type { DeleteContext } from '../decks/index.ts';
+import { readJsonBody } from '../http/body.ts';
 import { errorResponse } from '../http/errors.ts';
 import { fieldErrors } from '../http/validation.ts';
 
 // What the routes that act on one deck by typing its title share (delete for good, start over): the 404, the small
-// body, and the answers for a missing or wrong title.
+// body, the answers for a missing or wrong title, and what the snapshot taken first needs.
 
-const MAX_BODY_BYTES = 16 * 1024;
+export function snapshotContext(app: AppContext): DeleteContext {
+	return {
+		db: app.db,
+		sqlite: app.database.sqlite,
+		dataDir: app.config.dataDir,
+		clock: app.clock
+	};
+}
 
 // An id that cannot be a deck id, an unknown deck, and a deck the action does not apply to get the same kind of
 // 404, and the message only repeats an id that passed the id rules.
@@ -30,21 +39,10 @@ export async function readConfirmTitle(
 	request: Request,
 	requestId: string
 ): Promise<string | Response> {
-	const text = await readBodyText(
-		request,
-		MAX_BODY_BYTES,
-		'The request body is too large.',
-		requestId
-	);
-	if (text instanceof Response) return text;
+	const body = await readJsonBody(request, requestId);
+	if (body instanceof Response) return body;
 
-	let raw: unknown;
-	try {
-		raw = JSON.parse(text);
-	} catch {
-		return errorResponse('bad_request', 'The body must be valid JSON.', undefined, requestId);
-	}
-	const parsed = ConfirmBodySchema.safeParse(raw);
+	const parsed = ConfirmBodySchema.safeParse(body.value);
 	if (!parsed.success) {
 		return errorResponse(
 			'validation_failed',

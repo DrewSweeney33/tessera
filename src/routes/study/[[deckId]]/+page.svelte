@@ -9,7 +9,7 @@
 		StudyItemDto
 	} from '#lib/core/api-types.ts';
 	import type { Grade } from '#lib/core/scheduler/types.ts';
-	import { ApiError, api } from '#lib/ui/api.ts';
+	import { ApiError, api, failureMessage } from '#lib/ui/api.ts';
 	import { cardSides } from '#lib/ui/card-sides.ts';
 	import Icon from '#lib/ui/Icon.svelte';
 	import { newId } from '#lib/ui/id.ts';
@@ -97,23 +97,23 @@
 		try {
 			await apply(await api.studyNext(deckId));
 		} catch (error) {
-			errorMessage =
-				error instanceof ApiError ? error.message : 'Something went wrong loading the next card.';
+			errorMessage = failureMessage(error, 'Something went wrong loading the next card.');
 			phase = 'error';
 		}
+	}
+
+	// The result when the answer is shown without an attempt: a typed card is checked as it stands, a choice card
+	// counts as no choice made, and any other card has none.
+	function unattempted(card: StudyItemDto): Outcome | undefined {
+		if (card.type === 'typed') return checkTyped(card, typedInput);
+		return choices ? checkChoice(choices, undefined) : undefined;
 	}
 
 	// Shows the answer. For a typed or choice card that was not attempted, the result is "no answer given",
 	// which suggests Again. The learner can still pick any grade.
 	async function reveal(attempt?: Outcome) {
 		if (phase !== 'front' || !item) return;
-		outcome =
-			attempt ??
-			(item.type === 'typed'
-				? checkTyped(item, typedInput)
-				: choices
-					? checkChoice(choices, undefined)
-					: undefined);
+		outcome = attempt ?? unattempted(item);
 		phase = 'back';
 		await tick();
 		gradesEl?.querySelector<HTMLButtonElement>(`.grade--${defaultGrade}`)?.focus();
@@ -144,7 +144,7 @@
 				await load();
 				return;
 			}
-			errorMessage = error instanceof ApiError ? error.message : 'Your answer could not be saved.';
+			errorMessage = failureMessage(error, 'Your answer could not be saved.');
 			phase = 'error';
 		}
 	}

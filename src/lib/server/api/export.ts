@@ -2,6 +2,7 @@ import { ID_PATTERN } from '#lib/core/schema/limits.ts';
 import type { AppContext } from '../app.ts';
 import { AppError, errorResponse, toErrorResponse } from '../http/errors.ts';
 import { exportDeck, renderDeckExport, type ExportFormat } from '../export/index.ts';
+import { deckNotFound } from './deck-actions.ts';
 
 const FORMATS: Record<string, ExportFormat> = {
 	json: 'json',
@@ -20,14 +21,7 @@ export function handleExportDeck(
 	url: URL,
 	requestId: string
 ): Response {
-	const notFound = () =>
-		errorResponse(
-			'not_found',
-			ID_PATTERN.test(deckId) ? `There is no deck "${deckId}".` : 'There is no such deck.',
-			undefined,
-			requestId
-		);
-	if (!ID_PATTERN.test(deckId)) return notFound();
+	if (!ID_PATTERN.test(deckId)) return deckNotFound(deckId, requestId);
 
 	const requested = url.searchParams.get('format') ?? 'json';
 	const format = Object.hasOwn(FORMATS, requested) ? FORMATS[requested] : undefined;
@@ -48,7 +42,7 @@ export function handleExportDeck(
 		if (error instanceof AppError) return toErrorResponse(error, requestId);
 		throw error;
 	}
-	if (!deck) return notFound();
+	if (!deck) return deckNotFound(deckId, requestId);
 
 	const rendered = renderDeckExport(deck, format);
 	if (!rendered.ok) {

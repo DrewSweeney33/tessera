@@ -2,7 +2,7 @@ import { closeSync, openSync, readSync } from 'node:fs';
 import { resolve } from 'node:path';
 import Database from 'better-sqlite3';
 import { err, ok, type Result } from '#lib/core/result.ts';
-import { newestKnownMigration } from './migrate.ts';
+import { lastAppliedMigration, newestKnownMigration } from './migrate.ts';
 
 // Looking at a database file before it is trusted: is it a database, is it whole, is it Tessera's, and does this
 // version understand it? Read only. Used to show what a restore would bring back, and again at the restart that
@@ -69,13 +69,7 @@ export function summarizeDatabase(
 		if (!REQUIRED_TABLES.every((table) => tables.has(table))) {
 			return err({ kind: 'not_tessera', message: 'This is not a Tessera database.' });
 		}
-		const applied =
-			(
-				db.prepare('select max(created_at) as latest from __drizzle_migrations').get() as {
-					latest: number | null;
-				}
-			).latest ?? 0;
-		if (applied > newestKnownMigration(migrationsFolder)) {
+		if (lastAppliedMigration(db) > newestKnownMigration(migrationsFolder)) {
 			return err({
 				kind: 'too_new',
 				message:

@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import type { SettingsDto, SettingsResponse } from '#lib/core/api-types.ts';
 	import { settingProblems, type SettingKey, type SettingProblem } from '#lib/core/settings.ts';
-	import { ApiError, api } from '#lib/ui/api.ts';
+	import { ApiError, api, failureMessage } from '#lib/ui/api.ts';
 	import Icon from '#lib/ui/Icon.svelte';
 
 	type View =
@@ -49,8 +49,7 @@
 		} catch (error) {
 			view = {
 				kind: 'error',
-				message:
-					error instanceof ApiError ? error.message : 'Something went wrong loading the settings.'
+				message: failureMessage(error, 'Something went wrong loading the settings.')
 			};
 		}
 	}
@@ -83,6 +82,8 @@
 
 	const problemFor = (key: SettingKey) => problems.find((problem) => problem.path === key)?.message;
 	const idOf = (key: SettingKey) => `setting-${key}`;
+	// A field is described by its help text, and by its problem while it has one.
+	const describedBy = (key: SettingKey) => `${key}-help${problemFor(key) ? ` ${key}-problem` : ''}`;
 
 	async function save(event: SubmitEvent) {
 		event.preventDefault();
@@ -111,10 +112,7 @@
 					message: e.message
 				}));
 			} else {
-				failure =
-					error instanceof ApiError
-						? error.message
-						: 'Something went wrong saving. Nothing was changed.';
+				failure = failureMessage(error, 'Something went wrong saving. Nothing was changed.');
 			}
 		} finally {
 			busy = false;
@@ -136,9 +134,18 @@
 	}
 
 	const hours = Array.from({ length: 24 }, (_, hour) => hour);
-	const hourLabel = (hour: number) =>
-		`${hour === 0 ? 12 : hour > 12 ? hour - 12 : hour}:00 ${hour < 12 ? 'AM' : 'PM'}`;
+	// "12:00 AM" for midnight, "1:00 PM" for 13, and so on.
+	function hourLabel(hour: number): string {
+		const onClock = hour % 12 === 0 ? 12 : hour % 12;
+		return `${onClock}:00 ${hour < 12 ? 'AM' : 'PM'}`;
+	}
 </script>
+
+{#snippet problem(key: SettingKey)}
+	{#if problemFor(key)}
+		<p id="{key}-problem" class="problem">{problemFor(key)}</p>
+	{/if}
+{/snippet}
 
 <svelte:head>
 	<title>Settings · Tessera</title>
@@ -188,15 +195,13 @@
 						value={form.newPerDay}
 						oninput={(event) => (form.newPerDay = event.currentTarget.value)}
 						aria-invalid={problemFor('newPerDay') ? 'true' : undefined}
-						aria-describedby="newPerDay-help{problemFor('newPerDay') ? ' newPerDay-problem' : ''}"
+						aria-describedby={describedBy('newPerDay')}
 					/>
 					<p id="newPerDay-help" class="muted small">
 						How many cards you have never seen are introduced each study day. Each deck gets this
 						many. Default {defaults.newPerDay}.
 					</p>
-					{#if problemFor('newPerDay')}
-						<p id="newPerDay-problem" class="problem">{problemFor('newPerDay')}</p>
-					{/if}
+					{@render problem('newPerDay')}
 				</div>
 
 				<div class="stack">
@@ -212,17 +217,13 @@
 						value={form.reviewsPerDay}
 						oninput={(event) => (form.reviewsPerDay = event.currentTarget.value)}
 						aria-invalid={problemFor('reviewsPerDay') ? 'true' : undefined}
-						aria-describedby="reviewsPerDay-help{problemFor('reviewsPerDay')
-							? ' reviewsPerDay-problem'
-							: ''}"
+						aria-describedby={describedBy('reviewsPerDay')}
 					/>
 					<p id="reviewsPerDay-help" class="muted small">
 						The most due cards you are shown in a day, across all decks. Cards you are still
 						learning do not count. Default {defaults.reviewsPerDay}.
 					</p>
-					{#if problemFor('reviewsPerDay')}
-						<p id="reviewsPerDay-problem" class="problem">{problemFor('reviewsPerDay')}</p>
-					{/if}
+					{@render problem('reviewsPerDay')}
 				</div>
 
 				<div class="stack">
@@ -254,18 +255,14 @@
 						value={form.targetRetention}
 						oninput={(event) => (form.targetRetention = event.currentTarget.value)}
 						aria-invalid={problemFor('targetRetention') ? 'true' : undefined}
-						aria-describedby="targetRetention-help{problemFor('targetRetention')
-							? ' targetRetention-problem'
-							: ''}"
+						aria-describedby={describedBy('targetRetention')}
 					/>
 					<p id="targetRetention-help" class="muted small">
 						How likely you want to be to remember a card when it comes back, from 70 to 99. Higher
 						means more reviews. It changes the next gap after each review you do from now on, not
 						the dates already set. Default {percentOf(defaults.targetRetention)}.
 					</p>
-					{#if problemFor('targetRetention')}
-						<p id="targetRetention-problem" class="problem">{problemFor('targetRetention')}</p>
-					{/if}
+					{@render problem('targetRetention')}
 				</div>
 
 				<div class="stack">
@@ -275,9 +272,7 @@
 						class="field field--text field--short"
 						bind:value={form.rolloverHour}
 						aria-invalid={problemFor('rolloverHour') ? 'true' : undefined}
-						aria-describedby="rolloverHour-help{problemFor('rolloverHour')
-							? ' rolloverHour-problem'
-							: ''}"
+						aria-describedby={describedBy('rolloverHour')}
 					>
 						{#each hours as hour (hour)}
 							<option value={String(hour)}>{hourLabel(hour)}</option>
@@ -291,9 +286,7 @@
 						here. Changing the hour moves the line at once: what counts as today, and so what is
 						left for today, can change straight away. Default {hourLabel(defaults.rolloverHour)}.
 					</p>
-					{#if problemFor('rolloverHour')}
-						<p id="rolloverHour-problem" class="problem">{problemFor('rolloverHour')}</p>
-					{/if}
+					{@render problem('rolloverHour')}
 				</div>
 
 				<div class="stack">
@@ -309,9 +302,7 @@
 						value={form.leechThreshold}
 						oninput={(event) => (form.leechThreshold = event.currentTarget.value)}
 						aria-invalid={problemFor('leechThreshold') ? 'true' : undefined}
-						aria-describedby="leechThreshold-help{problemFor('leechThreshold')
-							? ' leechThreshold-problem'
-							: ''}"
+						aria-describedby={describedBy('leechThreshold')}
 					/>
 					<p id="leechThreshold-help" class="muted small">
 						A card is flagged as a leech once you have forgotten it this many times. It applies to
@@ -319,9 +310,7 @@
 						that have already lapsed fewer times. Default {defaults.leechThreshold}. See
 						<a href={resolve('/leeches')}>Leeches</a>.
 					</p>
-					{#if problemFor('leechThreshold')}
-						<p id="leechThreshold-problem" class="problem">{problemFor('leechThreshold')}</p>
-					{/if}
+					{@render problem('leechThreshold')}
 				</div>
 			</fieldset>
 

@@ -48,7 +48,24 @@ export class ApiError extends Error {
 	}
 }
 
-const JSON_HEADERS = { 'content-type': 'application/json' };
+// What to show when a call failed: the server's own message, or `fallback` for anything that is not an API error.
+export function failureMessage(error: unknown, fallback: string): string {
+	return error instanceof ApiError ? error.message : fallback;
+}
+
+// A write with a JSON body. Without a body, none is sent.
+function jsonRequest(method: 'POST' | 'PUT' | 'DELETE', body?: unknown): RequestInit {
+	return {
+		method,
+		headers: { 'content-type': 'application/json' },
+		...(body === undefined ? {} : { body: JSON.stringify(body) })
+	};
+}
+
+// The query string that limits a request to one deck, or nothing for every deck.
+function deckQuery(deckId: string | undefined): string {
+	return deckId ? `?deckId=${encodeURIComponent(deckId)}` : '';
+}
 
 // Sends the request, marked as coming from the Tessera page (ADR-011). A network failure becomes an ApiError.
 async function send(path: string, init?: RequestInit): Promise<Response> {
@@ -127,105 +144,72 @@ export const api = {
 	getDeck: (deckId: string) => call<GetDeckResponse>(`/api/decks/${encodeURIComponent(deckId)}`),
 
 	createDeck: (request: CreateDeckRequest) =>
-		call<CreateDeckResponse>('/api/decks', {
-			method: 'POST',
-			headers: JSON_HEADERS,
-			body: JSON.stringify(request)
-		}),
+		call<CreateDeckResponse>('/api/decks', jsonRequest('POST', request)),
 
 	settings: () => call<SettingsResponse>('/api/settings'),
 
 	saveSettings: (changes: Partial<SettingsDto>) =>
-		call<SettingsResponse>('/api/settings', {
-			method: 'PUT',
-			headers: JSON_HEADERS,
-			body: JSON.stringify(changes)
-		}),
+		call<SettingsResponse>('/api/settings', jsonRequest('PUT', changes)),
 
-	leeches: (deckId?: string) =>
-		call<LeechesResponse>(`/api/leeches${deckId ? `?deckId=${encodeURIComponent(deckId)}` : ''}`),
+	leeches: (deckId?: string) => call<LeechesResponse>(`/api/leeches${deckQuery(deckId)}`),
 
 	resetLeech: (cardPk: number, ordinal: number) =>
-		call<{ reset: true }>(`/api/leeches/${cardPk}/${ordinal}/reset`, {
-			method: 'POST',
-			headers: JSON_HEADERS,
-			body: '{}'
-		}),
+		call<{ reset: true }>(`/api/leeches/${cardPk}/${ordinal}/reset`, jsonRequest('POST', {})),
 
 	setSuspended: (cardPk: number, suspended: boolean) =>
-		call<{ suspended: boolean }>(`/api/cards/${cardPk}/${suspended ? 'suspend' : 'unsuspend'}`, {
-			method: 'POST',
-			headers: JSON_HEADERS,
-			body: '{}'
-		}),
+		call<{ suspended: boolean }>(
+			`/api/cards/${cardPk}/${suspended ? 'suspend' : 'unsuspend'}`,
+			jsonRequest('POST', {})
+		),
 
-	weakSpotReport: (deckId?: string) =>
-		fetchText(`/api/report/weak-spots${deckId ? `?deckId=${encodeURIComponent(deckId)}` : ''}`),
+	weakSpotReport: (deckId?: string) => fetchText(`/api/report/weak-spots${deckQuery(deckId)}`),
 
 	backups: () => call<BackupsResponse>('/api/backups'),
 
-	createBackup: () =>
-		call<CreateBackupResponse>('/api/backups', {
-			method: 'POST',
-			headers: JSON_HEADERS,
-			body: '{}'
-		}),
+	createBackup: () => call<CreateBackupResponse>('/api/backups', jsonRequest('POST', {})),
 
 	previewRestore: (name: string) =>
 		call<RestorePreviewResponse>(`/api/backups/${encodeURIComponent(name)}/preview`),
 
 	restore: (name: string) =>
-		call<RestoreResponse>(`/api/backups/${encodeURIComponent(name)}/restore`, {
-			method: 'POST',
-			headers: JSON_HEADERS,
-			body: JSON.stringify({ confirm: 'restore' })
-		}),
+		call<RestoreResponse>(
+			`/api/backups/${encodeURIComponent(name)}/restore`,
+			jsonRequest('POST', { confirm: 'restore' })
+		),
 
 	deleteBackup: (name: string) =>
-		call<DeleteBackupResponse>(`/api/backups/${encodeURIComponent(name)}`, {
-			method: 'DELETE',
-			headers: JSON_HEADERS
-		}),
+		call<DeleteBackupResponse>(`/api/backups/${encodeURIComponent(name)}`, jsonRequest('DELETE')),
 
 	trash: () => call<TrashResponse>('/api/trash'),
 
 	trashDeck: (deckId: string) =>
-		call<TrashDeckResponse>(`/api/decks/${encodeURIComponent(deckId)}/trash`, {
-			method: 'POST',
-			headers: JSON_HEADERS,
-			body: '{}'
-		}),
+		call<TrashDeckResponse>(
+			`/api/decks/${encodeURIComponent(deckId)}/trash`,
+			jsonRequest('POST', {})
+		),
 
 	restoreDeck: (deckId: string) =>
-		call<RestoreDeckResponse>(`/api/decks/${encodeURIComponent(deckId)}/restore`, {
-			method: 'POST',
-			headers: JSON_HEADERS,
-			body: '{}'
-		}),
+		call<RestoreDeckResponse>(
+			`/api/decks/${encodeURIComponent(deckId)}/restore`,
+			jsonRequest('POST', {})
+		),
 
 	deleteDeckForever: (deckId: string, confirmTitle: string) =>
-		call<DeleteDeckResponse>(`/api/decks/${encodeURIComponent(deckId)}/delete-forever`, {
-			method: 'POST',
-			headers: JSON_HEADERS,
-			body: JSON.stringify({ confirmTitle })
-		}),
+		call<DeleteDeckResponse>(
+			`/api/decks/${encodeURIComponent(deckId)}/delete-forever`,
+			jsonRequest('POST', { confirmTitle })
+		),
 
 	startOver: (deckId: string, confirmTitle: string) =>
-		call<StartOverResponse>(`/api/decks/${encodeURIComponent(deckId)}/start-over`, {
-			method: 'POST',
-			headers: JSON_HEADERS,
-			body: JSON.stringify({ confirmTitle })
-		}),
+		call<StartOverResponse>(
+			`/api/decks/${encodeURIComponent(deckId)}/start-over`,
+			jsonRequest('POST', { confirmTitle })
+		),
 
-	studyNext: (deckId?: string) =>
-		call<NextResponse>(`/api/study/next${deckId ? `?deckId=${encodeURIComponent(deckId)}` : ''}`),
+	studyNext: (deckId?: string) => call<NextResponse>(`/api/study/next${deckQuery(deckId)}`),
 
 	review: (request: ReviewRequest) =>
-		call<ReviewResponse>('/api/study/review', {
-			method: 'POST',
-			headers: JSON_HEADERS,
-			body: JSON.stringify(request)
-		}),
+		call<ReviewResponse>('/api/study/review', jsonRequest('POST', request)),
 
 	importDeck: (text: string, options: ImportOptions) => {
 		const query = new URLSearchParams();

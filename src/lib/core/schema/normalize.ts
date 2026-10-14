@@ -1,4 +1,5 @@
 import { listClozeOrdinals } from '../cloze.ts';
+import { compareText } from '../compare.ts';
 import type { Card, CardType } from './card.ts';
 
 // A card reduced to what identity and change detection care about (ADR-002).
@@ -89,7 +90,7 @@ export function canonicalJson(value: unknown): string {
 	if (value !== null && typeof value === 'object') {
 		const entries = Object.entries(value as Record<string, unknown>)
 			.filter(([, v]) => v !== undefined)
-			.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+			.sort(([a], [b]) => compareText(a, b));
 		return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`).join(',')}}`;
 	}
 	return JSON.stringify(value);

@@ -336,16 +336,14 @@ export function enhanceCodeBlocks(root: HTMLElement): () => void {
 		if (lang.toLowerCase() === 'mermaid') {
 			const { figure, show, fail } = diagramFigure(source);
 			pre.replaceWith(figure);
-			const draw = () =>
-				drawDiagram(source, currentScheme()).then(
-					(src) => active && show(src),
-					(error: unknown) => {
-						// Quiet, but there for anyone looking at why a diagram did not draw.
-						console.debug('Diagram not drawn:', error instanceof Error ? error.message : error);
-						if (active) fail();
-					}
-				);
-			void draw();
+			void drawDiagram(source, currentScheme()).then(
+				(src) => active && show(src),
+				(error: unknown) => {
+					// Quiet, but there for anyone looking at why a diagram did not draw.
+					console.debug('Diagram not drawn:', error instanceof Error ? error.message : error);
+					if (active) fail();
+				}
+			);
 			stops.push(
 				watchScheme(() => {
 					// Drawn again for the other colour scheme, quietly: the old image stays until the new one is ready.
@@ -362,11 +360,8 @@ export function enhanceCodeBlocks(root: HTMLElement): () => void {
 		}
 
 		if (!languageFor(lang)) continue;
-		highlightCode(code, source, lang).then(
-			() => undefined,
-			// The plain code stays as it was. A highlighter that cannot load is not the card's problem.
-			() => undefined
-		);
+		// The plain code stays as it was. A highlighter that cannot load is not the card's problem.
+		highlightCode(code, source, lang).catch(() => undefined);
 	}
 
 	return () => {

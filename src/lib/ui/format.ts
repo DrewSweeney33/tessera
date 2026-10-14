@@ -1,3 +1,8 @@
+// A moment for a person, in their own locale: "Oct 12, 2026, 3:40 PM".
+export function formatDateTime(iso: string): string {
+	return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+}
+
 const UNITS = ['B', 'kB', 'MB', 'GB', 'TB'] as const;
 
 // A file size for a person: 1.5 kB, 55.0 MB. Decimal units, as disks and downloads count them. Whole bytes below

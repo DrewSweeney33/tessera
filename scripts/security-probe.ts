@@ -19,9 +19,9 @@
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import http from 'node:http';
-import { createServer, type AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { freePort } from './lib/net.ts';
 import { PROBE_ALLOWED_HOSTS, PROBE_TOKEN } from './lib/probe-config.ts';
 
 const args = process.argv.slice(2);
@@ -113,17 +113,6 @@ function deck(id: string, cards: unknown[]) {
 	return { tessera: 1, deck: { id, title: id }, cards };
 }
 const basic = (id: string, front = 'Q', back = 'A') => ({ id, type: 'basic', front, back });
-
-function freePort(): Promise<number> {
-	return new Promise((resolve, reject) => {
-		const server = createServer();
-		server.listen(0, '127.0.0.1', () => {
-			const { port } = server.address() as AddressInfo;
-			server.close(() => resolve(port));
-		});
-		server.on('error', reject);
-	});
-}
 
 interface ExtraServer {
 	origin: URL;

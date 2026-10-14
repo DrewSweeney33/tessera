@@ -4,7 +4,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import type { Clock } from '../clock.ts';
 import type { Logger } from '../log.ts';
 import { backupTo } from './backup.ts';
-import type { Db } from './client.ts';
+import type { Db, Sqlite } from './client.ts';
 
 export class DatabaseTooNewError extends Error {
 	constructor(message: string) {
@@ -33,10 +33,21 @@ function readJournal(migrationsFolder: string): JournalEntry[] {
 	return (JSON.parse(readFileSync(file, 'utf8')) as { entries: JournalEntry[] }).entries;
 }
 
+function newestIn(journal: JournalEntry[]): number {
+	return journal.reduce((latest, entry) => Math.max(latest, entry.when), 0);
+}
+
 // The time of the newest migration this version knows. A database that has applied a later one was written by a
 // newer version.
 export function newestKnownMigration(migrationsFolder: string): number {
-	return readJournal(migrationsFolder).reduce((latest, entry) => Math.max(latest, entry.when), 0);
+	return newestIn(readJournal(migrationsFolder));
+}
+
+// The time of the newest migration a database has applied, or 0 for none. The migrations table must exist.
+export function lastAppliedMigration(sqlite: Sqlite): number {
+	const query = 'select max(created_at) as latest from __drizzle_migrations';
+	const row = sqlite.prepare(query).get() as { latest: number | null };
+	return row.latest ?? 0;
 }
 
 function uniqueBackupPath(dataDir: string, clock: Clock): string {
@@ -61,19 +72,12 @@ export function runMigrations(
 		sqlite
 			.prepare("select 1 from sqlite_master where type = 'table' and name = '__drizzle_migrations'")
 			.get() !== undefined;
-	const lastApplied = hasHistory
-		? ((
-				sqlite.prepare('select max(created_at) as latest from __drizzle_migrations').get() as {
-					latest: number | null;
-				}
-			).latest ?? 0)
-		: 0;
+	const lastApplied = hasHistory ? lastAppliedMigration(sqlite) : 0;
 	const pending = journal.filter((entry) => entry.when > lastApplied).length;
 
 	// A rollback to an older image after an upgrade would otherwise open a newer database with code that
 	// does not know its schema, and fail in strange ways later or damage data. Refuse, and say what to do.
-	const newestKnown = journal.reduce((latest, entry) => Math.max(latest, entry.when), 0);
-	if (lastApplied > newestKnown) {
+	if (lastApplied > newestIn(journal)) {
 		throw new DatabaseTooNewError(
 			`This database was written by a newer version of Tessera than the one running now. ` +
 				`Start the newer version again, or restore the backup that was made before the upgrade ` +

@@ -31,22 +31,19 @@ function freeIdFor(x: Executor, title: string): string {
 	return `${base.slice(0, 50).replace(/-+$/, '')}-${crypto.randomUUID().slice(0, 8)}`;
 }
 
+// A title is stored as it is typed minus the space around it, which is never meant.
+function withTrimmedTitle(input: unknown): unknown {
+	if (typeof input !== 'object' || input === null || Array.isArray(input)) return input;
+	const title = (input as { title?: unknown }).title;
+	return typeof title === 'string' ? { ...input, title: title.trim() } : { ...input };
+}
+
 export function createDeck(
 	db: Db,
 	input: unknown,
 	now: string
 ): Result<DeckRow, CreateDeckProblem> {
-	// A title is stored as it is typed minus the space around it, which is never meant.
-	const trimmed =
-		typeof input === 'object' && input !== null && !Array.isArray(input)
-			? {
-					...input,
-					...(typeof (input as { title?: unknown }).title === 'string'
-						? { title: (input as { title: string }).title.trim() }
-						: {})
-				}
-			: input;
-	const parsed = NewDeckSchema.safeParse(trimmed);
+	const parsed = NewDeckSchema.safeParse(withTrimmedTitle(input));
 	if (!parsed.success) return err({ kind: 'invalid', errors: fieldErrors(parsed.error) });
 	const { id: given, title, description, tags } = parsed.data;
 

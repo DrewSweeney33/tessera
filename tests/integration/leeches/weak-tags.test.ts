@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { openDatabase, type DatabaseHandle } from '#lib/server/db/index.ts';
 import { cards, reviewLog } from '#lib/server/db/schema.ts';
-import { commitImport } from '#lib/server/import/index.ts';
 import { moveToTrash } from '#lib/server/decks/index.ts';
 import { weakTags } from '#lib/server/leeches/index.ts';
 import { basic, makeDeck } from '../../helpers/decks.ts';
 import { fakeClock, type FakeClock } from '../../helpers/fake-clock.ts';
 import { makeTempDir, type TempDir } from '../../helpers/temp-dir.ts';
+import { importForSetup } from '../../helpers/setup-import.ts';
 
 // Weak tags (US-6, ADR-015): per tag, how well it is remembered, from review-phase reviews in the last 90 days, with
 // a minimum number of reviews before a tag is ranked at all.
@@ -20,13 +20,7 @@ const DAY = 86_400_000;
 const ago = (days: number) => new Date(NOW.getTime() - days * DAY).toISOString();
 
 function seed(id: string, title: string, cardsIn: Record<string, unknown>[]) {
-	const result = commitImport(
-		handle.db,
-		makeDeck(cardsIn, { id, title }),
-		{ archiveMissing: false, format: 'json' },
-		clock
-	);
-	if (!result.ok) throw new Error('setup import failed');
+	importForSetup(handle.db, makeDeck(cardsIn, { id, title }), clock);
 }
 
 const pkOf = (key: string) => handle.db.select().from(cards).where(eq(cards.key, key)).get()!.pk;

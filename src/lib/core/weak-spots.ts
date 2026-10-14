@@ -1,6 +1,8 @@
 // The weak-spot report (US-6, ADR-015): the cards a learner keeps failing, written so they can be pasted to Claude
 // and the answer imported without edits. Pure: it takes the facts and returns the text, so every rule is tested.
 
+import { compareText } from './compare.ts';
+
 export interface ReportLeechItem {
 	deckId: string;
 	deckTitle: string;
@@ -177,9 +179,9 @@ export function buildWeakSpotReport(
 	const cards = groupItems(input.items).sort(
 		(a, b) =>
 			b.sortLapses - a.sortLapses ||
-			(a.sortReviewed < b.sortReviewed ? 1 : a.sortReviewed > b.sortReviewed ? -1 : 0) ||
-			(a.deckId < b.deckId ? -1 : a.deckId > b.deckId ? 1 : 0) ||
-			(a.key < b.key ? -1 : a.key > b.key ? 1 : 0)
+			compareText(b.sortReviewed, a.sortReviewed) ||
+			compareText(a.deckId, b.deckId) ||
+			compareText(a.key, b.key)
 	);
 
 	// Worst first. A card never gets cut: it goes in whole, or it is counted as left out.

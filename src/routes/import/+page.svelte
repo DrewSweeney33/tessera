@@ -3,7 +3,7 @@
 	import type { FieldErrorDto, ImportCommitDto, ImportPlanSummary } from '#lib/core/api-types.ts';
 	import { buildFixRequest } from '#lib/core/fix-request.ts';
 	import { detectFormat } from '#lib/core/parse/detect.ts';
-	import { ApiError, api } from '#lib/ui/api.ts';
+	import { ApiError, api, failureMessage } from '#lib/ui/api.ts';
 	import { copyText } from '#lib/ui/clipboard.ts';
 	import Icon from '#lib/ui/Icon.svelte';
 	import ImportPlan from '#lib/ui/ImportPlan.svelte';
@@ -58,8 +58,7 @@
 			if (error instanceof ApiError && error.fieldErrors.length > 0) {
 				errors = error.fieldErrors;
 			} else {
-				failure =
-					error instanceof ApiError ? error.message : 'Something went wrong importing the deck.';
+				failure = failureMessage(error, 'Something went wrong importing the deck.');
 			}
 		} finally {
 			busy = undefined;

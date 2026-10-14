@@ -11,11 +11,11 @@ import {
 	handleWeakSpotReport
 } from '#lib/server/api/leeches.ts';
 import { cards, cardState, reviewLog } from '#lib/server/db/schema.ts';
-import { commitImport } from '#lib/server/import/index.ts';
 import { moveToTrash } from '#lib/server/decks/index.ts';
 import { basic, makeDeck } from '../../helpers/decks.ts';
 import { fakeClock } from '../../helpers/fake-clock.ts';
 import { makeTempDir, type TempDir } from '../../helpers/temp-dir.ts';
+import { importForSetup } from '../../helpers/setup-import.ts';
 
 // Leeches and the weak-spot report over HTTP (US-6, ADR-015).
 
@@ -46,13 +46,7 @@ afterEach(() => {
 });
 
 function seed(id: string, title: string, cardsIn: Record<string, unknown>[]) {
-	const result = commitImport(
-		app.db,
-		makeDeck(cardsIn, { id, title }),
-		{ archiveMissing: false, format: 'json' },
-		clock
-	);
-	if (!result.ok) throw new Error('setup import failed');
+	importForSetup(app.db, makeDeck(cardsIn, { id, title }), clock);
 }
 
 const pkOf = (key: string) => app.db.select().from(cards).where(eq(cards.key, key)).get()!.pk;

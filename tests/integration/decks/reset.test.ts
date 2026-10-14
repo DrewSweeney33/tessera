@@ -4,7 +4,6 @@ import { eq } from 'drizzle-orm';
 import { join } from 'node:path';
 import { openDatabase, type DatabaseHandle } from '#lib/server/db/index.ts';
 import { cards, cardState, deckResets, decks, reviewLog } from '#lib/server/db/schema.ts';
-import { commitImport } from '#lib/server/import/index.ts';
 import { deleteDeckForever, moveToTrash, resetDeckProgress } from '#lib/server/decks/index.ts';
 import { listSnapshots } from '#lib/server/backups/index.ts';
 import { getDeck, listStatesForDeck } from '#lib/server/repos/index.ts';
@@ -12,6 +11,7 @@ import { countQueue } from '#lib/server/study/index.ts';
 import { basic, cloze, makeDeck } from '../../helpers/decks.ts';
 import { fakeClock, type FakeClock } from '../../helpers/fake-clock.ts';
 import { makeTempDir, type TempDir } from '../../helpers/temp-dir.ts';
+import { importForSetup } from '../../helpers/setup-import.ts';
 
 // Start over (US-14, ADR-013): every review item of one deck goes back to a new card. The review history stays, the
 // cards and the deck are untouched, a snapshot is taken first, and the title has to be typed.
@@ -24,13 +24,7 @@ const NOW = '2026-10-12T12:00:00.000Z';
 const LATER = '2026-10-20T08:00:00.000Z';
 
 function seed(id: string, title: string, cardsIn: Record<string, unknown>[]) {
-	const result = commitImport(
-		handle.db,
-		makeDeck(cardsIn, { id, title }),
-		{ archiveMissing: false, format: 'json' },
-		clock
-	);
-	if (!result.ok) throw new Error('setup import failed');
+	importForSetup(handle.db, makeDeck(cardsIn, { id, title }), clock);
 }
 
 // Makes every item of a deck look well studied, and logs a review for each.

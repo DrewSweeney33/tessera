@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { err, ok, type Result } from '#lib/core/result.ts';
-import { backupsFolder, listSnapshots, type SnapshotInfo } from '../backups/index.ts';
+import { backupsFolder, findSnapshot, type SnapshotInfo } from '../backups/index.ts';
 import { summarizeDatabase, type DataSummary, type InspectProblem } from '../db/inspect.ts';
 
 export { summarizeDatabase };
@@ -12,7 +12,7 @@ export function inspectBackup(
 	name: string,
 	migrationsFolder?: string
 ): Result<{ backup: SnapshotInfo; summary: DataSummary }, InspectProblem> {
-	const backup = listSnapshots(dataDir).find((entry) => entry.name === name);
+	const backup = findSnapshot(dataDir, name);
 	if (!backup) return err({ kind: 'not_found', message: 'There is no such backup.' });
 	const summary = summarizeDatabase(join(backupsFolder(dataDir), backup.name), migrationsFolder);
 	return summary.ok ? ok({ backup, summary: summary.value }) : err(summary.error);

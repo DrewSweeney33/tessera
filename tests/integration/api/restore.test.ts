@@ -11,11 +11,11 @@ import { parseConfig } from '#lib/server/config.ts';
 import { createLogger } from '#lib/server/log.ts';
 import { handleCreateBackup, handleListBackups } from '#lib/server/api/backups.ts';
 import { handlePreviewRestore, handleRestore } from '#lib/server/api/restore.ts';
-import { commitImport } from '#lib/server/import/index.ts';
 import { PENDING_FILE } from '#lib/server/restore/index.ts';
 import { basic, makeDeck } from '../../helpers/decks.ts';
 import { fakeClock } from '../../helpers/fake-clock.ts';
 import { makeTempDir, type TempDir } from '../../helpers/temp-dir.ts';
+import { importForSetup } from '../../helpers/setup-import.ts';
 
 // Restore over HTTP (US-15, ADR-014): look at what a backup holds beside what is there now, then ask for it with
 // "restore" typed. The server only stages the restore and asks itself to stop; the next start applies it.
@@ -49,13 +49,7 @@ afterEach(() => {
 });
 
 function seed(id: string) {
-	const result = commitImport(
-		app.db,
-		makeDeck([basic(`${id}-1`), basic(`${id}-2`)], { id, title: id }),
-		{ archiveMissing: false, format: 'json' },
-		clock
-	);
-	if (!result.ok) throw new Error('setup import failed');
+	importForSetup(app.db, makeDeck([basic(`${id}-1`), basic(`${id}-2`)], { id, title: id }), clock);
 }
 
 const backupName = async () => {

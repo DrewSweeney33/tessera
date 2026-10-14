@@ -50,3 +50,26 @@ export async function readBodyText(
 	}
 	return new TextDecoder().decode(bytes);
 }
+
+// The limit for the small JSON bodies (a new deck, a review, settings, a confirmation), far below the import limit.
+const SMALL_BODY_BYTES = 16 * 1024;
+
+// Reads a small JSON request body. Returns the parsed value, or a ready 4xx response when the body is too large,
+// cannot be read, or is not valid JSON. What the value contains is for the caller to check.
+export async function readJsonBody(
+	request: Request,
+	requestId: string
+): Promise<{ value: unknown } | Response> {
+	const text = await readBodyText(
+		request,
+		SMALL_BODY_BYTES,
+		'The request body is too large.',
+		requestId
+	);
+	if (text instanceof Response) return text;
+	try {
+		return { value: JSON.parse(text) };
+	} catch {
+		return errorResponse('bad_request', 'The body must be valid JSON.', undefined, requestId);
+	}
+}

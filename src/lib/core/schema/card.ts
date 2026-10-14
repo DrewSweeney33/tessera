@@ -26,7 +26,8 @@ const id = z
 		'Stable card id, unique within the deck. Keep it unchanged when you revise a card so review history is preserved.'
 	);
 
-const tags = z
+// A list of tags, for a card or a deck.
+export const TagListSchema = z
 	.array(
 		z
 			.string()
@@ -35,8 +36,11 @@ const tags = z
 			})
 			.regex(TAG_PATTERN, { message: `a tag ${TAG_MESSAGE}` })
 	)
-	.max(LIMITS.maxTags, { message: `too many tags (maximum ${LIMITS.maxTags})` })
-	.describe('Optional tags used for filtering, cram mode, and weak-spot reports.');
+	.max(LIMITS.maxTags, { message: `too many tags (maximum ${LIMITS.maxTags})` });
+
+const tags = TagListSchema.describe(
+	'Optional tags used for filtering, cram mode, and weak-spot reports.'
+);
 
 const source = z
 	.string()

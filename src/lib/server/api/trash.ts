@@ -17,7 +17,7 @@ import {
 import { errorResponse } from '../http/errors.ts';
 import { jsonResponse } from '../http/response.ts';
 import { countActiveCardsByDeck } from '../repos/index.ts';
-import { deckNotFound, readConfirmTitle, titleMismatch } from './deck-actions.ts';
+import { deckNotFound, readConfirmTitle, snapshotContext, titleMismatch } from './deck-actions.ts';
 import { summarize } from './decks.ts';
 
 // The Trash over HTTP (US-13, ADR-013). Three small writes, all behind the same guards as every other write: the
@@ -78,16 +78,7 @@ export async function handleDeleteForever(
 	const typed = await readConfirmTitle(request, requestId);
 	if (typed instanceof Response) return typed;
 
-	const deleted = deleteDeckForever(
-		{
-			db: app.db,
-			sqlite: app.database.sqlite,
-			dataDir: app.config.dataDir,
-			clock: app.clock
-		},
-		deckId,
-		typed
-	);
+	const deleted = deleteDeckForever(snapshotContext(app), deckId, typed);
 	if (!deleted.ok) {
 		switch (deleted.error.kind) {
 			case 'not_found':

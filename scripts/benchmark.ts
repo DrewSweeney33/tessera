@@ -4,26 +4,15 @@
 // Exits 1 if importing 5,000 cards takes longer than the 10 second budget. Run `npm run build` first.
 import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
-import { createServer, type AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { freePort } from './lib/net.ts';
 
 const IMPORT_BUDGET_MS = 10_000;
 const CARDS = 5000;
 
 const args = process.argv.slice(2);
 const baseArg = args.includes('--base') ? args[args.indexOf('--base') + 1] : undefined;
-
-function freePort(): Promise<number> {
-	return new Promise((resolve, reject) => {
-		const server = createServer();
-		server.listen(0, '127.0.0.1', () => {
-			const { port } = server.address() as AddressInfo;
-			server.close(() => resolve(port));
-		});
-		server.on('error', reject);
-	});
-}
 
 async function waitForHealth(base: string, child: ChildProcess | undefined) {
 	const deadline = Date.now() + 30_000;

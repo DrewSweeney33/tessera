@@ -1,3 +1,4 @@
+import { compareText } from '#lib/core/compare.ts';
 import { err, ok, type Result } from '#lib/core/result.ts';
 import type { CardType } from '#lib/core/schema/card.ts';
 import type { Deck } from '#lib/core/schema/deck.ts';
@@ -121,11 +122,10 @@ function changesOf(existing: CardRow, card: NormalizedCard): FieldChange[] {
 	if ((existing.source ?? undefined) !== card.source) {
 		changes.push({ field: 'source', before: show(existing.source), after: show(card.source) });
 	}
-	return changes.sort((a, b) => (a.field < b.field ? -1 : a.field > b.field ? 1 : 0));
+	return changes.sort((a, b) => compareText(a.field, b.field));
 }
 
-const changedFieldsOf = (existing: CardRow, card: NormalizedCard): string[] =>
-	changesOf(existing, card).map((change) => change.field);
+const fieldsOf = (changes: FieldChange[]): string[] => changes.map((change) => change.field);
 
 function groupByCard(states: CardStateRow[]): Map<number, CardStateRow[]> {
 	const grouped = new Map<number, CardStateRow[]>();
@@ -293,15 +293,16 @@ export function planImport(
 		const reposition = existing.position !== index;
 
 		if (existing.type !== normalized.type) {
+			const fieldChanges = changesOf(existing, normalized);
 			return {
 				...base,
 				action: 'type_changed',
 				restored: existing.archived,
 				reposition,
-				changedFields: changedFieldsOf(existing, normalized),
+				changedFields: fieldsOf(fieldChanges),
 				changes: [
 					{ field: 'type', before: existing.type, after: normalized.type },
-					...changesOf(existing, normalized)
+					...fieldChanges
 				],
 				progressLost: (statesByCard.get(existing.pk) ?? []).filter((s) => s.reps > 0).length,
 				existingPk: existing.pk,
@@ -324,14 +325,15 @@ export function planImport(
 		if (existing.contentHash !== contentHash) action = 'updated';
 		else if (existing.archived) action = 'restored';
 		else action = 'unchanged';
+		const fieldChanges = action === 'updated' ? changesOf(existing, normalized) : [];
 
 		return {
 			...base,
 			action,
 			restored: existing.archived,
 			reposition,
-			changedFields: action === 'updated' ? changedFieldsOf(existing, normalized) : [],
-			changes: action === 'updated' ? changesOf(existing, normalized) : [],
+			changedFields: fieldsOf(fieldChanges),
+			changes: fieldChanges,
 			progressLost: 0,
 			existingPk: existing.pk,
 			resetProgress: false,

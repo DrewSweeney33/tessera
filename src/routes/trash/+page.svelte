@@ -3,8 +3,9 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import type { DeleteDeckResponse, TrashedDeckDto } from '#lib/core/api-types.ts';
-	import { ApiError, api } from '#lib/ui/api.ts';
+	import { api, failureMessage } from '#lib/ui/api.ts';
 	import Icon from '#lib/ui/Icon.svelte';
+	import { formatDateTime } from '#lib/ui/format.ts';
 
 	type View =
 		| { kind: 'loading' }
@@ -34,16 +35,12 @@
 		} catch (error) {
 			view = {
 				kind: 'error',
-				message:
-					error instanceof ApiError ? error.message : 'Something went wrong loading the Trash.'
+				message: failureMessage(error, 'Something went wrong loading the Trash.')
 			};
 		}
 	}
 
 	onMount(load);
-
-	const when = (iso: string) =>
-		new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
 	async function restore(deck: TrashedDeckDto) {
 		if (busy) return;
@@ -56,8 +53,7 @@
 			notice = { kind: 'restored', title: deck.title, id: deck.id };
 			announcement = `${deck.title} restored.`;
 		} catch (error) {
-			problem =
-				error instanceof ApiError ? error.message : 'Something went wrong restoring the deck.';
+			problem = failureMessage(error, 'Something went wrong restoring the deck.');
 		} finally {
 			busy = undefined;
 		}
@@ -94,8 +90,7 @@
 			if (view.kind === 'ready') view.decks = view.decks.filter((d) => d.id !== deck.id);
 			announcement = `${deck.title} deleted for good.`;
 		} catch (error) {
-			problem =
-				error instanceof ApiError ? error.message : 'Something went wrong deleting the deck.';
+			problem = failureMessage(error, 'Something went wrong deleting the deck.');
 			await tick();
 			document.getElementById(`confirm-${deck.id}`)?.focus();
 		} finally {
@@ -176,7 +171,7 @@
 							{deck.reviewCount === 1 ? 'review' : 'reviews'} of history<span
 								class="sep"
 								aria-hidden="true">·</span
-							>moved here {when(deck.trashedAt)}
+							>moved here {formatDateTime(deck.trashedAt)}
 						</p>
 					</div>
 					<div class="row__actions">

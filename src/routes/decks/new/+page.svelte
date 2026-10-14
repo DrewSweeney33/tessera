@@ -4,7 +4,7 @@
 	import type { DeckSummaryDto, FieldErrorDto } from '#lib/core/api-types.ts';
 	import { ID_PATTERN, LIMITS } from '#lib/core/schema/limits.ts';
 	import { slugifyTitle } from '#lib/core/slug.ts';
-	import { ApiError, api } from '#lib/ui/api.ts';
+	import { ApiError, api, failureMessage } from '#lib/ui/api.ts';
 	import Icon from '#lib/ui/Icon.svelte';
 
 	let title = $state('');
@@ -90,10 +90,7 @@
 			if (error instanceof ApiError && error.fieldErrors.length > 0) {
 				errors = error.fieldErrors;
 			} else {
-				failure =
-					error instanceof ApiError
-						? error.message
-						: 'Something went wrong making the deck. Try again.';
+				failure = failureMessage(error, 'Something went wrong making the deck. Try again.');
 			}
 			await focusFirstProblem();
 		} finally {

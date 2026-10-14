@@ -95,34 +95,27 @@
 	{/if}
 {/snippet}
 
+<!-- A text field of the card, with its label, a note beside the label, and its problem. -->
+{#snippet textField(field: string, label: string, note: string, rows: number)}
+	<div class="stack">
+		<label for={idOf(field)}>{label} <span class="muted">({note})</span></label>
+		<textarea
+			id={idOf(field)}
+			class="field field--text"
+			{rows}
+			value={text(field)}
+			oninput={(event) => set(field, event.currentTarget.value)}
+			onblur={() => touch(field)}
+			aria-invalid={shown(field) ? 'true' : undefined}
+			aria-describedby={describedBy(field)}></textarea>
+		{@render problem(field)}
+	</div>
+{/snippet}
+
 <div class="editor stack">
 	{#if card.type === 'basic'}
-		<div class="stack">
-			<label for={idOf('front')}>Front <span class="muted">(Markdown)</span></label>
-			<textarea
-				id={idOf('front')}
-				class="field field--text"
-				rows="3"
-				value={text('front')}
-				oninput={(event) => set('front', event.currentTarget.value)}
-				onblur={() => touch('front')}
-				aria-invalid={shown('front') ? 'true' : undefined}
-				aria-describedby={describedBy('front')}></textarea>
-			{@render problem('front')}
-		</div>
-		<div class="stack">
-			<label for={idOf('back')}>Back <span class="muted">(Markdown)</span></label>
-			<textarea
-				id={idOf('back')}
-				class="field field--text"
-				rows="3"
-				value={text('back')}
-				oninput={(event) => set('back', event.currentTarget.value)}
-				onblur={() => touch('back')}
-				aria-invalid={shown('back') ? 'true' : undefined}
-				aria-describedby={describedBy('back')}></textarea>
-			{@render problem('back')}
-		</div>
+		{@render textField('front', 'Front', 'Markdown', 3)}
+		{@render textField('back', 'Back', 'Markdown', 3)}
 	{:else if card.type === 'cloze'}
 		<div class="stack">
 			<label for={idOf('text')}>Text with blanks <span class="muted">(Markdown)</span></label>
@@ -141,35 +134,9 @@
 			</p>
 			{@render problem('text')}
 		</div>
-		<div class="stack">
-			<label for={idOf('extra')}
-				>Extra <span class="muted">(optional, shown after the answer)</span></label
-			>
-			<textarea
-				id={idOf('extra')}
-				class="field field--text"
-				rows="2"
-				value={text('extra')}
-				oninput={(event) => set('extra', event.currentTarget.value)}
-				onblur={() => touch('extra')}
-				aria-invalid={shown('extra') ? 'true' : undefined}
-				aria-describedby={describedBy('extra')}></textarea>
-			{@render problem('extra')}
-		</div>
+		{@render textField('extra', 'Extra', 'optional, shown after the answer', 2)}
 	{:else if card.type === 'typed'}
-		<div class="stack">
-			<label for={idOf('front')}>Question <span class="muted">(Markdown)</span></label>
-			<textarea
-				id={idOf('front')}
-				class="field field--text"
-				rows="3"
-				value={text('front')}
-				oninput={(event) => set('front', event.currentTarget.value)}
-				onblur={() => touch('front')}
-				aria-invalid={shown('front') ? 'true' : undefined}
-				aria-describedby={describedBy('front')}></textarea>
-			{@render problem('front')}
-		</div>
+		{@render textField('front', 'Question', 'Markdown', 3)}
 		<div class="stack">
 			<label for={idOf('answer')}>Answer to type</label>
 			<input
@@ -201,19 +168,7 @@
 			{@render problem('accept')}
 		</div>
 	{:else if card.type === 'choice'}
-		<div class="stack">
-			<label for={idOf('front')}>Question <span class="muted">(Markdown)</span></label>
-			<textarea
-				id={idOf('front')}
-				class="field field--text"
-				rows="3"
-				value={text('front')}
-				oninput={(event) => set('front', event.currentTarget.value)}
-				onblur={() => touch('front')}
-				aria-invalid={shown('front') ? 'true' : undefined}
-				aria-describedby={describedBy('front')}></textarea>
-			{@render problem('front')}
-		</div>
+		{@render textField('front', 'Question', 'Markdown', 3)}
 
 		<fieldset class="choices stack">
 			<legend>Choices <span class="muted">(select the correct one)</span></legend>
@@ -268,21 +223,7 @@
 			</p>
 		</fieldset>
 
-		<div class="stack">
-			<label for={idOf('explanation')}
-				>Explanation <span class="muted">(optional, shown after answering)</span></label
-			>
-			<textarea
-				id={idOf('explanation')}
-				class="field field--text"
-				rows="2"
-				value={text('explanation')}
-				oninput={(event) => set('explanation', event.currentTarget.value)}
-				onblur={() => touch('explanation')}
-				aria-invalid={shown('explanation') ? 'true' : undefined}
-				aria-describedby={describedBy('explanation')}></textarea>
-			{@render problem('explanation')}
-		</div>
+		{@render textField('explanation', 'Explanation', 'optional, shown after answering', 2)}
 	{/if}
 
 	<div class="stack">

@@ -16,10 +16,10 @@ import {
 	handleDownloadBackup,
 	handleListBackups
 } from '#lib/server/api/backups.ts';
-import { commitImport } from '#lib/server/import/index.ts';
 import { basic, makeDeck } from '../../helpers/decks.ts';
 import { fakeClock, type FakeClock } from '../../helpers/fake-clock.ts';
 import { makeTempDir, type TempDir } from '../../helpers/temp-dir.ts';
+import { importForSetup } from '../../helpers/setup-import.ts';
 
 // The Backups routes (US-15, ADR-014): back up now, list, download, delete. A backup is named by its file name and
 // never by a path, and only a file the listing would show can be downloaded or deleted.
@@ -40,13 +40,7 @@ beforeEach(() => {
 		clock,
 		log: createLogger({ level: 'debug', write: (line) => logged.push(line) })
 	});
-	const result = commitImport(
-		app.db,
-		makeDeck([basic('a'), basic('b')], { id: 'kept', title: 'Kept' }),
-		{ archiveMissing: false, format: 'json' },
-		clock
-	);
-	if (!result.ok) throw new Error('setup import failed');
+	importForSetup(app.db, makeDeck([basic('a'), basic('b')], { id: 'kept', title: 'Kept' }), clock);
 });
 
 afterEach(() => {

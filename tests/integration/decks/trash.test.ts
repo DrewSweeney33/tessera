@@ -4,7 +4,6 @@ import { eq } from 'drizzle-orm';
 import { join } from 'node:path';
 import { openDatabase, type DatabaseHandle } from '#lib/server/db/index.ts';
 import { cards, cardState, decks, importHistory, reviewLog } from '#lib/server/db/schema.ts';
-import { commitImport } from '#lib/server/import/index.ts';
 import {
 	deleteDeckForever,
 	listTrash,
@@ -18,6 +17,7 @@ import { countQueue } from '#lib/server/study/index.ts';
 import { basic, cloze, makeDeck } from '../../helpers/decks.ts';
 import { fakeClock, type FakeClock } from '../../helpers/fake-clock.ts';
 import { makeTempDir, type TempDir } from '../../helpers/temp-dir.ts';
+import { importForSetup } from '../../helpers/setup-import.ts';
 
 // The Trash (US-13, ADR-013). Deleting a deck only hides it. Permanent deletion needs the title typed, takes a
 // snapshot first, and removes one deck's data and nothing else.
@@ -30,13 +30,7 @@ const NOW = '2026-10-12T12:00:00.000Z';
 const LATER = '2026-10-12T15:30:00.000Z';
 
 function seed(id: string, title: string, cardsIn: Record<string, unknown>[]) {
-	const result = commitImport(
-		handle.db,
-		makeDeck(cardsIn, { id, title }),
-		{ archiveMissing: false, format: 'json' },
-		clock
-	);
-	if (!result.ok) throw new Error('setup import failed');
+	importForSetup(handle.db, makeDeck(cardsIn, { id, title }), clock);
 }
 
 // A review on the first item of a deck, so there is history to lose.

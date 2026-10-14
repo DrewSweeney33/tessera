@@ -6,9 +6,9 @@
 // Run `npm run build` first. Nothing is written outside a temporary folder.
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { closeSync, mkdtempSync, openSync, rmSync, writeFileSync } from 'node:fs';
-import { createServer, type AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { freePort } from './lib/net.ts';
 import { PROBE_ALLOWED_HOSTS, PROBE_TOKEN } from './lib/probe-config.ts';
 
 const work = mkdtempSync(join(tmpdir(), 'tessera-probe-remote-'));
@@ -26,17 +26,6 @@ let failures = 0;
 function check(name: string, ok: boolean, detail = ''): void {
 	console.log(`${ok ? 'PASS ' : 'FAIL '} ${name}${ok || !detail ? '' : `  (${detail})`}`);
 	if (!ok) failures++;
-}
-
-function freePort(): Promise<number> {
-	return new Promise((resolve, reject) => {
-		const server = createServer();
-		server.listen(0, '127.0.0.1', () => {
-			const { port } = server.address() as AddressInfo;
-			server.close(() => resolve(port));
-		});
-		server.on('error', reject);
-	});
 }
 
 async function stand(name: string, extra: Record<string, string>): Promise<Stand> {

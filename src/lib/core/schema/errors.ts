@@ -230,14 +230,17 @@ function comparePaths(a: Path, b: Path, input: unknown): number {
 	return a.length - b.length;
 }
 
-// Converts Zod issues into ImportErrors, sorted by position and capped so a hopeless
-// document does not produce a wall of text.
+// Converts Zod issues into ImportErrors, sorted by position and capped.
 export function toImportErrors(issues: readonly Issue[], input: unknown): ImportError[] {
 	const ordered = issues
 		.map((issue, index) => ({ issue, index }))
 		.sort((a, b) => comparePaths(a.issue.path, b.issue.path, input) || a.index - b.index);
 
-	const all = ordered.flatMap(({ issue }) => mapIssue(issue, input));
+	return capErrors(ordered.flatMap(({ issue }) => mapIssue(issue, input)));
+}
+
+// Keeps the first errors and says how many more there were, so a hopeless document does not produce a wall of text.
+export function capErrors(all: ImportError[]): ImportError[] {
 	if (all.length <= LIMITS.maxReportedErrors) return all;
 
 	const shown = all.slice(0, LIMITS.maxReportedErrors);

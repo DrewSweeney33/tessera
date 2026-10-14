@@ -11,32 +11,30 @@ import type { AppContext } from '../app.ts';
 import {
 	backupsFolder,
 	createSnapshot,
+	findSnapshot,
 	listSnapshots,
 	type SnapshotInfo
 } from '../backups/index.ts';
 import { errorResponse } from '../http/errors.ts';
-import { readLastRestore, readPendingRestore } from '../restore/index.ts';
 import { jsonResponse } from '../http/response.ts';
+import { readLastRestore, readPendingRestore } from '../restore/index.ts';
 
 // The Backups routes (US-15, ADR-014). A backup is a file in <data folder>/backups. It is named by its file name
 // and never by a path: a name is served or deleted only if the listing shows it, which means it is a plain file
 // in that folder with a safe name, and never the live database. Anything else is the same 404, and no answer
 // carries a path from the server.
 
-const toDto = (info: SnapshotInfo): BackupDto => ({
-	name: info.name,
-	kind: info.kind,
-	size: info.size,
-	modifiedAt: info.modifiedAt
-});
-
-function notFound(requestId: string): Response {
-	return errorResponse('not_found', 'There is no such backup.', undefined, requestId);
+export function toBackupDto(info: SnapshotInfo): BackupDto {
+	return {
+		name: info.name,
+		kind: info.kind,
+		size: info.size,
+		modifiedAt: info.modifiedAt
+	};
 }
 
-// The listed backup with this name, if there is one.
-function findBackup(app: AppContext, name: string): SnapshotInfo | undefined {
-	return listSnapshots(app.config.dataDir).find((entry) => entry.name === name);
+export function backupNotFound(requestId: string): Response {
+	return errorResponse('not_found', 'There is no such backup.', undefined, requestId);
 }
 
 // GET /api/backups: every backup, newest first.
@@ -44,7 +42,7 @@ export function handleListBackups(app: AppContext): Response {
 	const last = readLastRestore(app.config.dataDir);
 	const pending = readPendingRestore(app.config.dataDir)?.name;
 	const body: BackupsResponse = {
-		backups: listSnapshots(app.config.dataDir).map(toDto),
+		backups: listSnapshots(app.config.dataDir).map(toBackupDto),
 		...(last
 			? { lastRestore: { ok: last.ok, name: last.name, at: last.at, message: last.message } }
 			: {}),
@@ -58,14 +56,14 @@ export function handleListBackups(app: AppContext): Response {
 export function handleCreateBackup(app: AppContext, requestId: string): Response {
 	const info = createSnapshot(app.database.sqlite, app.config.dataDir, 'manual', app.clock);
 	app.log.info('backup created', { requestId, backup: info.name, size: info.size });
-	const body: CreateBackupResponse = { backup: toDto(info) };
+	const body: CreateBackupResponse = { backup: toBackupDto(info) };
 	return jsonResponse(body, { status: 201 });
 }
 
 // GET /api/backups/:name: the file, as a download. Streamed, so a large database does not sit in memory.
 export function handleDownloadBackup(app: AppContext, name: string, requestId: string): Response {
-	const found = findBackup(app, name);
-	if (!found) return notFound(requestId);
+	const found = findSnapshot(app.config.dataDir, name);
+	if (!found) return backupNotFound(requestId);
 	const stream = createReadStream(join(backupsFolder(app.config.dataDir), found.name));
 	const headers = new Headers({
 		'content-type': 'application/octet-stream',
@@ -79,8 +77,8 @@ export function handleDownloadBackup(app: AppContext, name: string, requestId: s
 
 // DELETE /api/backups/:name: removes one backup after the page has asked for confirmation.
 export function handleDeleteBackup(app: AppContext, name: string, requestId: string): Response {
-	const found = findBackup(app, name);
-	if (!found) return notFound(requestId);
+	const found = findSnapshot(app.config.dataDir, name);
+	if (!found) return backupNotFound(requestId);
 	rmSync(join(backupsFolder(app.config.dataDir), found.name), { force: true });
 	app.log.info('backup deleted', { requestId, backup: found.name });
 	const body: DeleteBackupResponse = { deleted: found.name };

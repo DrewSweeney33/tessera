@@ -4,7 +4,7 @@ import type { AppContext } from '../app.ts';
 import { resetDeckProgress } from '../decks/index.ts';
 import { jsonResponse } from '../http/response.ts';
 import { countActiveCardsByDeck, getDeck } from '../repos/index.ts';
-import { deckNotFound, readConfirmTitle, titleMismatch } from './deck-actions.ts';
+import { deckNotFound, readConfirmTitle, snapshotContext, titleMismatch } from './deck-actions.ts';
 import { summarize } from './decks.ts';
 
 // POST /api/decks/:id/start-over (US-14, ADR-013). Puts every review item of the deck back to new, keeping the
@@ -21,16 +21,7 @@ export async function handleStartOver(
 	const typed = await readConfirmTitle(request, requestId);
 	if (typed instanceof Response) return typed;
 
-	const done = resetDeckProgress(
-		{
-			db: app.db,
-			sqlite: app.database.sqlite,
-			dataDir: app.config.dataDir,
-			clock: app.clock
-		},
-		deckId,
-		typed
-	);
+	const done = resetDeckProgress(snapshotContext(app), deckId, typed);
 	if (!done.ok) {
 		return done.error.kind === 'not_found'
 			? deckNotFound(deckId, requestId)

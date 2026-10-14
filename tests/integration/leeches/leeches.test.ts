@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { openDatabase, type DatabaseHandle } from '#lib/server/db/index.ts';
 import { cards, cardState, reviewLog } from '#lib/server/db/schema.ts';
-import { commitImport } from '#lib/server/import/index.ts';
 import {
 	countLeeches,
 	listLeeches,
@@ -14,6 +13,7 @@ import { countQueue } from '#lib/server/study/index.ts';
 import { basic, cloze, makeDeck } from '../../helpers/decks.ts';
 import { fakeClock, type FakeClock } from '../../helpers/fake-clock.ts';
 import { makeTempDir, type TempDir } from '../../helpers/temp-dir.ts';
+import { importForSetup } from '../../helpers/setup-import.ts';
 
 // The leech list and its actions (US-6, ADR-015). A leech is a review item whose flag is set. Reset clears the flag
 // and the lapse count and nothing else. Suspend takes the whole card out of the queue and every count.
@@ -24,13 +24,7 @@ let clock: FakeClock;
 const NOW = '2026-10-12T12:00:00.000Z';
 
 function seed(id: string, title: string, cardsIn: Record<string, unknown>[]) {
-	const result = commitImport(
-		handle.db,
-		makeDeck(cardsIn, { id, title }),
-		{ archiveMissing: false, format: 'json' },
-		clock
-	);
-	if (!result.ok) throw new Error('setup import failed');
+	importForSetup(handle.db, makeDeck(cardsIn, { id, title }), clock);
 }
 
 const pkOf = (key: string) => handle.db.select().from(cards).where(eq(cards.key, key)).get()!.pk;

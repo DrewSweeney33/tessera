@@ -2,6 +2,7 @@ export {
 	BACKUP_NAME_PATTERN,
 	backupsFolder,
 	createSnapshot,
+	findSnapshot,
 	isSafeBackupName,
 	listSnapshots,
 	snapshotKindOf,

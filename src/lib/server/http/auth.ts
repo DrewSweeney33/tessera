@@ -43,18 +43,6 @@ export function tokenMatches(presented: string | undefined, expected: string): b
 	return timingSafeEqual(a, b);
 }
 
-// True for a request that the Tessera web page itself sent. In order:
-//   1. Sec-Fetch-Site, which the browser sets and a page cannot change, is the word of the browser. Only
-//      "same-origin" counts. "same-site" (another port on this host), "cross-site", and "none" (someone typed
-//      the address) do not, even if the headers below look right.
-//   2. Without it, the Origin header must name this server's own host and port (the Host header). A browser
-//      sends Origin on every cross-origin request and on same-origin requests other than GET. The scheme is
-//      not compared: behind adapter-node the server believes it is https unless told otherwise, so the scheme
-//      it sees is not the one the browser used, and the server only speaks one scheme anyway.
-//   3. Without either (plain HTTP on an address that is not localhost, where browsers send no Sec-Fetch-*,
-//      and a same-origin GET, which carries no Origin), the page's own marker header. A page on another site
-//      cannot send it (see client-header.ts).
-// A script can send any of these, so none of this is a login. See the note at the top.
 // The host and port of an Origin header, or undefined if it is not a plain http or https origin
 // ("null" from a sandboxed page, a path, a trailing slash, credentials).
 function originHost(origin: string): string | undefined {
@@ -67,6 +55,18 @@ function originHost(origin: string): string | undefined {
 	}
 }
 
+// True for a request that the Tessera web page itself sent. In order:
+//   1. Sec-Fetch-Site, which the browser sets and a page cannot change, is the word of the browser. Only
+//      "same-origin" counts. "same-site" (another port on this host), "cross-site", and "none" (someone typed
+//      the address) do not, even if the headers below look right.
+//   2. Without it, the Origin header must name this server's own host and port (the Host header). A browser
+//      sends Origin on every cross-origin request and on same-origin requests other than GET. The scheme is
+//      not compared: behind adapter-node the server believes it is https unless told otherwise, so the scheme
+//      it sees is not the one the browser used, and the server only speaks one scheme anyway.
+//   3. Without either (plain HTTP on an address that is not localhost, where browsers send no Sec-Fetch-*,
+//      and a same-origin GET, which carries no Origin), the page's own marker header. A page on another site
+//      cannot send it (see client-header.ts).
+// A script can send any of these, so none of this is a login. See the note at the top.
 export function isWebPageRequest(headers: Headers, serverHost: string): boolean {
 	const site = headers.get('sec-fetch-site');
 	if (site !== null) return site === 'same-origin';

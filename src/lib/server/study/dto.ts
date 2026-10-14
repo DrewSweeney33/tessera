@@ -1,6 +1,5 @@
 import type { NextResponse, StudyItemDto } from '#lib/core/api-types.ts';
-import type { Grade } from '#lib/core/scheduler/types.ts';
-import { GRADES } from '#lib/core/scheduler/types.ts';
+import { GRADES, type Grade } from '#lib/core/scheduler/types.ts';
 import type { Rng } from '../clock.ts';
 import type { Executor } from '../db/client.ts';
 import { getDeck, getSettings, type QueueScope } from '../repos/index.ts';
@@ -37,7 +36,8 @@ export function buildNext(x: Executor, context: NextContext): NextResponse {
 	const { card, state, category } = result.item;
 	const deck = getDeck(x, card.deckId);
 	const scheduler = schedulerFor(deck?.targetRetention ?? getSettings(x).targetRetention);
-	const preview = scheduler.preview(toItemState(state), context.now);
+	const itemState = toItemState(state);
+	const preview = scheduler.preview(itemState, context.now);
 	const previews = {} as Record<Grade, { label: string }>;
 	for (const grade of GRADES) previews[grade] = { label: preview[grade].label };
 
@@ -62,7 +62,7 @@ export function buildNext(x: Executor, context: NextContext): NextResponse {
 			type: card.type,
 			content: card.content,
 			tags: card.tags,
-			state: serializeState(toItemState(state)),
+			state: serializeState(itemState),
 			previews,
 			servedAt
 		}

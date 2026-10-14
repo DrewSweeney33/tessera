@@ -1,17 +1,16 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { resolve } from '$app/paths';
-	import { tick } from 'svelte';
 	import type {
 		BackupDto,
 		BackupKind,
 		LastRestoreDto,
 		RestorePreviewResponse
 	} from '#lib/core/api-types.ts';
-	import { ApiError, api, fetchFile } from '#lib/ui/api.ts';
+	import { api, failureMessage, fetchFile } from '#lib/ui/api.ts';
 	import { saveBlob } from '#lib/ui/download.ts';
 	import Icon from '#lib/ui/Icon.svelte';
-	import { formatBytes } from '#lib/ui/format.ts';
+	import { formatBytes, formatDateTime } from '#lib/ui/format.ts';
 
 	type View =
 		| { kind: 'loading' }
@@ -61,16 +60,12 @@
 		} catch (error) {
 			view = {
 				kind: 'error',
-				message:
-					error instanceof ApiError ? error.message : 'Something went wrong loading the backups.'
+				message: failureMessage(error, 'Something went wrong loading the backups.')
 			};
 		}
 	}
 
 	onMount(load);
-
-	const when = (iso: string) =>
-		new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
 	async function backUpNow() {
 		if (busy) return;
@@ -82,8 +77,7 @@
 			announcement = `Backup ${backup.name} saved.`;
 			await load();
 		} catch (error) {
-			problem =
-				error instanceof ApiError ? error.message : 'Something went wrong making the backup.';
+			problem = failureMessage(error, 'Something went wrong making the backup.');
 		} finally {
 			busy = undefined;
 		}
@@ -97,8 +91,7 @@
 			const file = await fetchFile(`/api/backups/${encodeURIComponent(backup.name)}`);
 			saveBlob(file.blob, file.filename);
 		} catch (error) {
-			problem =
-				error instanceof ApiError ? error.message : 'Something went wrong downloading the backup.';
+			problem = failureMessage(error, 'Something went wrong downloading the backup.');
 		} finally {
 			busy = undefined;
 		}
@@ -114,8 +107,7 @@
 		try {
 			preview = await api.previewRestore(backup.name);
 		} catch (error) {
-			restoreProblem =
-				error instanceof ApiError ? error.message : 'Something went wrong looking at the backup.';
+			restoreProblem = failureMessage(error, 'Something went wrong looking at the backup.');
 		}
 		await tick();
 		document.getElementById('restore-word')?.focus();
@@ -164,8 +156,7 @@
 			announcement = 'Restoring. Tessera is restarting.';
 			void waitForRestart();
 		} catch (error) {
-			restoreProblem =
-				error instanceof ApiError ? error.message : 'Something went wrong starting the restore.';
+			restoreProblem = failureMessage(error, 'Something went wrong starting the restore.');
 			await tick();
 			document.getElementById('restore-word')?.focus();
 		} finally {
@@ -184,8 +175,7 @@
 			announcement = `Backup ${backup.name} deleted.`;
 			await load();
 		} catch (error) {
-			problem =
-				error instanceof ApiError ? error.message : 'Something went wrong deleting the backup.';
+			problem = failureMessage(error, 'Something went wrong deleting the backup.');
 		} finally {
 			busy = undefined;
 		}
@@ -277,7 +267,7 @@
 		<div class="callout" class:callout--error={!view.lastRestore.ok} role="status">
 			<p>
 				<strong>{view.lastRestore.ok ? 'Last restore' : 'The last restore did not happen'}</strong>
-				({when(view.lastRestore.at)}): {view.lastRestore.message}
+				({formatDateTime(view.lastRestore.at)}): {view.lastRestore.message}
 			</p>
 		</div>
 	{/if}
@@ -302,7 +292,7 @@
 					<div class="row__main">
 						<h2 class="row__title"><code>{backup.name}</code></h2>
 						<p class="muted small">
-							{KIND_LABEL[backup.kind]}<span class="sep" aria-hidden="true">·</span>{when(
+							{KIND_LABEL[backup.kind]}<span class="sep" aria-hidden="true">·</span>{formatDateTime(
 								backup.modifiedAt
 							)}<span class="sep" aria-hidden="true">·</span>{formatBytes(backup.size)}
 						</p>
@@ -403,13 +393,13 @@
 											<td>
 												{preview.summary
 													? preview.summary.newestReviewAt
-														? when(preview.summary.newestReviewAt)
+														? formatDateTime(preview.summary.newestReviewAt)
 														: 'none'
 													: '—'}
 											</td>
 											<td>
 												{preview.current.newestReviewAt
-													? when(preview.current.newestReviewAt)
+													? formatDateTime(preview.current.newestReviewAt)
 													: 'none'}
 											</td>
 										</tr>

@@ -3,7 +3,6 @@ import Database from 'better-sqlite3';
 import { existsSync, mkdirSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { openDatabase, type DatabaseHandle } from '#lib/server/db/index.ts';
-import { commitImport } from '#lib/server/import/index.ts';
 import {
 	BACKUP_NAME_PATTERN,
 	createSnapshot,
@@ -16,6 +15,7 @@ import { toErrorResponse } from '#lib/server/http/errors.ts';
 import { basic, makeDeck } from '../../helpers/decks.ts';
 import { fakeClock, type FakeClock } from '../../helpers/fake-clock.ts';
 import { makeTempDir, type TempDir } from '../../helpers/temp-dir.ts';
+import { importForSetup } from '../../helpers/setup-import.ts';
 
 // Snapshots (ADR-014): a named copy of the database in <dataDir>/backups, taken before anything destructive
 // (ADR-013) and on demand. The rule that matters most: if the snapshot cannot be written, the action does not run.
@@ -28,13 +28,7 @@ beforeEach(() => {
 	dir = makeTempDir();
 	clock = fakeClock('2026-10-12T12:00:00.000Z');
 	handle = openDatabase({ dataDir: dir.path, clock });
-	const result = commitImport(
-		handle.db,
-		makeDeck([basic('a'), basic('b')]),
-		{ archiveMissing: false, format: 'json' },
-		clock
-	);
-	if (!result.ok) throw new Error('setup import failed');
+	importForSetup(handle.db, makeDeck([basic('a'), basic('b')]), clock);
 });
 
 afterEach(() => {

@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
 	import type { DecksResponse, QueueCounts } from '#lib/core/api-types.ts';
-	import { ApiError, api } from '#lib/ui/api.ts';
+	import { api, failureMessage } from '#lib/ui/api.ts';
 	import Icon from '#lib/ui/Icon.svelte';
 	import { shell } from '#lib/ui/shell.svelte.ts';
 
@@ -22,8 +22,7 @@
 		} catch (error) {
 			view = {
 				kind: 'error',
-				message:
-					error instanceof ApiError ? error.message : 'Something went wrong loading your decks.'
+				message: failureMessage(error, 'Something went wrong loading your decks.')
 			};
 		}
 	}
@@ -44,18 +43,24 @@
 	<title>Decks · Tessera</title>
 </svelte:head>
 
+{#snippet head(newDeckLink: boolean)}
+	<header class="head">
+		<div class="page-head">
+			<p class="eyebrow">Your library</p>
+			<h1>Decks</h1>
+		</div>
+		{#if newDeckLink}
+			<a class="btn" href={resolve('/decks/new')}><Icon name="plus" /> New deck</a>
+		{/if}
+	</header>
+{/snippet}
+
 <div class="page">
 	{#if view.kind === 'ready' && view.data.decks.length > 0}
 		{@const totals = view.data.totals}
 		{@const due = available(totals)}
 		{@const bars = share(totals)}
-		<header class="head">
-			<div class="page-head">
-				<p class="eyebrow">Your library</p>
-				<h1>Decks</h1>
-			</div>
-			<a class="btn" href={resolve('/decks/new')}><Icon name="plus" /> New deck</a>
-		</header>
+		{@render head(true)}
 
 		<section class="today" class:today--clear={due === 0} aria-label="Today">
 			<svg class="today__motif" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
@@ -157,12 +162,7 @@
 			{/each}
 		</ul>
 	{:else if view.kind === 'ready'}
-		<header class="head">
-			<div class="page-head">
-				<p class="eyebrow">Your library</p>
-				<h1>Decks</h1>
-			</div>
-		</header>
+		{@render head(false)}
 		<section class="empty">
 			<svg class="empty__motif" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
 				<rect x="2" y="2" width="20" height="20" rx="5" />
@@ -183,23 +183,13 @@
 			</p>
 		</section>
 	{:else if view.kind === 'error'}
-		<header class="head">
-			<div class="page-head">
-				<p class="eyebrow">Your library</p>
-				<h1>Decks</h1>
-			</div>
-		</header>
+		{@render head(false)}
 		<div class="callout callout--error" role="alert">
 			<p>{view.message}</p>
 			<p class="retry"><button type="button" class="btn" onclick={load}>Try again</button></p>
 		</div>
 	{:else}
-		<header class="head">
-			<div class="page-head">
-				<p class="eyebrow">Your library</p>
-				<h1>Decks</h1>
-			</div>
-		</header>
+		{@render head(false)}
 		<p class="sr-only" role="status">Loading decks…</p>
 		<div class="skeletons" aria-hidden="true">
 			<div class="skeleton skeleton--hero"></div>

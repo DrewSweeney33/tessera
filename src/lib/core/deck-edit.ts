@@ -1,5 +1,6 @@
 import type { DeckCardDto, DeckDocumentDto } from './api-types.ts';
 import { parseCloze, validateCloze, type ClozeNode } from './cloze.ts';
+import { compareText } from './compare.ts';
 import { CLOZE_MARKER_PATTERN, LIMITS, TAG_MESSAGE, TAG_PATTERN } from './schema/limits.ts';
 
 // The pure part of the deck editor (ADR-013). Nothing here touches the page or the network, so it is tested
@@ -301,7 +302,7 @@ function canonical(value: unknown): string {
 	if (value && typeof value === 'object') {
 		const entries = Object.entries(value as Record<string, unknown>)
 			.filter(([, v]) => v !== undefined)
-			.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+			.sort(([a], [b]) => compareText(a, b));
 		return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(',')}}`;
 	}
 	return JSON.stringify(value) ?? 'null';
@@ -363,18 +364,17 @@ function clozeLine(nodes: readonly ClozeNode[]): string {
 		.join('');
 }
 
+function questionText(card: DeckCardDto): string {
+	if (card.type === 'cloze') {
+		return typeof card['text'] === 'string' ? clozeLine(parseCloze(card['text']).nodes) : '';
+	}
+	return typeof card['front'] === 'string' ? card['front'] : '';
+}
+
 // One line for a card in a list: its question, on one line, at most a hundred characters. A cloze shows each
 // blank as [answer].
 export function cardPreviewText(card: DeckCardDto): string {
-	const source =
-		card.type === 'cloze'
-			? typeof card['text'] === 'string'
-				? clozeLine(parseCloze(card['text']).nodes)
-				: ''
-			: typeof card['front'] === 'string'
-				? card['front']
-				: '';
-	const line = source.replace(/\s+/g, ' ').trim();
+	const line = questionText(card).replace(/\s+/g, ' ').trim();
 	if (line === '') return '(empty)';
 	return line.length > PREVIEW_LENGTH ? `${line.slice(0, PREVIEW_LENGTH - 1).trimEnd()}…` : line;
 }

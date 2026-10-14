@@ -117,12 +117,9 @@ export function parseJson(input: string): Result<Deck, ImportError[]> {
 
 		const reported = /\(line (\d+) column (\d+)\)/.exec(message);
 		const token = /^Unexpected token '(.)'/su.exec(message)?.[1];
-		const found =
-			reported !== null
-				? { line: Number(reported[1]), column: Number(reported[2]) }
-				: token !== undefined
-					? locateUnexpectedToken(content)
-					: undefined;
+		let found: { line: number; column: number } | undefined;
+		if (reported !== null) found = { line: Number(reported[1]), column: Number(reported[2]) };
+		else if (token !== undefined) found = locateUnexpectedToken(content);
 		const line = found ? found.line + lineOffset : undefined;
 		const column = found?.column;
 		// V8 prints a raw snippet of the source after "Unexpected token", so say it plainly instead.

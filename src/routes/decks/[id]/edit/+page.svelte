@@ -25,7 +25,7 @@
 		type EditableCardType
 	} from '#lib/core/deck-edit.ts';
 	import { LIMITS } from '#lib/core/schema/limits.ts';
-	import { ApiError, api, fetchFile } from '#lib/ui/api.ts';
+	import { ApiError, api, failureMessage, fetchFile } from '#lib/ui/api.ts';
 	import { cardFieldElementId } from '#lib/ui/card-fields.ts';
 	import CardEditor from '#lib/ui/CardEditor.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
@@ -116,8 +116,7 @@
 			if (error instanceof ApiError && error.status === 404) {
 				view = 'missing';
 			} else {
-				loadMessage =
-					error instanceof ApiError ? error.message : 'Something went wrong loading this deck.';
+				loadMessage = failureMessage(error, 'Something went wrong loading this deck.');
 				view = 'error';
 			}
 		}
@@ -290,10 +289,7 @@
 				}
 			}
 		} else {
-			failure =
-				error instanceof ApiError
-					? error.message
-					: 'Something went wrong saving the deck. Try again.';
+			failure = failureMessage(error, 'Something went wrong saving the deck. Try again.');
 		}
 	}
 
@@ -390,8 +386,7 @@
 			resetTyped = '';
 			announcement = 'Started over. Every card is new again.';
 		} catch (error) {
-			resetProblem =
-				error instanceof ApiError ? error.message : 'Something went wrong starting the deck over.';
+			resetProblem = failureMessage(error, 'Something went wrong starting the deck over.');
 			await tick();
 			document.getElementById('reset-title')?.focus();
 		} finally {
@@ -409,10 +404,7 @@
 			await goto(resolve('/trash'), { state: { moved: deckId } });
 		} catch (error) {
 			confirmingTrash = false;
-			failure =
-				error instanceof ApiError
-					? error.message
-					: 'Something went wrong moving the deck to the Trash.';
+			failure = failureMessage(error, 'Something went wrong moving the deck to the Trash.');
 		} finally {
 			busy = undefined;
 		}
@@ -432,8 +424,7 @@
 			);
 			saveBlob(file.blob, file.filename);
 		} catch (error) {
-			failure =
-				error instanceof ApiError ? error.message : 'Something went wrong exporting the deck.';
+			failure = failureMessage(error, 'Something went wrong exporting the deck.');
 		} finally {
 			busy = undefined;
 		}

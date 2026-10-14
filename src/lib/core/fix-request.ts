@@ -1,6 +1,13 @@
 import type { FieldErrorDto } from './api-types.ts';
 import type { DeckFormat } from './parse/detect.ts';
 
+// Where a problem is: its line (and column) when known, otherwise its field path.
+function locationOf(error: FieldErrorDto): string {
+	if (error.line === undefined) return error.path;
+	if (error.column === undefined) return `line ${error.line}`;
+	return `line ${error.line}, column ${error.column}`;
+}
+
 // The message pasted back to Claude when a deck fails to import. It names the exact fields and
 // says what to preserve, so one round trip fixes the deck (the core promise of Tessera).
 // `format` is the one the deck was written in, so the corrected deck comes back in the same one and the line
@@ -11,13 +18,9 @@ export function buildFixRequest(
 	format: DeckFormat = 'json'
 ): string {
 	const lines = errors.map((error, index) => {
-		const where =
-			error.line !== undefined
-				? `line ${error.line}${error.column !== undefined ? `, column ${error.column}` : ''}`
-				: error.path;
 		const allowed =
 			error.allowed && error.allowed.length > 0 ? ` (allowed: ${error.allowed.join(', ')})` : '';
-		return `${index + 1}. ${where} [${error.code}]: ${error.message}${allowed}`;
+		return `${index + 1}. ${locationOf(error)} [${error.code}]: ${error.message}${allowed}`;
 	});
 
 	const schema = `${origin.replace(/\/$/, '')}/api/schema`;

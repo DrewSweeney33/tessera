@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import type { DeckSummaryDto, LeechDto, LeechesResponse } from '#lib/core/api-types.ts';
-	import { ApiError, api } from '#lib/ui/api.ts';
+	import { api, failureMessage } from '#lib/ui/api.ts';
 	import { cardSides } from '#lib/ui/card-sides.ts';
 	import { copyText } from '#lib/ui/clipboard.ts';
 	import Icon from '#lib/ui/Icon.svelte';
@@ -32,8 +32,7 @@
 		} catch (error) {
 			view = {
 				kind: 'error',
-				message:
-					error instanceof ApiError ? error.message : 'Something went wrong loading the leeches.'
+				message: failureMessage(error, 'Something went wrong loading the leeches.')
 			};
 		}
 	}
@@ -45,24 +44,25 @@
 		iso ? new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'never';
 	const percent = (share: number) => `${Math.round(share * 100)}%`;
 
-	async function act(leech: LeechDto, action: 'reset' | 'suspend' | 'unsuspend') {
+	type Action = 'reset' | 'suspend' | 'unsuspend';
+	const DONE: Record<Action, string> = {
+		reset: 'Reset. The card is no longer a leech.',
+		suspend: 'Suspended. The card is out of your study sessions.',
+		unsuspend: 'Put back in your study sessions.'
+	};
+
+	async function act(leech: LeechDto, action: Action) {
 		if (busy) return;
 		busy = `${idOf(leech)}:${action}`;
 		problem = undefined;
 		try {
 			if (action === 'reset') await api.resetLeech(leech.cardPk, leech.ordinal);
 			else await api.setSuspended(leech.cardPk, action === 'suspend');
-			announcement =
-				action === 'reset'
-					? 'Reset. The card is no longer a leech.'
-					: action === 'suspend'
-						? 'Suspended. The card is out of your study sessions.'
-						: 'Put back in your study sessions.';
+			announcement = DONE[action];
 			await load();
 			void refreshShell();
 		} catch (error) {
-			problem =
-				error instanceof ApiError ? error.message : 'Something went wrong. Nothing was changed.';
+			problem = failureMessage(error, 'Something went wrong. Nothing was changed.');
 		} finally {
 			busy = undefined;
 		}
@@ -78,8 +78,7 @@
 			copyState = (await copyText(reportText)) ? 'copied' : 'manual';
 			announcement = copyState === 'copied' ? 'The report is copied.' : 'Copy the report below.';
 		} catch (error) {
-			problem =
-				error instanceof ApiError ? error.message : 'Something went wrong making the report.';
+			problem = failureMessage(error, 'Something went wrong making the report.');
 		} finally {
 			busy = undefined;
 		}

@@ -5,12 +5,12 @@ import { createApp, type AppContext } from '#lib/server/app.ts';
 import { parseConfig } from '#lib/server/config.ts';
 import { createLogger } from '#lib/server/log.ts';
 import { createSnapshot } from '#lib/server/backups/index.ts';
-import { commitImport } from '#lib/server/import/index.ts';
 import { listDecks } from '#lib/server/repos/index.ts';
 import { PENDING_FILE, readLastRestore, stageRestore } from '#lib/server/restore/index.ts';
 import { basic, makeDeck } from '../../helpers/decks.ts';
 import { fakeClock } from '../../helpers/fake-clock.ts';
 import { makeTempDir, type TempDir } from '../../helpers/temp-dir.ts';
+import { importForSetup } from '../../helpers/setup-import.ts';
 
 // A staged restore is applied when the server starts, before the database is opened (ADR-014).
 
@@ -42,13 +42,7 @@ afterEach(() => {
 });
 
 function seed(target: AppContext, id: string) {
-	const result = commitImport(
-		target.db,
-		makeDeck([basic(`${id}-1`)], { id, title: id }),
-		{ archiveMissing: false, format: 'json' },
-		clock
-	);
-	if (!result.ok) throw new Error('setup import failed');
+	importForSetup(target.db, makeDeck([basic(`${id}-1`)], { id, title: id }), clock);
 }
 
 describe('starting the server with a restore staged', () => {
