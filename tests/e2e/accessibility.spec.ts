@@ -56,6 +56,33 @@ for (const scheme of ['light', 'dark'] as const) {
 			await scan(page, 'import errors');
 		});
 
+		test('import: several files, previewed, with a problem, and imported', async ({ page }) => {
+			await page.goto('/import');
+			await expect(page.getByRole('heading', { name: 'Import a deck' })).toBeVisible();
+			const file = (name: string, id: string) => ({
+				name,
+				mimeType: 'application/json',
+				buffer: Buffer.from(JSON.stringify(deckOf(id, `Bulk ${id}`, basicCards(2))), 'utf8')
+			});
+			await page
+				.locator('input[type=file]')
+				.setInputFiles([
+					file('one.json', `a11y-bulk-1-${scheme}`),
+					file('two.json', `a11y-bulk-2-${scheme}`),
+					{ name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('{ "tessera": 1,') }
+				]);
+			await expect(page.getByRole('heading', { name: '3 files' })).toBeVisible();
+			await scan(page, 'bulk queued');
+
+			await page.getByRole('button', { name: 'Preview all' }).click();
+			await expect(page.getByText('Problem', { exact: true })).toBeVisible();
+			await scan(page, 'bulk previewed');
+
+			await page.getByRole('button', { name: 'Import 2 decks' }).click();
+			await expect(page.getByText('Imported', { exact: true }).first()).toBeVisible();
+			await scan(page, 'bulk imported');
+		});
+
 		test('new deck: empty, with errors, and done', async ({ page }) => {
 			await page.goto('/decks/new');
 			await expect(page.getByRole('heading', { name: 'New deck', level: 1 })).toBeVisible();

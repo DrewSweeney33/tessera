@@ -39,7 +39,7 @@ What helps:
 2. Press **Preview**. For a new deck it shows how many cards there are. For a deck you already have, it shows what changes.
 3. Press **Import**. Nothing is saved before this.
 
-You can also drop a file on the box, or use **Choose a file**.
+You can also drop a file on the box, or use **Choose files**. Pick several files at once and each one is previewed and imported as its own deck, so a file with a mistake never holds back the others.
 
 ## When it does not import
 
