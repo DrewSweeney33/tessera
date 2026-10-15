@@ -152,6 +152,17 @@ Press **Move to Trash** at the top of a deck's editor. The deck leaves your deck
 
 For scripts: `GET /api/trash`, `POST /api/decks/:id/trash`, `POST /api/decks/:id/restore`, and `POST /api/decks/:id/delete-forever` with `{"confirmTitle": "..."}`. They need the API token when one is set, like every other write.
 
+## Group decks in folders
+
+A course can be many decks. On the decks screen, **New folder** makes a folder and **Move decks** moves ticked decks into it, between folders, or out of any folder. Decks in no folder stay in view under **Ungrouped decks**. A deck is in one folder at most, and folders do not nest.
+
+- **Study folder** starts a session with only the decks in that folder, in deck title order. Name decks so they sort the way you want to study them, for example `CCNA 01` to `CCNA 31`.
+- **Stats** on a folder shows reviews today and over the last 7 and 30 days, time spent, how much you recalled (reviews of cards you had already learned that you graded Hard, Good, or Easy), your streak of study days, the last 14 days, cards by stage, open leeches, and the weakest tags.
+- **Deleting a folder** only puts its decks back in the ungrouped list. No deck, card, or review is deleted.
+- Folders are Tessera's own data. They are not in the deck file, so what Claude writes and what you export do not change, and importing a revised deck keeps it in its folder. Backups include folders.
+
+For scripts: `GET /api/folders`, `POST /api/folders` with `{"name": "..."}`, `PUT` and `DELETE /api/folders/:id`, `GET /api/folders/:id/stats`, `PUT /api/folder-assignments` with `{"deckIds": [...], "folderId": 3}` (`null` takes the decks out of any folder), and `?folderId=` on `GET /api/study/next`. They need the API token when one is set, like every other write.
+
 ## Good cards
 
 The skill asks Claude for these. You can ask for them too.

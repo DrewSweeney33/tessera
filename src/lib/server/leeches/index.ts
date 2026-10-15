@@ -48,8 +48,8 @@ export function listLeeches(db: Db, options: { deckId?: string } = {}): LeechIte
 	}));
 }
 
-export function countLeeches(db: Db): number {
-	return countOpenLeeches(db);
+export function countLeeches(db: Db, options: { folderId?: number } = {}): number {
+	return countOpenLeeches(db, options);
 }
 
 export type LeechProblem = { kind: 'not_found' };
@@ -89,7 +89,14 @@ const DAY_MS = 86_400_000;
 // ranked, so two bad reviews do not make a weak tag. Weakest first, then the one with more reviews, then by name.
 export function weakTags(
 	db: Db,
-	options: { now: Date; windowDays?: number; minReviews?: number; limit?: number; deckId?: string }
+	options: {
+		now: Date;
+		windowDays?: number;
+		minReviews?: number;
+		limit?: number;
+		deckId?: string;
+		folderId?: number;
+	}
 ): WeakTag[] {
 	const windowDays = options.windowDays ?? 90;
 	const minReviews = options.minReviews ?? 10;
@@ -99,7 +106,8 @@ export function weakTags(
 	const totals = new Map<string, { reviews: number; remembered: number; cards: number }>();
 	for (const card of reviewStatsByCard(db, {
 		sinceIso,
-		...(options.deckId === undefined ? {} : { deckId: options.deckId })
+		...(options.deckId === undefined ? {} : { deckId: options.deckId }),
+		...(options.folderId === undefined ? {} : { folderId: options.folderId })
 	})) {
 		for (const tag of new Set(card.tags)) {
 			const total = totals.get(tag) ?? { reviews: 0, remembered: 0, cards: 0 };

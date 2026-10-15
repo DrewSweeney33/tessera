@@ -58,8 +58,8 @@ export function selectLeechRows(x: Executor, options: { deckId?: string } = {}):
 		.all();
 }
 
-// How many leeches still need attention: flagged, and not suspended.
-export function countOpenLeeches(x: Executor): number {
+// How many leeches still need attention: flagged, and not suspended. Limited to one folder's decks when given.
+export function countOpenLeeches(x: Executor, options: { folderId?: number } = {}): number {
 	return (
 		x
 			.select({ total: count() })
@@ -72,7 +72,8 @@ export function countOpenLeeches(x: Executor): number {
 					eq(cardState.archived, false),
 					eq(cards.archived, false),
 					eq(cards.suspended, false),
-					eq(decks.archived, false)
+					eq(decks.archived, false),
+					...(options.folderId === undefined ? [] : [eq(decks.folderId, options.folderId)])
 				)
 			)
 			.get()?.total ?? 0
@@ -153,7 +154,7 @@ export interface CardReviewStats {
 // repeated by design, and cram reviews never touch the schedule). Removed cards and decks in the Trash are left out.
 export function reviewStatsByCard(
 	x: Executor,
-	options: { sinceIso: string; deckId?: string }
+	options: { sinceIso: string; deckId?: string; folderId?: number }
 ): CardReviewStats[] {
 	return x
 		.select({
@@ -171,7 +172,8 @@ export function reviewStatsByCard(
 				gte(reviewLog.reviewedAt, options.sinceIso),
 				eq(cards.archived, false),
 				eq(decks.archived, false),
-				...(options.deckId === undefined ? [] : [eq(cards.deckId, options.deckId)])
+				...(options.deckId === undefined ? [] : [eq(cards.deckId, options.deckId)]),
+				...(options.folderId === undefined ? [] : [eq(decks.folderId, options.folderId)])
 			)
 		)
 		.groupBy(cards.pk)

@@ -15,6 +15,20 @@ import {
 
 const emptyJsonArray = sql`'[]'`;
 
+// A folder groups decks on the decks screen and scopes a study session (project folders). A deck is in at most one
+// folder and folders do not nest. Deleting a folder only ungroups its decks (ON DELETE SET NULL). Names are unique
+// ignoring case.
+export const folders = sqliteTable(
+	'folders',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		name: text('name').notNull(),
+		createdAt: text('created_at').notNull(),
+		updatedAt: text('updated_at').notNull()
+	},
+	(t) => [uniqueIndex('folders_name_unique').on(sql`lower(${t.name})`)]
+);
+
 export const decks = sqliteTable('decks', {
 	id: text('id').primaryKey(),
 	title: text('title').notNull(),
@@ -24,6 +38,8 @@ export const decks = sqliteTable('decks', {
 	newPerDay: integer('new_per_day'),
 	examDate: text('exam_date'),
 	archived: integer('archived', { mode: 'boolean' }).notNull().default(false),
+	// The folder the deck is shown in. Null means ungrouped. Import and export never read or write it.
+	folderId: integer('folder_id').references(() => folders.id, { onDelete: 'set null' }),
 	createdAt: text('created_at').notNull(),
 	updatedAt: text('updated_at').notNull()
 });
@@ -162,6 +178,7 @@ export const deckResets = sqliteTable('deck_resets', {
 	items: integer('items').notNull()
 });
 
+export type FolderRow = typeof folders.$inferSelect;
 export type DeckRow = typeof decks.$inferSelect;
 export type NewDeckRow = typeof decks.$inferInsert;
 export type CardRow = typeof cards.$inferSelect;

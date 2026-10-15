@@ -22,6 +22,8 @@ export interface QueueRow {
 export interface QueueScope {
 	// Undefined means every deck.
 	deckId?: string | undefined;
+	// Limits the queue to the decks in one folder. Undefined means no folder limit.
+	folderId?: number | undefined;
 }
 
 // Items that may never be shown right now: archived or suspended cards, archived decks,
@@ -35,6 +37,7 @@ function eligible(nowIso: string, scope: QueueScope): SQL[] {
 		or(isNull(cardState.buriedUntil), lte(cardState.buriedUntil, nowIso))!
 	];
 	if (scope.deckId !== undefined) conditions.push(eq(cards.deckId, scope.deckId));
+	if (scope.folderId !== undefined) conditions.push(eq(decks.folderId, scope.folderId));
 	return conditions;
 }
 
@@ -121,13 +124,13 @@ export function nextLearningDue(
 
 // Active decks in scope with their per-deck new card limit override.
 export function listDecksInScope(x: Executor, scope: QueueScope): DeckRow[] {
-	const query = x.select().from(decks);
-	const active = eq(decks.archived, false);
-	return (
-		scope.deckId === undefined
-			? query.where(active)
-			: query.where(and(active, eq(decks.id, scope.deckId)))
-	)
+	const conditions = [eq(decks.archived, false)];
+	if (scope.deckId !== undefined) conditions.push(eq(decks.id, scope.deckId));
+	if (scope.folderId !== undefined) conditions.push(eq(decks.folderId, scope.folderId));
+	return x
+		.select()
+		.from(decks)
+		.where(and(...conditions))
 		.orderBy(asc(decks.title))
 		.all();
 }

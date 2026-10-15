@@ -22,3 +22,18 @@ export function formatBytes(bytes: number): string {
 	}
 	return `${value.toFixed(1)} ${UNITS[unit]}`;
 }
+
+// Time spent studying, for a person: "45 s", "12 min", "1 h 05 min". Whole minutes above a minute.
+export function formatDuration(ms: number): string {
+	if (!Number.isFinite(ms) || ms <= 0) return '0 min';
+	const seconds = Math.round(ms / 1000);
+	if (seconds < 60) return `${seconds} s`;
+	const minutes = Math.round(seconds / 60);
+	if (minutes < 60) return `${minutes} min`;
+	return `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')} min`;
+}
+
+// A share from 0 to 1 as a whole percent: "91%". "No data" when there is nothing to measure.
+export function formatPercent(share: number | null): string {
+	return share === null ? 'No data' : `${Math.round(share * 100)}%`;
+}

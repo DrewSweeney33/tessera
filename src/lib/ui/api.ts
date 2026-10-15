@@ -1,5 +1,7 @@
 import type {
 	ApiErrorBody,
+	AssignDecksRequest,
+	AssignDecksResponse,
 	BackupsResponse,
 	CreateBackupResponse,
 	CreateDeckRequest,
@@ -7,7 +9,11 @@ import type {
 	DecksResponse,
 	DeleteBackupResponse,
 	DeleteDeckResponse,
+	DeleteFolderResponse,
 	FieldErrorDto,
+	FolderResponse,
+	FolderStatsDto,
+	FoldersResponse,
 	GetDeckResponse,
 	LeechesResponse,
 	ImportResponse,
@@ -65,6 +71,12 @@ function jsonRequest(method: 'POST' | 'PUT' | 'DELETE', body?: unknown): Request
 // The query string that limits a request to one deck, or nothing for every deck.
 function deckQuery(deckId: string | undefined): string {
 	return deckId ? `?deckId=${encodeURIComponent(deckId)}` : '';
+}
+
+// The query string that limits a study request to one deck or one folder, or nothing for every deck.
+function scopeQuery(scope: StudyScope): string {
+	if (scope.folderId !== undefined) return `?folderId=${scope.folderId}`;
+	return deckQuery(scope.deckId);
 }
 
 // Sends the request, marked as coming from the Tessera page (ADR-011). A network failure becomes an ApiError.
@@ -138,8 +150,30 @@ export interface ImportOptions {
 	expectedRevision?: string | undefined;
 }
 
+// What a study session is limited to. Neither means every deck.
+export interface StudyScope {
+	deckId?: string | undefined;
+	folderId?: number | undefined;
+}
+
 export const api = {
 	decks: () => call<DecksResponse>('/api/decks'),
+
+	folders: () => call<FoldersResponse>('/api/folders'),
+
+	createFolder: (name: string) =>
+		call<FolderResponse>('/api/folders', jsonRequest('POST', { name })),
+
+	renameFolder: (folderId: number, name: string) =>
+		call<FolderResponse>(`/api/folders/${folderId}`, jsonRequest('PUT', { name })),
+
+	deleteFolder: (folderId: number) =>
+		call<DeleteFolderResponse>(`/api/folders/${folderId}`, jsonRequest('DELETE')),
+
+	folderStats: (folderId: number) => call<FolderStatsDto>(`/api/folders/${folderId}/stats`),
+
+	assignDecks: (request: AssignDecksRequest) =>
+		call<AssignDecksResponse>('/api/folder-assignments', jsonRequest('PUT', request)),
 
 	getDeck: (deckId: string) => call<GetDeckResponse>(`/api/decks/${encodeURIComponent(deckId)}`),
 
@@ -206,7 +240,7 @@ export const api = {
 			jsonRequest('POST', { confirmTitle })
 		),
 
-	studyNext: (deckId?: string) => call<NextResponse>(`/api/study/next${deckQuery(deckId)}`),
+	studyNext: (scope: StudyScope = {}) => call<NextResponse>(`/api/study/next${scopeQuery(scope)}`),
 
 	review: (request: ReviewRequest) =>
 		call<ReviewResponse>('/api/study/review', jsonRequest('POST', request)),

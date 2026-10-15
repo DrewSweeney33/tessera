@@ -686,6 +686,44 @@ try {
 				(await status('/api/leeches', withToken)) === 200 &&
 					(await status('/api/report/weak-spots', withToken)) === 200
 			);
+			// Folders only group decks, but they are still app data, so every folder route needs the token.
+			check('the folder list is refused without the token', (await status('/api/folders')) === 401);
+			check(
+				'creating a folder is refused without the token',
+				(await status('/api/folders', JSON_HEADERS, 'POST')) === 401
+			);
+			check(
+				'renaming and deleting a folder are refused without the token',
+				(await status('/api/folders/1', JSON_HEADERS, 'PUT')) === 401 &&
+					(await status('/api/folders/1', JSON_HEADERS, 'DELETE')) === 401
+			);
+			check(
+				'folder statistics are refused without the token',
+				(await status('/api/folders/1/stats')) === 401
+			);
+			check(
+				'moving decks into a folder is refused without the token',
+				(await status('/api/folder-assignments', JSON_HEADERS, 'PUT')) === 401
+			);
+			check(
+				'and a path variant of the folder list is refused too',
+				(await status('/api/%66olders')) === 401
+			);
+			const tokenFolder = await send({
+				method: 'POST',
+				path: '/api/folders',
+				headers: { ...JSON_HEADERS, ...withToken },
+				body: '{"name":"Probe folder"}'
+			});
+			check(
+				'a folder can be made with the token',
+				tokenFolder.status === 201,
+				`got ${tokenFolder.status}`
+			);
+			check(
+				'and the folder list works with the token',
+				(await status('/api/folders', withToken)) === 200
+			);
 			check('the settings are refused without the token', (await status('/api/settings')) === 401);
 			check(
 				'changing them is refused without the token',

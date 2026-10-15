@@ -58,6 +58,8 @@ export interface ReviewRequest {
 	typedAnswer?: string;
 	// The deck being studied, so the response can include the next card from it.
 	deckId?: string;
+	// Or the folder being studied. Not both.
+	folderId?: number;
 }
 
 export interface ReviewResultDto {
@@ -84,6 +86,84 @@ export interface DeckSummaryDto {
 	createdAt: string;
 	updatedAt: string;
 	counts: QueueCounts;
+	// The folder the deck is shown in, or null when it is ungrouped.
+	folderId: number | null;
+}
+
+// A folder that groups decks (project folders). `counts` is what a session limited to the folder would serve right
+// now. `reviewsToday` and `retention` give the folder's study at a glance, the rest is in FolderStatsDto.
+export interface FolderDto {
+	id: number;
+	name: string;
+	deckCount: number;
+	cardCount: number;
+	counts: QueueCounts;
+	reviewsToday: number;
+	// The share of review-phase reviews in the last 30 days graded Hard, Good, or Easy (0 to 1). Null when there are none.
+	retention: number | null;
+}
+
+export interface CreateFolderRequest {
+	name: string;
+}
+
+export interface RenameFolderRequest {
+	name: string;
+}
+
+export interface FolderResponse {
+	folder: FolderDto;
+}
+
+export interface FoldersResponse {
+	folders: FolderDto[];
+}
+
+export interface DeleteFolderResponse {
+	// The decks that went back to the ungrouped list. No deck, card, or review is deleted.
+	deleted: { id: number; name: string; decks: number };
+}
+
+// PUT /api/folder-assignments: puts decks in a folder, or takes them out of any folder (folderId null).
+export interface AssignDecksRequest {
+	deckIds: string[];
+	folderId: number | null;
+}
+
+export interface AssignDecksResponse {
+	folderId: number | null;
+	moved: number;
+}
+
+export interface FolderDayDto {
+	// The study day, such as "2026-10-14".
+	day: string;
+	reviews: number;
+	// Reviews graded Hard, Good, or Easy.
+	remembered: number;
+	timeMs: number;
+}
+
+// GET /api/folders/:id/stats: what the reviews of the decks in a folder add up to. Counts of review items, not cards.
+export interface FolderStatsDto {
+	folder: FolderDto;
+	// Items by where they are in learning. `suspended` are items of suspended cards, kept out of the other counts.
+	items: { new: number; learning: number; review: number; suspended: number };
+	openLeeches: number;
+	reviewsToday: number;
+	reviews7Days: number;
+	reviews30Days: number;
+	timeTodayMs: number;
+	time7DaysMs: number;
+	// Review-phase reviews graded Hard, Good, or Easy over the share of review-phase reviews, per window. Null when none.
+	retention7Days: number | null;
+	retention30Days: number | null;
+	// Study days in a row with at least one review in the folder, counting back from today (or from yesterday when today
+	// has none yet, so a streak is not broken until the day is over).
+	streakDays: number;
+	// The last 14 study days, oldest first, today last.
+	days: FolderDayDto[];
+	weakTags: WeakTagDto[];
 }
 
 // POST /api/decks: a deck made by hand (US-11). The id is optional: left out, the server makes one from the title.
@@ -299,6 +379,7 @@ export interface SettingsResponse {
 
 export interface DecksResponse {
 	decks: DeckSummaryDto[];
+	folders: FolderDto[];
 	// What a session across every deck would serve right now.
 	totals: QueueCounts;
 	// Leeches that are flagged and not suspended, so the deck list can point at them.

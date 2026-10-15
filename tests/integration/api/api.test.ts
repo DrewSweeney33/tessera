@@ -457,6 +457,7 @@ describe('GET /api/decks', () => {
 	it('starts empty', async () => {
 		expect(await handleListDecks(app).json()).toEqual({
 			decks: [],
+			folders: [],
 			totals: { learning: 0, review: 0, new: 0 },
 			openLeeches: 0
 		});
@@ -504,6 +505,7 @@ describe('GET /api/decks', () => {
 				cardCount: 1,
 				createdAt: '2026-10-10T12:00:00.000Z',
 				updatedAt: expect.any(String),
+				folderId: null,
 				counts: { learning: 0, review: 0, new: 1 }
 			},
 			expect.objectContaining({

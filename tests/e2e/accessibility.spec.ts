@@ -33,6 +33,59 @@ for (const scheme of ['light', 'dark'] as const) {
 			await scan(page, 'home with decks');
 		});
 
+		test('home: folders, the folder statistics, the move bar, and the folder forms', async ({
+			page,
+			request
+		}) => {
+			const json = { 'content-type': 'application/json' };
+			const one = `a11y-folder-${scheme}-one`;
+			const two = `a11y-folder-${scheme}-two`;
+			await importViaApi(request, deckOf(one, `A11y folder ${scheme} one`, basicCards(2)));
+			await importViaApi(request, deckOf(two, `A11y folder ${scheme} two`, basicCards(2)));
+			const made = await request.post('/api/folders', {
+				headers: json,
+				data: JSON.stringify({ name: `A11y folder ${scheme}` })
+			});
+			const folder = ((await made.json()) as { folder: { id: number } }).folder;
+			await request.put('/api/folder-assignments', {
+				headers: json,
+				data: JSON.stringify({ deckIds: [one], folderId: folder.id })
+			});
+			try {
+				await page.goto('/');
+				await expect(
+					page.getByRole('heading', { name: `A11y folder ${scheme}`, level: 2, exact: true })
+				).toBeVisible();
+				await scan(page, 'home with a folder and ungrouped decks');
+
+				await page.getByRole('button', { name: `Statistics for A11y folder ${scheme}` }).click();
+				await expect(page.getByText('Reviews today').first()).toBeVisible();
+				await scan(page, 'home with the folder statistics open');
+
+				await page.getByRole('button', { name: 'New folder' }).click();
+				await page.getByRole('button', { name: 'Create folder' }).click();
+				await expect(
+					page.getByRole('alert').filter({ hasText: 'Give the folder a name.' })
+				).toBeVisible();
+				await scan(page, 'home with the new folder form and a problem');
+				await page.getByRole('button', { name: 'Cancel' }).click();
+
+				await page.getByRole('button', { name: `Rename A11y folder ${scheme}` }).click();
+				await scan(page, 'home with the rename form');
+				await page.getByRole('button', { name: 'Cancel' }).click();
+
+				await page.getByRole('button', { name: `Delete folder A11y folder ${scheme}` }).click();
+				await scan(page, 'home with the delete folder question');
+				await page.getByRole('button', { name: 'Keep folder' }).click();
+
+				await page.getByRole('button', { name: 'Move decks' }).click();
+				await page.getByLabel(`Select A11y folder ${scheme} two`).check();
+				await scan(page, 'home while moving decks');
+			} finally {
+				await request.delete(`/api/folders/${folder.id}`, { headers: json });
+			}
+		});
+
 		test('import: empty, preview, and errors', async ({ page }) => {
 			await page.goto('/import');
 			// The page is built in the browser, so scan it only once it exists. A slower browser meets the empty

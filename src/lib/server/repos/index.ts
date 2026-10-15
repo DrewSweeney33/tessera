@@ -8,3 +8,5 @@ export * from './study-queries.ts';
 export * from './deck-resets.ts';
 export * from './summary.ts';
 export * from './leeches.ts';
+export * from './folders.ts';
+export * from './folder-stats.ts';

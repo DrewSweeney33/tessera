@@ -33,6 +33,12 @@
 	const CATEGORY_LABEL = { new: 'New', learning: 'Learning', review: 'Review' } as const;
 
 	const deckId = $derived(page.params.deckId);
+	// A session can also be limited to the decks in one folder: /study?folder=3.
+	const folderId = $derived.by(() => {
+		const text = page.url.searchParams.get('folder');
+		return text !== null && /^[1-9][0-9]{0,8}$/.test(text) ? Number(text) : undefined;
+	});
+	let folderName = $state<string | undefined>();
 
 	let phase = $state<Phase>('loading');
 	let item = $state<StudyItemDto | undefined>();
@@ -64,7 +70,11 @@
 	const defaultGrade = $derived<Grade>(outcome?.suggestedGrade ?? 3);
 	const defaultName = $derived(GRADE_INFO.find((info) => info.grade === defaultGrade)!.name);
 	const total = $derived(answered[1] + answered[2] + answered[3] + answered[4]);
-	const deckLabel = $derived(item?.deckTitle ?? 'All decks');
+	const deckLabel = $derived(
+		folderId !== undefined
+			? `${folderName ?? 'Folder'}${item ? ` · ${item.deckTitle}` : ''}`
+			: (item?.deckTitle ?? 'All decks')
+	);
 	// How far through this session: answered so far, out of answered plus what is still waiting (the card on screen
 	// counts as waiting). A lapse can put a card back, so the bar can step back a little, which is honest.
 	const waiting = $derived(counts.new + counts.learning + counts.review);
@@ -95,7 +105,7 @@
 		phase = 'loading';
 		errorMessage = undefined;
 		try {
-			await apply(await api.studyNext(deckId));
+			await apply(await api.studyNext({ deckId, folderId }));
 		} catch (error) {
 			errorMessage = failureMessage(error, 'Something went wrong loading the next card.');
 			phase = 'error';
@@ -159,7 +169,8 @@
 			servedAt: item.servedAt,
 			durationMs: Math.min(3_600_000, Math.round(performance.now() - shownAt)),
 			...(outcome?.typed ? { typedAnswer: outcome.typed.slice(0, 2000) } : {}),
-			...(deckId ? { deckId } : {})
+			...(deckId ? { deckId } : {}),
+			...(folderId !== undefined ? { folderId } : {})
 		});
 	}
 
@@ -206,7 +217,20 @@
 		return `The next card is due in about ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}, at ${at}.`;
 	}
 
-	onMount(load);
+	// The name shown for a folder session. It is only a label, so a failure here is not worth an error.
+	async function loadFolderName() {
+		if (folderId === undefined) return;
+		try {
+			folderName = (await api.folders()).folders.find((folder) => folder.id === folderId)?.name;
+		} catch {
+			folderName = undefined;
+		}
+	}
+
+	onMount(() => {
+		void loadFolderName();
+		void load();
+	});
 </script>
 
 <svelte:head>

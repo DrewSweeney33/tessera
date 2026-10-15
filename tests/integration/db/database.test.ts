@@ -51,6 +51,13 @@ function insertDeck(handle: DatabaseHandle, id = 'd1') {
 		.run();
 }
 
+// A deck written with plain SQL, for a database made by an older migration than the current schema.
+function insertDeckRaw(handle: DatabaseHandle, id: string) {
+	handle.sqlite
+		.prepare('insert into decks (id, title, created_at, updated_at) values (?, ?, ?, ?)')
+		.run(id, 'Deck', now, now);
+}
+
 function insertCard(handle: DatabaseHandle, deckId = 'd1', key = 'c1') {
 	return handle.db
 		.insert(schema.cards)
@@ -90,6 +97,7 @@ describe('openDatabase on a fresh directory', () => {
 				'cards',
 				'deck_resets',
 				'decks',
+				'folders',
 				'import_history',
 				'review_log',
 				'settings'
@@ -125,7 +133,7 @@ describe('openDatabase on a fresh directory', () => {
 
 	it('reports every migration as pending on a new database and writes no backup', () => {
 		const handle = open();
-		expect(handle.migration).toEqual({ pending: 2, backupPath: undefined });
+		expect(handle.migration).toEqual({ pending: 3, backupPath: undefined });
 		expect(readdirSync(join(dir.path, 'backups'))).toEqual([]);
 	});
 });
@@ -208,12 +216,13 @@ describe('upgrading an existing database', () => {
 		const data = join(dir.path, 'data');
 		const before = open(data, old);
 		expect(names(before, 'table')).not.toContain('deck_resets');
-		insertDeck(before, 'kept');
+		insertDeckRaw(before, 'kept');
 		before.close();
 
 		const after = open(data);
-		expect(after.migration.pending).toBe(1);
+		expect(after.migration.pending).toBe(2);
 		expect(names(after, 'table')).toContain('deck_resets');
+		expect(names(after, 'table')).toContain('folders');
 		expect(
 			(after.sqlite.prepare("select id from decks where id = 'kept'").get() as { id: string }).id
 		).toBe('kept');
@@ -235,6 +244,47 @@ describe('upgrading an existing database', () => {
 		} finally {
 			backup.close();
 		}
+		after.close();
+	});
+
+	// The upgrade that adds project folders: a database made by the first two migrations, with decks, cards, and
+	// reviews in it, then the real current folder. Nothing may be lost and every deck starts ungrouped.
+	it('adds folders to a database from 0001 and keeps every deck, card, and review', () => {
+		const old = join(dir.path, 'before-folders');
+		cpSync('drizzle', old, { recursive: true });
+		const journalPath = join(old, 'meta', '_journal.json');
+		const journal = JSON.parse(readFileSync(journalPath, 'utf8')) as { entries: unknown[] };
+		journal.entries = journal.entries.slice(0, 2);
+		writeFileSync(journalPath, JSON.stringify(journal, null, 2));
+
+		const data = join(dir.path, 'data');
+		const before = open(data, old);
+		expect(names(before, 'table')).not.toContain('folders');
+		insertDeckRaw(before, 'ccna-01');
+		insertDeckRaw(before, 'ccna-02');
+		before.sqlite
+			.prepare(
+				"insert into cards (deck_id, key, type, content, content_hash, position, created_at, updated_at) values ('ccna-01', 'c1', 'basic', '{}', 'h', 0, ?, ?)"
+			)
+			.run(now, now);
+		before.close();
+
+		const after = open(data);
+		expect(after.migration.pending).toBe(1);
+		expect(names(after, 'table')).toContain('folders');
+		const decks = after.sqlite.prepare('select id, folder_id from decks order by id').all() as {
+			id: string;
+			folder_id: number | null;
+		}[];
+		expect(decks).toEqual([
+			{ id: 'ccna-01', folder_id: null },
+			{ id: 'ccna-02', folder_id: null }
+		]);
+		expect((after.sqlite.prepare('select count(*) as n from cards').get() as { n: number }).n).toBe(
+			1
+		);
+		const backups = readdirSync(join(data, 'backups'));
+		expect(backups).toHaveLength(1);
 		after.close();
 	});
 

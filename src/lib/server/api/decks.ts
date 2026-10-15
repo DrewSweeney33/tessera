@@ -2,6 +2,7 @@ import type { DecksResponse, DeckSummaryDto } from '#lib/core/api-types.ts';
 import type { AppContext } from '../app.ts';
 import type { DeckRow } from '../db/schema.ts';
 import { createDeck } from '../decks/index.ts';
+import { listFolderSummaries } from '../folders/index.ts';
 import { readJsonBody } from '../http/body.ts';
 import { errorResponse } from '../http/errors.ts';
 import { jsonResponse } from '../http/response.ts';
@@ -20,6 +21,7 @@ export function summarize(app: AppContext, deck: DeckRow, cardCount: number): De
 		cardCount,
 		createdAt: deck.createdAt,
 		updatedAt: deck.updatedAt,
+		folderId: deck.folderId,
 		counts: countQueue(app.db, {
 			scope: { deckId: deck.id },
 			now: app.clock.now(),
@@ -36,6 +38,7 @@ export function handleListDecks(app: AppContext): Response {
 
 	const body: DecksResponse = {
 		decks: listDecks(app.db).map((deck) => summarize(app, deck, cardCounts.get(deck.id) ?? 0)),
+		folders: listFolderSummaries(app.db, { now, timeZone }),
 		totals: countQueue(app.db, { scope: {}, now, timeZone }),
 		openLeeches: countLeeches(app.db)
 	};

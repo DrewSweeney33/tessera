@@ -5,7 +5,8 @@ import { readJsonBody } from '../http/body.ts';
 import { errorResponse, type ApiErrorCode } from '../http/errors.ts';
 import { jsonResponse } from '../http/response.ts';
 import { fieldErrors } from '../http/validation.ts';
-import { getDeck } from '../repos/index.ts';
+import { getDeck, getFolder, type QueueScope } from '../repos/index.ts';
+import { parseFolderId } from './folders.ts';
 import {
 	ReviewInputSchema,
 	buildNext,
@@ -17,12 +18,16 @@ import {
 // A review plus the deck being studied (optional), so the response can include the next item.
 // Still strict: unknown fields are rejected.
 const StudyReviewBodySchema = ReviewInputSchema.extend({
-	deckId: z.string().max(64).optional()
+	deckId: z.string().max(64).optional(),
+	folderId: z.number().int().positive().max(999_999_999).optional()
 });
 
-function nextFor(app: AppContext, deckId: string | undefined): NextResponse {
+// What a session is limited to: one deck, one folder, or nothing (every deck).
+type Scope = QueueScope;
+
+function nextFor(app: AppContext, scope: Scope): NextResponse {
 	return buildNext(app.db, {
-		scope: deckId === undefined ? {} : { deckId },
+		scope,
 		now: app.clock.now(),
 		timeZone: app.config.timeZone,
 		rng: app.rng
@@ -45,11 +50,53 @@ function deckScope(
 	return deckId;
 }
 
-// GET /api/study/next?deckId=ccna-ospf
-export function handleStudyNext(app: AppContext, url: URL, requestId: string): Response {
-	const deckId = deckScope(app, url.searchParams.get('deckId'), requestId);
+// Validates the optional deck and folder a request is limited to. Naming both is refused: a session has one scope.
+function sessionScope(
+	app: AppContext,
+	deckParam: string | null | undefined,
+	folderParam: string | number | null | undefined,
+	requestId: string
+): Scope | Response {
+	const deckId = deckScope(app, deckParam, requestId);
 	if (deckId instanceof Response) return deckId;
-	return jsonResponse(nextFor(app, deckId));
+	const folderId =
+		typeof folderParam === 'number' ? folderParam : parseFolderId(folderParam ?? undefined);
+	const named = folderParam !== null && folderParam !== undefined && folderParam !== '';
+	if (named && deckId !== undefined) {
+		return errorResponse(
+			'bad_request',
+			'Study one deck or one folder, not both.',
+			undefined,
+			requestId
+		);
+	}
+	if (named) {
+		if (folderId === undefined) {
+			return errorResponse(
+				'bad_request',
+				'folderId is not a valid folder id.',
+				undefined,
+				requestId
+			);
+		}
+		if (!getFolder(app.db, folderId)) {
+			return errorResponse('not_found', 'There is no such folder.', undefined, requestId);
+		}
+		return { folderId };
+	}
+	return deckId === undefined ? {} : { deckId };
+}
+
+// GET /api/study/next?deckId=ccna-ospf or ?folderId=3
+export function handleStudyNext(app: AppContext, url: URL, requestId: string): Response {
+	const scope = sessionScope(
+		app,
+		url.searchParams.get('deckId'),
+		url.searchParams.get('folderId'),
+		requestId
+	);
+	if (scope instanceof Response) return scope;
+	return jsonResponse(nextFor(app, scope));
 }
 
 const FAILURE_STATUS: Record<ReviewFailureCode, ApiErrorCode> = {
@@ -77,9 +124,9 @@ export async function handleStudyReview(
 			requestId
 		);
 	}
-	const { deckId: requestedDeck, ...input } = parsed.data;
-	const deckId = deckScope(app, requestedDeck, requestId);
-	if (deckId instanceof Response) return deckId;
+	const { deckId: requestedDeck, folderId: requestedFolder, ...input } = parsed.data;
+	const scope = sessionScope(app, requestedDeck, requestedFolder, requestId);
+	if (scope instanceof Response) return scope;
 
 	const result = submitReview(app.db, input, { clock: app.clock, timeZone: app.config.timeZone });
 	if (!result.ok) {
@@ -90,5 +137,5 @@ export async function handleStudyReview(
 			requestId
 		);
 	}
-	return jsonResponse({ result: result.value, next: nextFor(app, deckId) });
+	return jsonResponse({ result: result.value, next: nextFor(app, scope) });
 }

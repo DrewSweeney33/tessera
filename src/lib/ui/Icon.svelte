@@ -89,7 +89,16 @@
 			{ cx: 7.5, cy: 7.5, r: 0.5, fill: true }
 		],
 		undo: path('M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8', 'M3 3v5h5'),
-		cards: [{ x: 3, y: 6, w: 14, h: 16, rx: 2 }, ...path('M7 3h12a2 2 0 0 1 2 2v12')]
+		cards: [{ x: 3, y: 6, w: 14, h: 16, rx: 2 }, ...path('M7 3h12a2 2 0 0 1 2 2v12')],
+		folder: path(
+			'M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z'
+		),
+		'folder-plus': path(
+			'M12 10v6',
+			'M9 13h6',
+			'M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z'
+		),
+		chart: path('M3 3v16a2 2 0 0 0 2 2h16', 'M18 17V9', 'M13 17V5', 'M8 17v-3')
 	} satisfies Record<string, Shape[]>;
 
 	export type IconName = keyof typeof SHAPES;
