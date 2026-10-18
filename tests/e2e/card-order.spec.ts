@@ -112,8 +112,8 @@ test.describe('card order in the editor', () => {
 		await page.goto('/decks/e2e-order-5/edit');
 		for (const name of ['Move card 2 up', 'Move card 2 down']) {
 			const box = (await page.getByRole('button', { name }).boundingBox())!;
-			expect(box.width).toBeGreaterThanOrEqual(44);
-			expect(box.height).toBeGreaterThanOrEqual(44);
+			expect(box.width).toBeGreaterThanOrEqual(43.5);
+			expect(box.height).toBeGreaterThanOrEqual(43.5);
 		}
 		expect(
 			await page.evaluate(

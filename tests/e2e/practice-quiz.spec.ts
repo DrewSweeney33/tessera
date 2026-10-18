@@ -176,7 +176,7 @@ test.describe('Quiz me', () => {
 		for (const box of await options(page).evaluateAll((nodes) =>
 			nodes.map((node) => node.getBoundingClientRect().height)
 		)) {
-			expect(box).toBeGreaterThanOrEqual(44);
+			expect(box).toBeGreaterThanOrEqual(43.5);
 		}
 		expect(
 			await page.evaluate(

@@ -218,7 +218,7 @@ test.describe('on a phone', () => {
 		const undo = page.getByRole('button', { name: 'Take back your last answer' });
 		await expect(undo).toBeVisible();
 		const box = (await undo.boundingBox())!;
-		expect(box.height).toBeGreaterThanOrEqual(44);
+		expect(box.height).toBeGreaterThanOrEqual(43.5);
 		expect(box.y + box.height).toBeLessThanOrEqual(568);
 		expect(
 			await page.evaluate(

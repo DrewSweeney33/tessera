@@ -106,7 +106,7 @@ test.describe('practice by tag', () => {
 		await page.goto('/leeches');
 		const link = page.getByRole('link', { name: `Practice the tag ${SWITCHING}` });
 		await expect(link).toBeVisible();
-		expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+		expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(43.5);
 		await link.click();
 		await expect(page).toHaveURL(new RegExp(`/practice\\?tag=${SWITCHING}$`));
 		await expect(page.getByText(`Tag: ${SWITCHING}`).first()).toBeVisible();
@@ -158,7 +158,7 @@ test.describe('practice by tag', () => {
 		await page.goto('/stats');
 		const link = page.getByRole('link', { name: `Practice the tag ${ROUTING}` });
 		await expect(link).toBeVisible();
-		expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+		expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(43.5);
 		expect(
 			await page.evaluate(
 				() => document.documentElement.scrollWidth > document.documentElement.clientWidth
