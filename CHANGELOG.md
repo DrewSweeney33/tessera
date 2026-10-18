@@ -4,6 +4,10 @@ All notable changes to Tessera are written here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-18
+
+A fix-up release after a review of every screen on a small phone. No change to the database, the API, or your data, so there is no migration and nothing to roll back beyond the image.
+
 ### Changed
 
 - **A review of every screen on a small phone** (320, 375, and 414 px, light and dark, and at double text size) found and fixed these. No change to your data or to the API.
