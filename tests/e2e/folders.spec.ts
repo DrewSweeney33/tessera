@@ -223,10 +223,29 @@ test.describe('an exam date on a folder', () => {
 		await page.getByRole('button', { name: 'Clear date' }).click();
 		await expect(page.getByLabel('Exam date (optional)')).toHaveValue('');
 		await expect(page.getByRole('button', { name: 'Clear date' })).toHaveCount(0);
-		const saved = page.waitForResponse(
-			(response) =>
-				response.url().includes(`/api/folders/${id}`) && response.request().method() === 'PUT'
-		);
+		const saved = page
+			.waitForResponse(
+				(response) =>
+					response.url().includes(`/api/folders/${id}`) && response.request().method() === 'PUT',
+				{ timeout: 8000 }
+			)
+			.catch(async (error: unknown) => {
+				// No request went out: say what the form and the date field were doing.
+				const field = await page
+					.getByLabel('Exam date (optional)')
+					.evaluate((input: HTMLInputElement) => ({
+						value: input.value,
+						badInput: input.validity.badInput,
+						valid: input.validity.valid
+					}));
+				const alerts = await page.getByRole('alert').allInnerTexts();
+				throw new Error(
+					`No PUT was sent. date field ${JSON.stringify(field)}, alerts ${JSON.stringify(alerts)}`,
+					{
+						cause: error
+					}
+				);
+			});
 		await page.getByRole('button', { name: 'Save' }).click();
 		const response = await saved;
 		const sent = response.request().postData();

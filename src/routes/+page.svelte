@@ -450,7 +450,8 @@
 				{#if renaming === folder.id}
 					<!-- The heading stays while the name is edited, so the headings below it keep their order. -->
 					<h2 class="sr-only" id="folder-title-{folder.id}">{folder.name}</h2>
-					<form class="inline-form" onsubmit={(event) => rename(event, folder)}>
+					<!-- novalidate: the date is checked in rename(), and a browser that cannot empty its own date field (Safari) would block the submit silently. -->
+					<form class="inline-form" novalidate onsubmit={(event) => rename(event, folder)}>
 						<label for="rename-{folder.id}" class="sr-only">Folder name</label>
 						<input
 							id="rename-{folder.id}"
