@@ -427,6 +427,7 @@
 	/* Trash and Backups have no tab on a phone, so they are one tap from here. */
 	.housekeeping {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-2);
 	}
 

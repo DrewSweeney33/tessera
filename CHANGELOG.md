@@ -4,6 +4,17 @@ All notable changes to Tessera are written here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Changed
+
+- **A review of every screen on a small phone** (320, 375, and 414 px, light and dark, and at double text size) found and fixed these. No change to your data or to the API.
+  - The **Decks heading** no longer breaks into pieces: the New deck, New folder, and Move decks buttons sit under the title on a phone and share the row.
+  - **An address that does not exist** shows a page of Tessera's own, with the app around it and a Back to decks button, instead of a bare "404 Not Found".
+  - **Statistics on a phone.** The 26-week calendar opens on the newest weeks (it used to open on the oldest, hiding the last month and a half), its labels are no longer drawn at about 7 px, you can scroll it by keyboard, and a tap on a day (or on a bar in the other charts) shows that day's number under the chart, because a phone has no hover.
+  - **Touch areas.** The way back at the top of inner pages is a full 44 px tall, as are the other links that were shorter.
+  - **Large text.** With the browser's text size at 200 percent, no screen runs off the edge any more: buttons wrap instead of overflowing, the five tabs switch to icons (their names stay for screen readers) when their labels no longer fit, and lists and selects shrink to the screen.
+  - **The folder panel** has a clear order on a phone: Study on its own line, Practice folder and Stats side by side, Edit and Delete at the foot with Delete in the error colour. A folder whose exam is near highlights its **Practice folder** button and says "Good time to practice." instead of showing a second, separate link. The decks inside a folder are rows with a line between them, not tiles inside a tile.
+  - Smaller: the hint on a card has a full border instead of a thick stripe down one side, the progress bar has a track you can see in dark mode, the segmented bar on a deck no longer animates its width, the Import box is shorter on a phone so Preview and Import are on the first screen, and opening Practice without choosing a deck says what to do instead of showing an error.
+
 ## [0.2.0] - 2026-10-18
 
 The library, leeches, Settings, a new look, bulk import, project folders, Practice again, a Statistics page, an exam date on folders, and an installable app.

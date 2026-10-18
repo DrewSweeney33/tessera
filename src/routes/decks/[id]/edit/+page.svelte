@@ -891,6 +891,7 @@
 <style>
 	.head {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-4);
 	}
 
@@ -901,7 +902,14 @@
 		flex-wrap: wrap;
 		gap: var(--space-2) var(--space-3);
 		align-items: center;
+		min-width: 0;
+		max-width: 100%;
 		margin: 0;
+	}
+
+	.add > .field--select {
+		flex: 1 1 8rem;
+		min-width: 0;
 	}
 
 	.small {
@@ -939,6 +947,7 @@
 
 	.cards {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-3);
 		margin: 0;
 		padding: 0;

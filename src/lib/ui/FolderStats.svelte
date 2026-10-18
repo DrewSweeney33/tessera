@@ -148,6 +148,7 @@
 <style>
 	.stats {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-4);
 		padding: var(--space-5);
 		border: 1px solid var(--color-rule);
@@ -196,6 +197,7 @@
 
 	.chart {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-2);
 		margin: 0;
 	}
@@ -237,6 +239,7 @@
 
 	.weak ul {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-2);
 		margin: var(--space-2) 0 0;
 		padding: 0;

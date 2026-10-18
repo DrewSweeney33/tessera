@@ -444,6 +444,8 @@
 {#snippet folderSection(folder: FolderDto, decks: DeckSummaryDto[])}
 	{@const due = available(folder.counts)}
 	{@const closed = isCollapsed(folder) && !organizing}
+	{@const practiceSoon =
+		folder.daysToExam !== null && examIsSoon(folder.daysToExam) && folder.cardCount > 0}
 	<section class="folder" aria-labelledby="folder-title-{folder.id}">
 		<header class="folder__head">
 			<div class="folder__title">
@@ -519,8 +521,8 @@
 						<Icon name="calendar" size="1.1em" />
 						<strong>{examLabel(folder.daysToExam)}</strong>
 						<span class="muted">({formatExamDate(folder.examDate)})</span>
-						{#if examIsSoon(folder.daysToExam) && folder.cardCount > 0}
-							<a href="{resolve('/practice')}?folder={folder.id}">Practice the folder</a>
+						{#if practiceSoon}
+							<span class="exam__nudge">Good time to practice.</span>
 						{/if}
 					</p>
 				{/if}
@@ -558,6 +560,7 @@
 				{#if folder.cardCount > 0}
 					<a
 						class="btn"
+						class:btn--suggested={practiceSoon}
 						href="{resolve('/practice')}?folder={folder.id}"
 						aria-label="Practice folder {folder.name}"
 					>
@@ -585,7 +588,7 @@
 				</button>
 				<button
 					type="button"
-					class="btn btn--quiet"
+					class="btn btn--quiet folder__delete"
 					id="delete-button-{folder.id}"
 					aria-label="Delete folder {folder.name}"
 					onclick={() => askDelete(folder)}
@@ -832,19 +835,47 @@
 </div>
 
 <style>
+	/* The title keeps its own line on a phone and the actions sit under it, so three buttons never squeeze the
+	 * heading into pieces. Side by side again once the row has room (about a tablet and up). */
 	.head {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: flex-end;
 		justify-content: space-between;
 		gap: var(--space-4);
 		margin-block-end: var(--space-5);
 	}
 
+	.head > .page-head {
+		flex: 1 1 100%;
+		min-width: 0;
+	}
+
 	.head__actions {
 		display: flex;
+		flex: 1 1 100%;
 		flex-wrap: wrap;
-		justify-content: flex-end;
 		gap: var(--space-2);
+	}
+
+	/* On a phone the buttons share the row evenly, so there is no ragged last line. */
+	.head__actions > .btn {
+		flex: 1 1 auto;
+	}
+
+	@media (min-width: 40rem) {
+		.head > .page-head {
+			flex: 1 1 auto;
+		}
+
+		.head__actions {
+			flex: 0 1 auto;
+			justify-content: flex-end;
+		}
+
+		.head__actions > .btn {
+			flex: 0 0 auto;
+		}
 	}
 
 	.inline-form {
@@ -862,6 +893,7 @@
 
 	.new-folder {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-3);
 		margin-block-end: var(--space-5);
 	}
@@ -874,6 +906,7 @@
 	/* A folder: a heading row with numbers and actions, then its decks. */
 	.folder {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-4);
 		margin-block-end: var(--space-6);
 		padding: var(--space-5);
@@ -885,6 +918,7 @@
 
 	.folder__head {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-4);
 	}
 
@@ -953,6 +987,20 @@
 		color: var(--color-accent-deep);
 	}
 
+	.exam__nudge {
+		color: var(--color-accent-deep);
+		font-weight: 500;
+	}
+
+	/* The Practice button of a folder whose exam is near: the same button, with the accent on its edge and its label. */
+	.btn--suggested {
+		border-color: var(--color-accent);
+		color: var(--color-accent-deep);
+		box-shadow:
+			var(--shadow-1),
+			0 0 0 1px var(--color-accent);
+	}
+
 	.exam-label {
 		flex-basis: 100%;
 		font-size: var(--text-sm);
@@ -963,11 +1011,28 @@
 		flex: 0 1 12rem;
 	}
 
+	/* A phone gets a clear order: Study on its own line, Practice and Stats next, Edit and Delete at the foot, with
+	 * Delete in the error colour and as far from Edit as the row allows. Each button is as wide as its label needs
+	 * and a row wraps when it is full, so a label is never squeezed onto two lines. */
 	.folder__actions {
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--space-2);
 		align-items: center;
+	}
+
+	.folder__actions > .btn:not(.btn--quiet) {
+		flex: 1 1 auto;
+	}
+
+	.folder__actions > .btn--primary,
+	.folder__actions > .state {
+		flex: 1 1 100%;
+	}
+
+	.folder__actions > .folder__delete {
+		margin-inline-start: auto;
+		color: var(--color-error);
 	}
 
 	.folder__empty {
@@ -976,6 +1041,7 @@
 
 	.confirm {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-3);
 	}
 
@@ -1064,12 +1130,19 @@
 		.folder__actions {
 			grid-column: 1 / -1;
 		}
+
+		.folder__actions > .btn:not(.btn--quiet),
+		.folder__actions > .btn--primary,
+		.folder__actions > .state {
+			flex: 0 0 auto;
+		}
 	}
 
 	/* Today: one calm card that says what is waiting. It is the only gradient in the app. */
 	.today {
 		position: relative;
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-5);
 		margin-block-end: var(--space-6);
 		padding: var(--space-5);
@@ -1115,6 +1188,7 @@
 	.today__side {
 		position: relative;
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-3);
 		align-content: end;
 	}
@@ -1157,7 +1231,6 @@
 	.seg {
 		display: block;
 		height: 100%;
-		transition: width var(--dur-slow) var(--ease-out);
 	}
 
 	/* On the green card the bar uses light tints so each queue stays apart from the background. */
@@ -1244,6 +1317,7 @@
 
 	.decks > .row {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		grid-template-rows: auto auto auto auto;
 		align-content: start;
 		gap: var(--space-4);
@@ -1253,6 +1327,34 @@
 	.decks > .row:hover {
 		border-color: var(--color-rule-strong);
 		box-shadow: var(--shadow-2);
+	}
+
+	@media (max-width: 47.99rem) {
+		.folder {
+			padding: var(--space-4);
+		}
+
+		.folder .decks {
+			gap: 0;
+		}
+
+		.folder .decks > .row {
+			padding-inline: 0;
+			border: 0;
+			border-block-start: 1px solid var(--color-rule);
+			border-radius: 0;
+			background: transparent;
+			box-shadow: none;
+		}
+
+		.folder .decks > .row:first-child {
+			border-block-start: 0;
+		}
+
+		.folder .decks > .row--picked {
+			background: var(--color-accent-soft);
+			box-shadow: none;
+		}
 	}
 
 	.row__main {
@@ -1328,12 +1430,13 @@
 		align-items: center;
 	}
 
-	.row__action .btn--primary {
-		flex: 1 1 8rem;
+	.row__action .btn--primary,
+	.row__action .state {
+		flex: 1 1 100%;
 	}
 
-	.row__action .state {
-		flex: 1 1 8rem;
+	.row__action .btn--quiet {
+		flex: 1 1 auto;
 	}
 
 	.state {

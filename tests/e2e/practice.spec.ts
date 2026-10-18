@@ -238,12 +238,18 @@ test.describe('practicing a deck', () => {
 		await expect(page.getByText('There is nothing to practice here yet.')).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Start practice' })).toHaveCount(0);
 
+		// Arriving with nothing chosen is guidance, not a failure: a status message, not an alert.
 		await page.goto('/practice');
-		await expect(page.getByRole('alert')).toContainText('Choose a deck or a folder to practice');
+		await expect(
+			page.getByRole('status').filter({ hasText: 'Choose a deck or a folder to practice' })
+		).toBeVisible();
+		await expect(page.getByRole('alert')).toHaveCount(0);
 		await page.goto('/practice?deck=no-such-deck');
 		await expect(page.getByRole('alert')).toContainText('no deck');
 		await page.goto('/practice?deck=Bad%20Id&folder=3');
-		await expect(page.getByRole('alert')).toContainText('Choose a deck or a folder to practice');
+		await expect(
+			page.getByRole('status').filter({ hasText: 'Choose a deck or a folder to practice' })
+		).toBeVisible();
 	});
 });
 

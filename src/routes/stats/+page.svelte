@@ -314,6 +314,7 @@
 <style>
 	.stats {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-5);
 		align-content: start;
 	}
@@ -332,8 +333,10 @@
 
 	.picker {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		flex: 0 1 16rem;
 		gap: var(--space-1);
-		min-width: min(100%, 16rem);
+		min-width: 0;
 	}
 
 	.picker label {
@@ -388,6 +391,7 @@
 
 	.block {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-2);
 		padding: var(--space-5);
 		border: 1px solid var(--color-rule);
@@ -402,6 +406,7 @@
 
 	.tags {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-2);
 		margin: 0;
 		padding: 0;

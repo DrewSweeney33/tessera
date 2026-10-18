@@ -158,7 +158,18 @@
 		color: var(--color-ink);
 	}
 
+	/* With very large text the name gives way before the theme toggle is pushed off the screen. */
+	.wordmark {
+		min-width: 0;
+	}
+
+	.wordmark span {
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
 	.tabs {
+		container-type: inline-size;
 		position: fixed;
 		inset-inline: 0;
 		inset-block-end: 0;
@@ -259,6 +270,35 @@
 
 	main:focus {
 		outline: none;
+	}
+
+	/* Large text: five labels no longer fit across a phone, so the labels are kept for screen readers and the icons
+	 * carry the tabs. The width is in rem, so it follows the text size: a 320 px phone at the normal size has 19rem to work with and
+	 * keeps its labels, and the same phone at double size is 10rem and does not. */
+	@media (max-width: 63.99rem) {
+		@container (max-width: 18rem) {
+			.tab__label {
+				position: absolute;
+				width: 1px;
+				height: 1px;
+				margin: -1px;
+				overflow: hidden;
+				clip-path: inset(50%);
+				white-space: nowrap;
+			}
+
+			.tab {
+				min-height: var(--hit);
+			}
+
+			.tab__icon {
+				width: min(3.5rem, 100%);
+			}
+
+			.tab__badge {
+				inset-inline-start: calc(50% + 0.6rem);
+			}
+		}
 	}
 
 	/* Tablet: the tab bar stays, with room to breathe. */

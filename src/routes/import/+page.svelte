@@ -593,6 +593,15 @@
 		border-radius: var(--radius-lg);
 	}
 
+	/* On a phone the box is shorter, so Preview and Import are on the first screen instead of under the tab bar. The
+	 * corner still resizes it. */
+	@media (max-width: 39.99rem) {
+		#deck-text {
+			height: 10rem;
+			min-height: 10rem;
+		}
+	}
+
 	.field--drag {
 		border-style: solid;
 		border-color: var(--color-accent);
@@ -755,6 +764,7 @@
 
 	.how ol {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-4);
 		margin: var(--space-4) 0 0;
 		padding: 0;

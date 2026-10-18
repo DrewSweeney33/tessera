@@ -16,8 +16,9 @@ You need Tessera reachable over HTTPS from the phone (for example `https://tesse
 - [ ] Study a deck. Show answer, the answer buttons, and typed and choice cards are easy to reach with a thumb; the tab bar is hidden while studying.
 - [ ] Rotate the phone. Nothing is cut off, and the answer buttons stay on screen.
 - [ ] Practice again on a deck: Missed it and Got it work, and a missed card comes back.
-- [ ] Open Stats. The charts fit the screen, the calendar scrolls sideways inside its own box, and the page itself does not scroll sideways.
-- [ ] Turn on large text in the phone's settings. The screens still fit and nothing overlaps.
+- [ ] Open Stats. The charts fit the screen, the calendar scrolls sideways inside its own box and opens on the newest weeks, a tap on a day or a bar shows its number under the chart, and the page itself does not scroll sideways.
+- [ ] Turn on large text in the phone's settings. The screens still fit, nothing runs off the right edge, and the tabs at the bottom may become icons only.
+- [ ] Type an address that does not exist (add `/nothing` to the address). You get Tessera's own page with Back to decks, not a bare error.
 
 ## 3. Offline notice
 

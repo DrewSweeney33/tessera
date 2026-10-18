@@ -175,7 +175,7 @@ test.describe('an exam date on a folder', () => {
 		await page.getByRole('button', { name: 'Save' }).click();
 		await expect(region.getByText('Exam in 40 days')).toBeVisible();
 		// More than two weeks away: no suggestion.
-		await expect(region.getByRole('link', { name: 'Practice the folder' })).toHaveCount(0);
+		await expect(region.getByText('Good time to practice.')).toHaveCount(0);
 
 		await page.getByRole('button', { name: 'Edit folder E2E Exam' }).click();
 		await expect(page.getByLabel('Exam date (optional)')).toHaveValue(studyDay(40));
@@ -200,7 +200,13 @@ test.describe('an exam date on a folder', () => {
 		await page.goto('/');
 		const region = folderRegion(page, 'E2E Exam Soon');
 		await expect(region.getByText('Exam today')).toBeVisible();
-		await region.getByRole('link', { name: 'Practice the folder' }).click();
+		await expect(region.getByText('Good time to practice.')).toBeVisible();
+		// One place to practise: the folder's own button, highlighted, not a second link.
+		await expect(region.getByRole('link', { name: 'Practice the folder' })).toHaveCount(0);
+		const practise = region.getByRole('link', { name: 'Practice folder E2E Exam Soon' });
+		await expect(practise).toHaveClass(/btn--suggested/);
+		expect((await practise.boundingBox())!.height, 'a touch area').toBeGreaterThanOrEqual(44);
+		await practise.click();
 		await expect(page).toHaveURL(new RegExp(`/practice\\?folder=${id}$`));
 		await expect(page.getByRole('heading', { name: 'Practice again', level: 1 })).toBeVisible();
 	});

@@ -89,6 +89,12 @@ p {
 	text-wrap: pretty;
 }
 
+/* A long unbroken word (a time zone name, a deck id, a file path) breaks at the edge of its line instead of running
+ * past the edge of the screen, which matters most at large text sizes. */
+main :where(p, li, dd, label) {
+	overflow-wrap: break-word;
+}
+
 a {
 	color: var(--color-ink);
 	text-decoration-color: var(--color-accent);
@@ -186,12 +192,16 @@ pre {
 	color: var(--color-muted);
 }
 
-/* The breadcrumb on inner pages: one quiet way back. */
+/* The breadcrumb on inner pages: one quiet way back. It looks as tall as a line of text but its touch area is a full
+ * 44 px: the extra height is padding that the negative margin takes back, so the page keeps its rhythm. */
 .crumb {
 	display: inline-flex;
 	align-items: center;
+	justify-self: start;
 	gap: var(--space-1);
-	min-height: 1.75rem;
+	min-height: var(--hit);
+	margin-block: calc((1.75rem - var(--hit)) / 2);
+	padding-inline-end: var(--space-3);
 	color: var(--color-muted);
 	font-size: var(--text-sm);
 	text-decoration: none;
@@ -204,6 +214,7 @@ pre {
 /* The title block at the top of a page. */
 .page-head {
 	display: grid;
+	grid-template-columns: minmax(0, 1fr);
 	gap: var(--space-2);
 }
 
@@ -229,7 +240,7 @@ pre {
 	justify-content: center;
 	gap: var(--space-2);
 	min-height: var(--hit);
-	padding: 0 var(--space-4);
+	padding-inline: var(--space-4);
 	border: 1px solid var(--color-rule);
 	border-radius: var(--radius);
 	background: var(--color-raised);
@@ -238,8 +249,12 @@ pre {
 	font-family: var(--font-body);
 	font-size: var(--text-base);
 	font-weight: 500;
-	line-height: 1;
-	white-space: nowrap;
+	line-height: 1.2;
+	/* A label stays on one line while it fits. When it cannot (a phone with large text), it wraps instead of
+	 * running off the screen. */
+	max-width: 100%;
+	padding-block: var(--space-2);
+	text-align: center;
 	text-decoration: none;
 	cursor: pointer;
 	user-select: none;
@@ -363,6 +378,8 @@ label,
 .field {
 	display: block;
 	width: 100%;
+	min-width: 0;
+	max-width: 100%;
 	padding: var(--space-3) var(--space-4);
 	border: 1px solid var(--color-rule-strong);
 	border-radius: var(--radius);
@@ -463,6 +480,7 @@ input[type='checkbox'] {
 /* A list of records: deck rows, trash rows, backups, leeches. Each row is a raised tile with its own edge. */
 .ledger {
 	display: grid;
+	grid-template-columns: minmax(0, 1fr);
 	gap: var(--space-3);
 	margin: 0;
 	padding: 0;

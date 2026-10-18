@@ -330,6 +330,12 @@
 		gap: var(--space-4);
 	}
 
+	/* A flex item will not shrink below its content by default, and a select's content is its longest option. */
+	.toolbar > * {
+		min-width: 0;
+		max-width: 100%;
+	}
+
 	.field--select {
 		width: auto;
 		min-height: var(--hit);

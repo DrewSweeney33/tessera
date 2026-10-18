@@ -36,9 +36,17 @@ Both themes ship. The toggle cycles Auto, Light, Dark, and Auto follows the syst
 - **Depth.** Three shadow heights built from one shadow colour. In dark mode a lighter surface does most of the work, and the shadow is only a deep, quiet edge.
 - **Motion.** Short and functional: transform and opacity only, 120 to 320 ms. The card slides in, the answer fades in, the progress bar eases, and the done seal springs. Everything stops under `prefers-reduced-motion`.
 - **Buttons have every state.** Default, hover, focus-visible, active, disabled, loading, error, success. Focus is always a visible ring.
-- **Touch.** Every control is at least 44 px high. Key hints (`kbd`) are hidden where there is no hover, because a phone has no keys.
-- **Clickable text never wraps.** Buttons and nav links stay on one line at 320 px, enforced by a browser test.
-- **No sideways scrolling.** Enforced at 320, 375, 414, and 768 px by a browser test.
+- **Touch.** Every control and every standalone link is at least 44 px high (an inline link inside a sentence is exempt). Browser tests check the way back on every inner page and the folder links. The breadcrumb looks one line tall but has a 44 px touch area: the extra height is padding that a negative margin takes back. Key hints (`kbd`) are hidden where there is no hover, because a phone has no keys.
+- **Clickable text stays on one line while it fits.** Buttons and nav links are one line at 320 px at the normal text size, enforced by a browser test. At larger text sizes a button wraps instead of running off the screen (`white-space` is normal and `max-width` is 100 percent).
+- **No sideways scrolling, and nothing lost at large text.** Enforced at 320, 375, 414, and 768 px by a browser test, and at 200 percent text on a 320 px phone: no text may end up past the screen edge (the page is clipped sideways, so anything past the edge would be lost). Every grid that holds a single column of content has `grid-template-columns: minmax(0, 1fr)`, because a bare `auto` track grows to the widest word or button and pushes the page wide.
+- **The tab bar at large text.** It measures its own width in `rem`, so the test follows the text size. Down to 18rem of room it keeps five labels; below that the labels stay for screen readers and the icons carry the tabs.
+- **Charts on a phone are never scaled down.** A drawing keeps its own size and scrolls sideways inside a labelled, focusable region, opening on the newest data. Axis labels are drawn at least 12 px tall. A phone has no hover, so a tap on a bar or a day shows its number under the chart; the same numbers are in a table for screen readers.
+- **Errors have a page of their own.** An address that does not exist, or a page that breaks, shows `+error.svelte`: a plain sentence, the app around it, and Back to decks. The raw message is never shown.
+- **No card inside a card.** A folder is a panel; the decks inside it are rows with a rule between them on a phone, tiles only on a wider screen.
+- **One accent edge style.** A notice or hint has a full border and a tint, never a thick stripe down one side. A quiet grey rule beside quoted text or a diff (leeches, the import preview) is a quotation mark, not a stripe, and stays.
+- **One place to do each thing.** A folder has one Practice button. When its exam is near the button is highlighted and the countdown line says so, with no second link.
+- **A first-run or empty state is not an error.** It is a neutral message that says what to do next.
+
 - **Icons are shapes, not markup.** `Icon.svelte` draws a fixed set of line icons (the Lucide set, ISC licence) from plain shape data, so no `{@html}` is needed outside the Markdown component. Icons are decorative: the control around one carries the name.
 - **Fonts are local.** The content security policy allows only this origin, so the font files are served from `static/fonts/` along with their SIL Open Font License texts. They are not npm dependencies.
 
@@ -56,4 +64,4 @@ Focus moves to the card when a new one appears and to the Good button once the a
 
 ## Not designed yet
 
-Cram mode and stats arrive in later milestones. They will reuse these tokens and components.
+Nothing is waiting. Practice again, Statistics, and the installable app (ADR-017, ADR-018) use these tokens and components.

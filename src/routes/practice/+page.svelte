@@ -347,7 +347,8 @@
 			<div class="skeleton-line"></div>
 		</div>
 	{:else if phase === 'error'}
-		<div class="callout callout--error" role="alert">
+		<!-- Arriving with no deck or folder chosen is not a failure: say what to do, without the error colour. -->
+		<div class={scope ? 'callout callout--error' : 'callout'} role={scope ? 'alert' : 'status'}>
 			<p>{errorMessage}</p>
 			<p class="retry">
 				{#if scope}
@@ -699,7 +700,8 @@
 		height: 0.375rem;
 		overflow: hidden;
 		border-radius: 999px;
-		background: var(--color-sunken);
+		/* A track the eye can find in dark mode too: the plain sunken colour is nearly the page colour there. */
+		background: color-mix(in oklch, var(--color-ink) 16%, var(--color-sunken));
 	}
 
 	.progress__fill {
@@ -753,6 +755,7 @@
 
 	.sheet--loading {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-4);
 		min-height: 14rem;
 		animation: none;
@@ -823,6 +826,7 @@
 
 	.typed {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-3);
 		margin-block-start: var(--space-4);
 		font-family: var(--font-body);
@@ -847,6 +851,7 @@
 
 	.choices {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-3);
 		margin: var(--space-4) 0 0;
 		padding: 0;
@@ -941,8 +946,8 @@
 	.hint {
 		margin-block-start: var(--space-4);
 		padding: var(--space-3) var(--space-4);
-		border-inline-start: 3px solid var(--color-hard);
-		border-radius: var(--radius-sm);
+		border: 1px solid color-mix(in oklch, var(--color-hard) 50%, transparent);
+		border-radius: var(--radius);
 		background: var(--color-hard-soft);
 		font-family: var(--font-body);
 		font-size: var(--text-base);
@@ -1082,6 +1087,7 @@
 
 	.setup {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-4);
 		margin-block: auto;
 		padding-block: var(--space-5);
@@ -1098,6 +1104,7 @@
 
 	.setup__form {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-5);
 	}
 
@@ -1157,6 +1164,7 @@
 
 	.resume {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-2);
 	}
 
