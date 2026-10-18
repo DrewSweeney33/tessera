@@ -73,6 +73,8 @@ test.describe('the login page', () => {
 			await page.goto(`/login?next=${encodeURIComponent(next)}`);
 			await signInOnPage(page);
 			await expect(page).toHaveURL(`${BASE}/`);
+			// Let the page finish loading before the next navigation starts (WebKit: "Frame load interrupted").
+			await expect(page.getByRole('heading', { name: 'Decks', level: 1 })).toBeVisible();
 			await page.context().clearCookies();
 		}
 	});
@@ -81,6 +83,7 @@ test.describe('the login page', () => {
 		await page.goto('/login');
 		await signInOnPage(page);
 		await expect(page).toHaveURL(`${BASE}/`);
+		await expect(page.getByRole('heading', { name: 'Decks', level: 1 })).toBeVisible();
 		await page.goto('/login?next=%2Fstats');
 		await expect(page).toHaveURL(`${BASE}/stats`);
 	});
