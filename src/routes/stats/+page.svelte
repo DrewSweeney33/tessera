@@ -47,11 +47,19 @@
 		return {};
 	}
 
+	// Each request gets a number. A slow answer to an earlier choice (or to the first load) must not replace the
+	// numbers of the scope that was picked after it.
+	let latest = 0;
+
 	async function load() {
+		const mine = ++latest;
 		view = { kind: 'loading' };
 		try {
-			view = { kind: 'ready', stats: await api.stats(parts(scope)) };
+			const stats = await api.stats(parts(scope));
+			if (mine !== latest) return;
+			view = { kind: 'ready', stats };
 		} catch (error) {
+			if (mine !== latest) return;
 			// A folder or deck that is gone: fall back to every deck instead of showing an error for a stale choice.
 			if (scope !== '' && error instanceof Error && 'status' in error && error.status === 404) {
 				await choose('');

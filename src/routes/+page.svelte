@@ -471,6 +471,14 @@
 							max="2200-12-31"
 							autocomplete="off"
 						/>
+						{#if examValue !== ''}
+							<button
+								type="button"
+								class="btn btn--quiet"
+								disabled={busy}
+								onclick={() => (examValue = '')}>Clear date</button
+							>
+						{/if}
 						<button type="submit" class="btn btn--primary" disabled={busy}>Save</button>
 						<button
 							type="button"

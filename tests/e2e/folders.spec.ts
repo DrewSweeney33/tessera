@@ -219,7 +219,10 @@ test.describe('an exam date on a folder', () => {
 		const region = folderRegion(page, 'E2E Clear');
 		await expect(region.getByText('Exam in 3 days')).toBeVisible();
 		await page.getByRole('button', { name: 'Edit folder E2E Clear' }).click();
-		await page.getByLabel('Exam date (optional)').fill('');
+		// Safari has no way to empty a date field, so the form has its own button for it.
+		await page.getByRole('button', { name: 'Clear date' }).click();
+		await expect(page.getByLabel('Exam date (optional)')).toHaveValue('');
+		await expect(page.getByRole('button', { name: 'Clear date' })).toHaveCount(0);
 		await page.getByRole('button', { name: 'Save' }).click();
 		await expect(region.getByText(/Exam in/)).toHaveCount(0);
 		await expect(folderRegion(page, 'E2E Clear')).toBeVisible();

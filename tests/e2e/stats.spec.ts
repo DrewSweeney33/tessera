@@ -167,6 +167,35 @@ test.describe('a deck', () => {
 	});
 });
 
+test.describe('a slow answer', () => {
+	test('for an earlier scope never replaces the numbers of the one picked after it', async ({
+		page,
+		request
+	}) => {
+		await importViaApi(request, deckOf('e2e-st-slow', 'E2E stats slow', basicCards(3, 's')));
+		await study(request, 'e2e-st-slow', [3, 3]);
+		// The first request (every deck) is held back until the deck has been picked and shown.
+		let release: () => void = () => {};
+		const held = new Promise<void>((resolve) => (release = resolve));
+		let first = true;
+		await page.route('**/api/stats', async (route) => {
+			if (first) {
+				first = false;
+				await held;
+			}
+			await route.continue();
+		});
+		await page.goto('/stats');
+		await pick(page, 'E2E stats slow');
+		await expect(page.locator('.summary strong')).toHaveText('E2E stats slow');
+		release();
+		// Give the late answer time to arrive; the deck's numbers must still be on screen.
+		await page.waitForTimeout(500);
+		await expect(page.locator('.summary strong')).toHaveText('E2E stats slow');
+		await expect(tile(page, 'Reviews today').locator('dd').first()).toHaveText('2');
+	});
+});
+
 test.describe('a folder', () => {
 	test('adds up the decks in it', async ({ page, request }) => {
 		await importViaApi(request, deckOf('e2e-st-fa', 'E2E stats fa', basicCards(3, 'a')));
