@@ -6,9 +6,12 @@
 import { spawnSync } from 'node:child_process';
 
 const args = process.argv.slice(2);
-const split = args.indexOf('--');
-const browsers = split === -1 ? args : args.slice(0, split);
-const extra = split === -1 ? [] : args.slice(split + 1);
+// Browser names come first. The rest is passed to Playwright, with or without a "--" in front: npm drops its own "--",
+// so `npm run test:e2e:webkit -- --shard=1/4` arrives here as `webkit --shard=1/4`.
+const firstOption = args.findIndex((arg) => arg.startsWith('-'));
+const split = firstOption === -1 ? args.length : firstOption;
+const browsers = args.slice(0, split);
+const extra = args.slice(split).filter((arg, index) => !(index === 0 && arg === '--'));
 const known = ['chromium', 'firefox', 'webkit'];
 
 if (browsers.length === 0 || browsers.some((b) => !known.includes(b))) {

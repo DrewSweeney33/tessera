@@ -18,6 +18,7 @@
 		"test:watch": "vitest --project unit",
 		"test:integration": "vitest run --project integration --passWithNoTests",
 		"test:e2e": "playwright test",
+		"test:e2e:chromium": "node scripts/run-e2e.ts chromium",
 		"test:e2e:firefox": "node scripts/run-e2e.ts firefox",
 		"test:e2e:webkit": "node scripts/run-e2e.ts webkit",
 		"test:e2e:all": "node scripts/run-e2e.ts chromium firefox webkit",

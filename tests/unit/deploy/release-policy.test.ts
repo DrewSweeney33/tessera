@@ -26,8 +26,9 @@ const workflow = parse(text) as {
 	>;
 	permissions: Record<string, string>;
 	jobs: {
-		ci: { uses: string };
-		publish: { needs: string; permissions: Record<string, string>; steps: Step[] };
+		'ci-passed': { permissions: Record<string, string>; steps: Step[] };
+		image: { uses: string; with: Record<string, string> };
+		publish: { needs: string[]; permissions: Record<string, string>; steps: Step[] };
 	};
 };
 const steps = workflow.jobs.publish.steps;
@@ -58,10 +59,23 @@ describe('release workflow', () => {
 		expect(workflow.jobs.publish.permissions).toEqual({ contents: 'write', packages: 'write' });
 	});
 
-	it('runs the whole CI workflow first and publishes only if it passes', () => {
-		expect(workflow.jobs.ci.uses).toBe('./.github/workflows/ci.yml');
-		expect(workflow.jobs.publish.needs).toBe('ci');
+	it('publishes only if CI already passed on this exact commit and the image checks pass', () => {
+		// Every push to main runs the whole CI, so the release asks GitHub whether that run succeeded on the tagged
+		// commit instead of running 15 minutes of the same checks again. The image is checked again because the base
+		// image can change between the push run and the release.
+		expect(workflow.jobs.publish.needs.sort()).toEqual(['ci-passed', 'image']);
+		expect(workflow.jobs.image.uses).toBe('./.github/workflows/ci.yml');
+		expect(workflow.jobs.image.with).toEqual({ scope: 'image' });
 		expect(Object.keys(ci.on)).toContain('workflow_call');
+		const check = workflow.jobs['ci-passed'];
+		expect(check.permissions).toEqual({ actions: 'read', contents: 'read' });
+		const run = check.steps.map((s) => s.run ?? '').join('\n');
+		expect(run).toContain('actions/workflows/ci.yml/runs');
+		expect(run).toContain('head_sha=${GITHUB_SHA}');
+		expect(run).toContain('status=success');
+		expect(run).toContain('exit 1');
+		// A rehearsal publishes nothing, so only a tag has to answer the question.
+		expect(check.steps.some((s) => s['if'] === "github.ref_type == 'tag'")).toBe(true);
 	});
 
 	it('refuses a tag that does not match package.json or a version missing from the changelog', () => {

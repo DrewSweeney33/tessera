@@ -18,7 +18,7 @@ npm run build
 npm run test:e2e      # browser tests; run the build first (npx playwright install chromium)
 ```
 
-`npm run test:e2e:all` runs the browser tests on Chromium, Firefox, and WebKit one after the other. CI runs all three, and a change that passes on one can fail on another, so look at the CI result of every push.
+`npm run test:e2e:all` runs the browser tests on Chromium, Firefox, and WebKit one after the other. CI runs all three, each split into four parallel jobs (`npm run test:e2e:webkit -- --shard=2/4` runs one slice), and a change that passes on one browser can fail on another, so look at the CI result of every push. Push fewer, bigger commits: a newer push cancels a run that is still going. A change that only touches `.10x/` does not start CI.
 
 ## How the code is organised
 

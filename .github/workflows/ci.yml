@@ -1,11 +1,20 @@
 name: CI
 
 on:
+  # Planning notes under .10x change no code, so they do not start a run (and do not cancel one that is running).
   push:
     branches: [main]
+    paths-ignore: ['.10x/**']
   pull_request:
-  # The release workflow runs all of this on the commit it is about to publish.
+    paths-ignore: ['.10x/**']
+  # The release workflow calls this with scope "image" to check the image it is about to publish. Everything else
+  # was already checked by the push run on the same commit (see release.yml).
   workflow_call:
+    inputs:
+      scope:
+        description: 'all, or image to run only the container checks'
+        type: string
+        default: all
 
 # Least privilege. No job writes to the repository or publishes anything.
 permissions:
@@ -18,6 +27,7 @@ concurrency:
 jobs:
   verify:
     name: Verify
+    if: inputs.scope != 'image'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -38,12 +48,6 @@ jobs:
         run: |
           npm run build
           npm run smoke
-      # Real-browser tests: XSS corpus, the import and study flows, layout at phone widths, themes.
-      # Locally these use the installed Chrome. Here Playwright downloads its own Chromium.
-      - name: Install the test browser
-        run: npx playwright install --with-deps chromium
-      - name: End-to-end tests
-        run: npm run test:e2e
       - name: Import benchmark (5,000 cards, 10 second budget)
         run: npm run benchmark
       - name: Statistics benchmark (100,000 reviews, 1 second budget)
@@ -63,17 +67,21 @@ jobs:
       - name: Operations guide check
         run: npm run ops:check
 
-  # The same browser tests in Firefox and in WebKit (the engine of Safari), each on its own server and an empty
-  # data folder. Chromium runs in the verify job. This is separate so the three browsers do not share one time
-  # budget, and so the verify job and this one run at the same time. QA risk R-1.
+  # The browser tests (XSS corpus, the import and study flows, layout at phone widths, themes, accessibility) in
+  # Chromium, Firefox, and WebKit (the engine of Safari). Each browser's suite is split into four shards, and every
+  # shard is its own job on its own runner with its own server and an empty data folder, so the specs (which import
+  # decks with fixed ids) never meet each other's data. The suite took 13 minutes in WebKit on one runner; split four
+  # ways each job takes about three, plus the build. QA risk R-1.
   browsers:
-    name: Browser tests in ${{ matrix.browser }}
+    name: ${{ matrix.browser }} ${{ matrix.shard }}/4
+    if: inputs.scope != 'image'
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        browser: [firefox, webkit]
+        browser: [chromium, firefox, webkit]
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -84,12 +92,11 @@ jobs:
       - run: npm run build
       - name: Install the test browser and its system libraries
         run: npx playwright install --with-deps ${{ matrix.browser }}
-      - name: End-to-end tests in ${{ matrix.browser }}
-        run: npm run test:e2e:${{ matrix.browser }}
+      - name: End-to-end tests in ${{ matrix.browser }}, shard ${{ matrix.shard }} of 4
+        run: npm run test:e2e:${{ matrix.browser }} -- --shard=${{ matrix.shard }}/4
 
   docker:
     name: Docker ${{ matrix.platform }}
-    needs: verify
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     strategy:

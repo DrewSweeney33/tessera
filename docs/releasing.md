@@ -20,7 +20,7 @@ Release plan: `v0.1.0` at the end of Milestone 2, `v1.0.0` at the end of Milesto
 
 All of this must be true on `main`:
 
-- [ ] CI is green on the commit you will tag. The release workflow runs the same checks again and stops if they fail.
+- [ ] CI is green on the commit you will tag, and the commit is on `main`. The release workflow does not run the whole CI again: it asks GitHub whether the push run on that exact commit succeeded, and stops if it did not. A commit that only changes `.10x/` is not tested (it does not start CI), so tag the release commit (the `chore(release)` commit changes `package.json`, so it is tested).
 - [ ] `CHANGELOG.md` has a section for the version, with the date. Move entries from `[Unreleased]` into it.
 - [ ] `package.json` `version` equals the version you are releasing. The app reports this in `/healthz`. Run `npm version <version> --no-git-tag-version`, which also updates the lockfile.
 - [ ] The open items in `.10x/status.md` for that milestone are done or knowingly deferred, and the QA and security reviews for the milestone exist.
@@ -37,7 +37,7 @@ git push origin v0.1.0
 
 Pushing the tag starts `.github/workflows/release.yml`, which:
 
-1. Runs the full CI workflow on that commit (type check, lint, tests, browser tests in Chrome, Firefox, and WebKit, security probe, durability check, benchmark, a vulnerability scan of the image, and the container smoke test on both architectures).
+1. Checks that CI already passed on that exact commit (type check, lint, tests, browser tests in Chrome, Firefox, and WebKit, security probe, durability check, benchmarks), and runs the image checks again on that commit: a vulnerability scan of the image and the container smoke test on both architectures. The image is checked again because its base image can change between the push run and the release.
 2. Checks that the tag equals `package.json` `version`, and that the changelog has a section for it.
 3. Builds the release files (see below) and checks them twice: against their checksums, and by reading the skill zip back with a separate unzip program.
 4. Builds the image for `linux/amd64` and `linux/arm64` and pushes it to GitHub Container Registry as `ghcr.io/<owner>/tessera:<version>`, plus `:<major>.<minor>` and `:latest` for stable versions only. Release candidates get only their exact tag.

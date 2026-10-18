@@ -16,14 +16,40 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Everything CI checks, on the exact commit being released. The publish job does not start unless it passes.
-  ci:
-    name: CI
+  # The commit being released must already have passed the full CI (every push to main runs it). Running it all again
+  # here would only repeat 15 minutes of work on the same code, so this job asks GitHub whether the push run on this
+  # exact commit succeeded. A rehearsal (run by hand) publishes nothing, so it skips the question.
+  ci-passed:
+    name: CI passed on this commit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Ask GitHub for a successful CI run on this commit
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          count=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${GITHUB_SHA}&event=push&status=success" --jq '.total_count')
+          echo "successful CI runs on ${GITHUB_SHA}: ${count}"
+          if [ "${count}" -lt 1 ]; then
+            echo "::error::CI has not passed on ${GITHUB_SHA}. Wait for the run on main to finish and go green (a commit that only changes .10x/ is not tested, so tag the release commit), then tag again."
+            exit 1
+          fi
+
+  # The one thing CI cannot know until the release: the image as it will be published, scanned and smoke tested again
+  # on this commit, because the base image can change between the push run and the release.
+  image:
+    name: Image checks
     uses: ./.github/workflows/ci.yml
+    with:
+      scope: image
 
   publish:
     name: Build and publish
-    needs: ci
+    needs: [ci-passed, image]
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
