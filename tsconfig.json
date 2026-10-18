@@ -16,5 +16,6 @@
 		"vite.config.ts",
 		"playwright.config.ts",
 		"drizzle.config.ts"
-	]
+	],
+	"exclude": ["src/service-worker"]
 }

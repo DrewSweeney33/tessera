@@ -307,3 +307,16 @@ Done at the start of Milestone 4, after the owner's "Start Milestone 4". Replace
 | M4-08 | 100,000-row benchmark and indexes, slice B e2e, accessibility, docs, vault notes, deploy | S |
 
 **Order:** slice A (M4-01 to M4-04, no migration), deploy; slice B (M4-05 to M4-08), harness with `--expect-migration`, deploy. Owner's standing rules apply: backup first, commit and push only on request.
+
+## M5 re-plan (2026-10-18)
+
+Replaces the outline in section 8 (9 tasks, 36 hours). Reason: the visual polish, accessibility checks, 320 px checks, and most docs already exist; what is new is the installable app. About 14 hours in the plan's units. Spec: `.10x/specs/2026-10-18-milestone-5-pwa-and-close-out-design.md`.
+
+| ID | Task | Size |
+|---|---|---|
+| M5-01 | Manifest, icons (`scripts/make-icons.ts`), `app.html` links | S |
+| M5-02 | Service worker, offline page, pure logic in core, unit tests | M |
+| M5-03 | e2e (registration, offline, API untouched), accessibility, probe entries | M |
+| M5-04 | CONTRIBUTING, troubleshooting, install docs, phone checklist | M |
+| M5-05 | QA report and security review (M4 and the installable app), harness run with `--expect-migration` | M |
+| M5-06 | `.10x` close-out, vault notes, releases (0.2.0, then 0.3.0; v1.0.0 after the phone pass) | S |

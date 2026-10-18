@@ -193,3 +193,12 @@ Spec: `.10x/specs/2026-10-17-milestone-4-practice-and-stats-design.md`. ADR: `.1
 - **Statistics.** The folder statistics code takes a scope (all, folder, deck). `GET /api/stats`; `GET /api/folders/:id/stats` calls the same code. New: heatmap, forecast, per-tag retention, practiced-today line. All study numbers keep `mode='review'`.
 - **Exam date.** Migration `0003_folder_exam_date` adds `folders.exam_date`. `decks.exam_date` stays unused.
 - **Failure modes covered:** practice code changing a schedule, practice rows leaking into study numbers, a double submitted grade, a blocked `sessionStorage`, a slow forecast on a large log, a failed migration on the live database.
+
+## Milestone 5 design: installable app shell and close-out (2026-10-18, accepted)
+
+Spec: `.10x/specs/2026-10-18-milestone-5-pwa-and-close-out-design.md`. ADR: `.10x/adrs/018-installable-app-shell-and-offline-notice.md`.
+
+- **Shell and notice only.** A manifest, committed icons, and a service worker that handles navigations only (network first, 8 s timeout, then a cached static offline page). No `/api/*`, no asset, no study data is intercepted or cached. Cache `tessera-shell-<version>` holds the offline page and icons; activate deletes other `tessera-shell-` caches.
+- **Pure rules in core** (`src/lib/core/service-worker.ts`) so they are tested without a browser.
+- **Secure context only:** works at the HTTPS address, absent (and harmless) at the plain-HTTP LAN address.
+- **Failure modes covered:** a stale shell after an upgrade, the worker interfering with the API or token flow, a server error mistaken for being offline, a cache name collision, icons that look wrong on a launcher.

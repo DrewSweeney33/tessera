@@ -42,6 +42,10 @@ If you use a reverse proxy that terminates TLS, set `PROTOCOL_HEADER=x-forwarded
 
 The container runs as a non-root user with a read-only filesystem and no extra capabilities.
 
+## Install it as an app
+
+Open Tessera at an `https://` address (or `localhost`) and your browser offers to install it: a home screen icon and a window of its own, with no address bar. Chrome and Edge show Install in the address bar, and on an iPhone use Share, then Add to Home Screen. If the server cannot be reached, the installed app shows a plain "Tessera needs your server" page instead of a browser error. It never stores your decks or study data on the device, and there is no offline study: the schedule lives on the server. At a plain `http://192.168...` address there is no Install and no offline page, and everything else works as usual. A short check for your own phone is in [docs/phone-checklist.md](docs/phone-checklist.md).
+
 ## Writing decks with Claude
 
 Tessera decks are plain text, so Claude can write them and you can import them without editing. There are three pieces:
@@ -118,7 +122,7 @@ Browsers: Tessera needs `light-dark()` colours, so Chrome and Edge 123 or newer,
 
 Node 24 is expected. Dependencies install with `ignore-scripts=true` (see [ADR-007](.10x/adrs/007-install-without-lifecycle-scripts.md)), so a clean `npm ci` needs no compiler.
 
-More: [deploying](docs/deploy.md), [operating](docs/operations.md) (backup, restore, upgrade, troubleshooting), [releasing](docs/releasing.md), [changelog](CHANGELOG.md), [visual design](docs/design.md), [performance](docs/performance.md), [architecture decisions](.10x/adrs/).
+More: [deploying](docs/deploy.md), [operating](docs/operations.md) (backup, restore, upgrade), [troubleshooting](docs/troubleshooting.md), [contributing](CONTRIBUTING.md), [phone checklist](docs/phone-checklist.md), [releasing](docs/releasing.md), [changelog](CHANGELOG.md), [visual design](docs/design.md), [performance](docs/performance.md), [architecture decisions](.10x/adrs/).
 
 ## License
 

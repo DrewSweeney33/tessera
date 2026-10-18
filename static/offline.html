@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="color-scheme" content="light dark" />
+		<title>Tessera is offline</title>
+		<style>
+			:root {
+				--paper: #faf6ef;
+				--surface: #fffdf9;
+				--ink: #231f19;
+				--muted: #5c564c;
+				--accent: #00695f;
+				--accent-ink: #f4fbf9;
+				--rule: #e4dccf;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root {
+					--paper: #1c1914;
+					--surface: #25211b;
+					--ink: #ece7de;
+					--muted: #b5ada0;
+					--accent: #6fd3c4;
+					--accent-ink: #0c2a25;
+					--rule: #3a352c;
+				}
+			}
+			* {
+				box-sizing: border-box;
+			}
+			body {
+				margin: 0;
+				min-height: 100dvh;
+				display: grid;
+				place-items: center;
+				padding: 1.5rem;
+				background: var(--paper);
+				color: var(--ink);
+				font-family:
+					system-ui,
+					-apple-system,
+					'Segoe UI',
+					Roboto,
+					sans-serif;
+				line-height: 1.5;
+			}
+			main {
+				width: min(100%, 28rem);
+				padding: 2rem 1.5rem;
+				border: 1px solid var(--rule);
+				border-radius: 1rem;
+				background: var(--surface);
+			}
+			h1 {
+				margin: 0 0 0.75rem;
+				font-size: 1.5rem;
+				line-height: 1.2;
+			}
+			p {
+				margin: 0 0 1.25rem;
+				color: var(--muted);
+			}
+			a {
+				display: inline-flex;
+				align-items: center;
+				min-height: 2.75rem;
+				padding: 0 1.25rem;
+				border-radius: 0.625rem;
+				background: var(--accent);
+				color: var(--accent-ink);
+				font-weight: 600;
+				text-decoration: none;
+			}
+			a:focus-visible {
+				outline: 3px solid var(--ink);
+				outline-offset: 3px;
+			}
+		</style>
+	</head>
+	<body>
+		<main>
+			<h1>Tessera needs your server</h1>
+			<p>
+				It could not be reached. Check your connection or VPN, then try again. Nothing you studied is
+				lost: your progress is kept on the server.
+			</p>
+			<a href="/">Try again</a>
+		</main>
+	</body>
+</html>

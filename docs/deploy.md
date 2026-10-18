@@ -121,6 +121,10 @@ Change the mapping to `'3000:3000'`. Everyone on the network, including a guest'
 
 **Never expose it to the internet without a proxy that requires authentication.**
 
+### Installing it as an app
+
+A browser offers to install Tessera (a home screen icon and its own window) only at a secure address: `https://…` or `localhost`. So put it behind a reverse proxy with HTTPS, or reach it over a VPN that gives it an HTTPS name. At a plain `http://192.168…` address the app works as before but cannot be installed and has no offline page. The installed app caches nothing but a small "Tessera needs your server" page and two icons; it never stores decks or study data, and a reachable server always shows its live pages. After an upgrade the new version replaces the old one on the next visit. Details and the check to do on a phone: [phone-checklist.md](phone-checklist.md).
+
 ### Host names (protection against DNS rebinding)
 
 A hostile web page can make your browser attack a service on your own network by pointing a domain it controls at your server's address. To the browser that looks like the page talking to itself, so the usual cross-site protections do not apply. What the page cannot fake is the host name it arrived under, which is always its own domain. So Tessera only answers to names it is meant to be reached by, and refuses the rest with a `421` reply that says how to fix it.

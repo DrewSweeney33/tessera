@@ -1,0 +1,12 @@
+{
+	"extends": "$app/tsconfig/service-worker",
+	"compilerOptions": {
+		"noEmit": true,
+		"strict": true,
+		"noUncheckedIndexedAccess": true,
+		"exactOptionalPropertyTypes": true,
+		"allowImportingTsExtensions": true,
+		"skipLibCheck": true
+	},
+	"include": ["./**/*.ts", "../lib/core/service-worker.ts"]
+}

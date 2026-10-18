@@ -160,7 +160,7 @@ Manual deck creation, editing, practice again and start over, deck deletion (Tra
 
 ### M5 PWA, polish, docs, release (9 tasks, 36 hours)
 
-- [ ] M5-01 to M5-09, see EM file section 8. Re-plan at M4 exit.
+- [ ] Re-planned 2026-10-18 (see "M5 re-plan and design" below and the EM file, "M5 re-plan"). The original outline in EM section 8 is superseded.
 
 ## Backlog (not scheduled)
 
@@ -206,3 +206,14 @@ M4-01 to M4-08 below replace the original outline. Spec `.10x/specs/2026-10-17-m
 - [x] M4-06 `/stats` page and SVG charts (M), done 2026-10-17: scope picker, tiles, `BarChart.svelte`, `Heatmap.svelte`, Stats tab (five tabs now)
 - [x] M4-07 migration `0003`, folder exam date (S), done 2026-10-17: `0003_folder_exam_date`, `updateFolder`, `PUT /api/folders/:id` with `examDate`, countdown and Practice the folder suggestion, Edit replaces Rename
 - [x] M4-08 benchmark, indexes, slice B e2e, docs, deploy (S), done 2026-10-17: `scripts/stats-benchmark.ts` (376 ms median at 100,000 reviews, no new index needed), `stats.spec.ts`, exam date e2e, 67 probe checks, docs. Deployed to CT123 as `tessera:library-a66a4d5-stats` (built from the uncommitted working tree). **Milestone 4 is complete.**
+
+### M5 re-plan and design (2026-10-18)
+
+Spec `.10x/specs/2026-10-18-milestone-5-pwa-and-close-out-design.md`, ADR-018 accepted. 0.2.0 is released first; the installable app and docs ship as 0.3.0; v1.0.0 follows a real-phone pass.
+
+- [ ] M5-01 manifest, icons, `app.html` links (S)
+- [ ] M5-02 service worker, offline page, pure logic in core, unit tests (M)
+- [ ] M5-03 e2e, accessibility, probe entries (M)
+- [ ] M5-04 CONTRIBUTING, troubleshooting, install docs, phone checklist (M)
+- [ ] M5-05 QA report and security review, harness run (M)
+- [ ] M5-06 `.10x` close-out, releases (S)

@@ -79,7 +79,8 @@ function send(options: {
 				port: origin.port,
 				method: options.method ?? 'GET',
 				path: options.path,
-				headers: options.headers
+				headers: options.headers,
+				agent: false
 			},
 			(res) => {
 				const parts: Buffer[] = [];
@@ -745,6 +746,16 @@ try {
 				'and a path variant of a practice route is refused too',
 				(await status('/api/%70ractice/pool?deckId=probe')) === 401
 			);
+			// The page and its app files are not API routes: the token never applies to them, so the browser can fetch
+			// the manifest and the worker (which it does without credentials).
+			for (const path of [
+				'/manifest.webmanifest',
+				'/service-worker.js',
+				'/offline.html',
+				'/icons/icon-192.png'
+			]) {
+				check(`${path} needs no token`, (await status(path)) === 200);
+			}
 			check('the statistics are refused without the token', (await status('/api/stats')) === 401);
 			check(
 				'and so are the statistics of one deck',
@@ -2863,6 +2874,95 @@ try {
 				JSON.parse(cleared.text).folder.daysToExam === null
 		);
 		await send({ method: 'DELETE', path: `/api/folders/${examId}`, headers: JSON_HEADERS });
+	}
+
+	// ---- The installable app (ADR-018): a manifest, icons, a worker, and an offline page, all static and read only
+	console.log('\n# Installable app files');
+	const appFiles: [string, RegExp][] = [
+		['/manifest.webmanifest', /application\/manifest\+json/],
+		['/service-worker.js', /javascript/],
+		['/offline.html', /text\/html/],
+		['/icons/icon-192.png', /^image\/png$/],
+		['/icons/icon-512.png', /^image\/png$/],
+		['/icons/icon-maskable-512.png', /^image\/png$/],
+		['/icons/apple-touch-icon.png', /^image\/png$/]
+	];
+	for (const [path, type] of appFiles) {
+		const r = await send({ path });
+		check(
+			`${path} is served with the right type`,
+			r.status === 200 && type.test(String(r.headers['content-type'] ?? '')),
+			`${r.status} ${r.headers['content-type']}`
+		);
+		check(
+			`${path} carries no CORS approval and sets no cookie`,
+			r.headers['access-control-allow-origin'] === undefined &&
+				r.headers['set-cookie'] === undefined
+		);
+		// Static files are public and are served before the request hooks (the host check, like the fonts and robots.txt),
+		// so a foreign host name reaches them. They hold nothing private: the data is behind /api, which is guarded.
+		const foreign = await send({ path, headers: { host: 'attacker.example' } });
+		check(
+			`${path} is the same file under any host name`,
+			foreign.status === 200 && foreign.text === r.text
+		);
+		for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
+			const w = await send({ method, path, headers: JSON_HEADERS, body: '{}' });
+			check(
+				`${method} on ${path} is refused`,
+				[400, 403, 404, 405].includes(w.status) && !/node_modules|\.ts:\d+/.test(w.text),
+				`got ${w.status}`
+			);
+		}
+	}
+	const manifestReply = await send({ path: '/manifest.webmanifest' });
+	let manifestBody: {
+		start_url?: string;
+		scope?: string;
+		display?: string;
+		icons?: { src: string }[];
+	} = {};
+	try {
+		manifestBody = JSON.parse(manifestReply.text);
+	} catch {
+		// reported below
+	}
+	check(
+		'the manifest is JSON that stays on this origin',
+		manifestBody.start_url === '/' &&
+			manifestBody.scope === '/' &&
+			manifestBody.display === 'standalone' &&
+			(manifestBody.icons ?? []).length >= 3 &&
+			(manifestBody.icons ?? []).every(
+				(icon) => icon.src.startsWith('/') && !icon.src.startsWith('//')
+			),
+		manifestReply.text.slice(0, 80)
+	);
+	const offlineReply = await send({ path: '/offline.html' });
+	check(
+		'the offline page has no script and loads nothing from anywhere else',
+		!/<script/i.test(offlineReply.text) && !/https?:\/\//i.test(offlineReply.text)
+	);
+	const workerReply = await send({ path: '/service-worker.js' });
+	check(
+		'the worker never mentions the API in a way that would handle it, and only asks for its own files',
+		/shouldHandle|api/.test(workerReply.text) &&
+			!/\.put\(/.test(workerReply.text.replace(/\s+/g, ' '))
+	);
+	for (const path of [
+		'/icons/../package.json',
+		'/icons/%2e%2e/package.json',
+		'/icons/..%2fpackage.json',
+		'/icons/icon-192.png/../../package.json',
+		'/manifest.webmanifest/../package.json',
+		'/offline.html%00.png'
+	]) {
+		const r = await send({ path });
+		check(
+			`traversal through ${path} leaks nothing`,
+			!r.text.includes('"dependencies"') && !r.text.includes('root:x:'),
+			`${r.status}`
+		);
 	}
 
 	// ---- 5. Path traversal and error leakage
