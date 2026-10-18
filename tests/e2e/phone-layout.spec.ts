@@ -45,6 +45,8 @@ test.describe('the Decks heading', () => {
 			await importViaApi(request, deckOf('phone-head', 'Phone head', basicCards(2, 'ph')));
 			await page.setViewportSize({ width, height: 800 });
 			await page.goto('/');
+			// The page draws its heading again when the decks arrive, so measure only after they have.
+			await expect(page.getByRole('heading', { name: 'Phone head' })).toBeVisible();
 			const heading = page.getByRole('heading', { name: 'Decks', level: 1 });
 			await expect(heading).toBeVisible();
 			const box = (await heading.boundingBox())!;
