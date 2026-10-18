@@ -4,6 +4,10 @@ All notable changes to Tessera are written here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-18
+
+Study quality (undo, card order, practice by tag, Quiz me) and safe on the network (an optional page password, a backup limit, and a fix for oversized uploads). No change to the database, so there is no migration and nothing to roll back beyond the image. Nothing changes unless you set `TESSERA_PASSWORD`; the backup limit is new for everyone (default 10 backups taken by you).
+
 ### Added
 
 - **An optional password for the web page.** Set `TESSERA_PASSWORD` (12 to 200 characters) in `compose.yaml` and every page and API route asks for it, except the sign-in page, `/healthz`, `/api/schema`, and the app's own files. It is off when the line is absent, so nothing changes for anyone who does not turn it on. A login lasts until you sign out; **Settings → Security** has **Sign out** (this device) and **Sign out everywhere** (every device, including this one), and changing the password also signs every device out. It is one password in the compose file, not accounts: nothing is stored in the database except a counter that **Sign out everywhere** raises. The login is a signed cookie (`HttpOnly`, `SameSite=Lax`, `Secure` over HTTPS). Wrong guesses are slowed, never blocked: from the fourth wrong guess in 15 minutes each answer waits half a second, then one, two, four, up to 30 seconds, and the right password waits the same, so nobody can lock you out by guessing. A signed-in request that changes data must also look like the Tessera page. The API token still works for scripts (`Authorization: Bearer`, set both). Also `GET /api/auth/status`, `POST /api/auth/login`, `/logout`, and `/logout-all`; a refused API call answers `401` with the reason `sign_in_required`. A test lists every route of the app and fails the build if one is added without a decision. See `docs/deploy.md` and ADR-021. No migration.
