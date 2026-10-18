@@ -111,12 +111,53 @@ describe('backups and folders', () => {
 
 		const reopened = openDatabase({ dataDir: dir.path, clock });
 		try {
-			expect(reopened.migration.pending).toBe(1);
+			// The folders migration and the exam date migration.
+			expect(reopened.migration.pending).toBe(2);
 			expect(shape(reopened.db)).toEqual({ folders: [], decks: [['ccna-01', null]] });
 			const table = reopened.sqlite
 				.prepare("select name from sqlite_master where name = 'folders'")
 				.get();
 			expect(table).toBeDefined();
+		} finally {
+			reopened.close();
+		}
+	});
+
+	it('restores a backup made before the exam date existed, keeps its folders, and upgrades it when it is opened', () => {
+		// A database from the release with folders but no exam date: the first three migrations.
+		const old = join(dir.path, 'migrations-before-exam-date');
+		cpSync('drizzle', old, { recursive: true });
+		const journalPath = join(old, 'meta', '_journal.json');
+		const journal = JSON.parse(readFileSync(journalPath, 'utf8')) as { entries: unknown[] };
+		journal.entries = journal.entries.slice(0, 3);
+		writeFileSync(journalPath, JSON.stringify(journal, null, 2));
+
+		handle.close();
+		const oldDir = join(dir.path, 'old-data-3');
+		const before = openDatabase({ dataDir: oldDir, clock, migrationsFolder: old });
+		const at = clock.now().toISOString();
+		before.sqlite
+			.prepare('insert into folders (name, created_at, updated_at) values (?, ?, ?)')
+			.run('CCNA', at, at);
+		before.sqlite
+			.prepare(
+				'insert into decks (id, title, created_at, updated_at, folder_id) values (?, ?, ?, ?, 1)'
+			)
+			.run('ccna-01', 'CCNA 01', at, at);
+		const snapshot = createSnapshot(before.sqlite, oldDir, 'manual', clock);
+		before.close();
+
+		cpSync(join(oldDir, 'backups', snapshot.name), join(dir.path, 'backups', snapshot.name));
+		expect(stageRestore(dir.path, snapshot.name, clock).ok).toBe(true);
+		expect(applyPendingRestore(dir.path, clock)).toMatchObject({ ok: true });
+
+		const reopened = openDatabase({ dataDir: dir.path, clock });
+		try {
+			expect(reopened.migration.pending).toBe(1);
+			expect(reopened.sqlite.prepare('select name, exam_date from folders').all()).toEqual([
+				{ name: 'CCNA', exam_date: null }
+			]);
+			expect(shape(reopened.db).decks).toEqual([['ccna-01', 1]]);
 		} finally {
 			reopened.close();
 		}

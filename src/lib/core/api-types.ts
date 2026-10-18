@@ -147,6 +147,10 @@ export interface FolderDto {
 	reviewsToday: number;
 	// The share of review-phase reviews in the last 30 days graded Hard, Good, or Easy (0 to 1). Null when there are none.
 	retention: number | null;
+	// The folder's exam day ("YYYY-MM-DD") and the whole days from the current study day to it (negative once past).
+	// Both null when no exam date is set.
+	examDate: string | null;
+	daysToExam: number | null;
 }
 
 export interface CreateFolderRequest {
@@ -154,7 +158,9 @@ export interface CreateFolderRequest {
 }
 
 export interface RenameFolderRequest {
-	name: string;
+	name?: string;
+	// "YYYY-MM-DD", or null to clear it. Left out keeps the current value.
+	examDate?: string | null;
 }
 
 export interface FolderResponse {
@@ -190,9 +196,9 @@ export interface FolderDayDto {
 	timeMs: number;
 }
 
-// GET /api/folders/:id/stats: what the reviews of the decks in a folder add up to. Counts of review items, not cards.
-export interface FolderStatsDto {
-	folder: FolderDto;
+// The numbers that studying a set of decks adds up to, shared by a folder's statistics and the Statistics page. Counts
+// are review items, not cards. Only study counts: practice answers are never in them.
+export interface StatsNumbers {
 	// Items by where they are in learning. `suspended` are items of suspended cards, kept out of the other counts.
 	items: { new: number; learning: number; review: number; suspended: number };
 	openLeeches: number;
@@ -204,12 +210,51 @@ export interface FolderStatsDto {
 	// Review-phase reviews graded Hard, Good, or Easy over the share of review-phase reviews, per window. Null when none.
 	retention7Days: number | null;
 	retention30Days: number | null;
-	// Study days in a row with at least one review in the folder, counting back from today (or from yesterday when today
-	// has none yet, so a streak is not broken until the day is over).
+	// Study days in a row with at least one review, counting back from today (or from yesterday when today has none
+	// yet, so a streak is not broken until the day is over).
 	streakDays: number;
 	// The last 14 study days, oldest first, today last.
 	days: FolderDayDto[];
 	weakTags: WeakTagDto[];
+}
+
+// GET /api/folders/:id/stats: what the reviews of the decks in a folder add up to.
+export interface FolderStatsDto extends StatsNumbers {
+	folder: FolderDto;
+}
+
+// What a Statistics page covers: every deck, one folder, or one deck.
+export interface StatsScopeDto {
+	kind: 'all' | 'folder' | 'deck';
+	// The folder id or the deck id. Null for every deck.
+	id: number | string | null;
+	label: string;
+}
+
+export interface HeatCellDto {
+	day: string;
+	reviews: number;
+}
+
+export interface ForecastDayDto {
+	day: string;
+	due: number;
+}
+
+// GET /api/stats?folderId=&deckId=
+export interface StatsDto extends StatsNumbers {
+	scope: StatsScopeDto;
+	deckCount: number;
+	cardCount: number;
+	// Reviews per study day for the last 26 weeks as a calendar: oldest week first, each with seven rows from Monday to
+	// Sunday. Days after today are null.
+	heatmap: (HeatCellDto | null)[][];
+	// Review items due on each of the next 30 study days, today first. `overdue` are review items already past due.
+	forecast: { overdue: number; days: ForecastDayDto[] };
+	// The tags remembered least over the last 90 days (at least 5 review-phase reviews each), lowest first, up to 10.
+	tagRetention: WeakTagDto[];
+	// Practice again answers since the day began. Kept apart: they are in none of the numbers above.
+	practicedToday: { items: number; answers: number; timeMs: number };
 }
 
 // POST /api/decks: a deck made by hand (US-11). The id is optional: left out, the server makes one from the title.

@@ -30,6 +30,23 @@ export function insertFolder(x: Executor, name: string, now: string): FolderRow 
 	return x.insert(folders).values({ name, createdAt: now, updatedAt: now }).returning().get();
 }
 
+// Changes a folder's name, its exam date, or both. A field left out keeps its value; an exam date of null clears it.
+export function updateFolderRow(
+	x: Executor,
+	id: number,
+	changes: { name?: string; examDate?: string | null },
+	now: string
+): void {
+	x.update(folders)
+		.set({
+			updatedAt: now,
+			...(changes.name === undefined ? {} : { name: changes.name }),
+			...(changes.examDate === undefined ? {} : { examDate: changes.examDate })
+		})
+		.where(eq(folders.id, id))
+		.run();
+}
+
 export function renameFolderRow(x: Executor, id: number, name: string, now: string): void {
 	x.update(folders).set({ name, updatedAt: now }).where(eq(folders.id, id)).run();
 }

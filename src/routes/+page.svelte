@@ -7,10 +7,10 @@
 		FolderDto,
 		QueueCounts
 	} from '#lib/core/api-types.ts';
-	import { folderNameProblem } from '#lib/core/folder.ts';
+	import { examDateProblem, examIsSoon, examLabel, folderNameProblem } from '#lib/core/folder.ts';
 	import { ApiError, api, failureMessage } from '#lib/ui/api.ts';
 	import FolderStats from '#lib/ui/FolderStats.svelte';
-	import { formatPercent } from '#lib/ui/format.ts';
+	import { formatExamDate, formatPercent } from '#lib/ui/format.ts';
 	import Icon from '#lib/ui/Icon.svelte';
 	import { shell } from '#lib/ui/shell.svelte.ts';
 
@@ -34,6 +34,7 @@
 	let newProblem = $state<string | undefined>();
 	let renaming = $state<number | undefined>();
 	let renameValue = $state('');
+	let examValue = $state('');
 	let renameProblem = $state<string | undefined>();
 	let deleting = $state<number | undefined>();
 
@@ -189,6 +190,7 @@
 	async function startRename(folder: FolderDto) {
 		renaming = folder.id;
 		renameValue = folder.name;
+		examValue = folder.examDate ?? '';
 		renameProblem = undefined;
 		deleting = undefined;
 		await tick();
@@ -209,16 +211,26 @@
 			document.getElementById(`rename-${folder.id}`)?.focus();
 			return;
 		}
+		const dateProblem = examValue.trim() === '' ? undefined : examDateProblem(examValue.trim());
+		if (dateProblem) {
+			renameProblem = dateProblem.message;
+			document.getElementById(`exam-${folder.id}`)?.focus();
+			return;
+		}
 		busy = true;
 		try {
-			const { folder: renamed } = await api.renameFolder(folder.id, renameValue);
-			announcement = `Folder renamed to ${renamed.name}.`;
+			const date = examValue.trim();
+			const { folder: changed } = await api.updateFolder(folder.id, {
+				name: renameValue,
+				examDate: date === '' ? null : date
+			});
+			announcement = `Folder ${changed.name} saved.`;
 			renaming = undefined;
 			await refresh();
 			await tick();
 			document.getElementById(`rename-button-${folder.id}`)?.focus();
 		} catch (error) {
-			renameProblem = problemOf(error, 'The folder could not be renamed.');
+			renameProblem = problemOf(error, 'The folder could not be saved.');
 			document.getElementById(`rename-${folder.id}`)?.focus();
 		} finally {
 			busy = false;
@@ -449,7 +461,17 @@
 							aria-invalid={renameProblem ? 'true' : undefined}
 							aria-describedby={renameProblem ? `rename-problem-${folder.id}` : undefined}
 						/>
-						<button type="submit" class="btn btn--primary" disabled={busy}>Save name</button>
+						<label for="exam-{folder.id}" class="exam-label">Exam date (optional)</label>
+						<input
+							id="exam-{folder.id}"
+							class="field field--text exam-input"
+							type="date"
+							bind:value={examValue}
+							min="2000-01-01"
+							max="2200-12-31"
+							autocomplete="off"
+						/>
+						<button type="submit" class="btn btn--primary" disabled={busy}>Save</button>
 						<button
 							type="button"
 							class="btn btn--quiet"
@@ -483,6 +505,16 @@
 					{folder.reviewsToday === 1 ? 'review' : 'reviews'} today.
 					{#if folder.retention !== null}{formatPercent(folder.retention)} recalled over 30 days.{/if}
 				</p>
+				{#if folder.daysToExam !== null && folder.examDate !== null}
+					<p class="exam" class:exam--soon={examIsSoon(folder.daysToExam)}>
+						<Icon name="calendar" size="1.1em" />
+						<strong>{examLabel(folder.daysToExam)}</strong>
+						<span class="muted">({formatExamDate(folder.examDate)})</span>
+						{#if examIsSoon(folder.daysToExam) && folder.cardCount > 0}
+							<a href="{resolve('/practice')}?folder={folder.id}">Practice the folder</a>
+						{/if}
+					</p>
+				{/if}
 			</div>
 
 			<dl class="counts folder__counts">
@@ -537,10 +569,10 @@
 					type="button"
 					class="btn btn--quiet"
 					id="rename-button-{folder.id}"
-					aria-label="Rename {folder.name}"
+					aria-label="Edit folder {folder.name}"
 					onclick={() => startRename(folder)}
 				>
-					<Icon name="pencil" /> Rename
+					<Icon name="pencil" /> Edit
 				</button>
 				<button
 					type="button"
@@ -897,6 +929,29 @@
 
 	.folder__counts {
 		max-width: 24rem;
+	}
+
+	.exam {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-2);
+		margin: var(--space-1) 0 0;
+		font-size: var(--text-sm);
+	}
+
+	.exam--soon strong {
+		color: var(--color-accent-deep);
+	}
+
+	.exam-label {
+		flex-basis: 100%;
+		font-size: var(--text-sm);
+		color: var(--color-muted);
+	}
+
+	.inline-form .exam-input {
+		flex: 0 1 12rem;
 	}
 
 	.folder__actions {

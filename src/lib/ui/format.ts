@@ -37,3 +37,14 @@ export function formatDuration(ms: number): string {
 export function formatPercent(share: number | null): string {
 	return share === null ? 'No data' : `${Math.round(share * 100)}%`;
 }
+
+// A calendar day such as "2026-12-15" as "Dec 15, 2026". The label is a date, not a moment, so no time zone applies.
+export function formatExamDate(day: string): string {
+	const [year, month, date] = day.split('-').map(Number) as [number, number, number];
+	return new Date(Date.UTC(year, month - 1, date)).toLocaleDateString(undefined, {
+		year: 'numeric',
+		month: 'short',
+		day: 'numeric',
+		timeZone: 'UTC'
+	});
+}

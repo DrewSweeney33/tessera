@@ -164,12 +164,28 @@ Normal study follows the schedule, so a card is shown when it is due. Before an 
 
 For scripts: `GET /api/practice/pool?deckId=` (or `?folderId=`), `POST /api/practice/start` with `{"deckId": "...", "count": "all", "order": "shuffle"}`, `GET /api/practice/item?cardPk=&ordinal=`, and `POST /api/practice/grade` with `{"reviewId": "...", "cardPk": 1, "ordinal": 0, "right": true}`. They need the API token when one is set, like every other write.
 
+## Statistics
+
+The **Stats** tab shows how studying is going. Pick **All decks**, a folder, or a deck at the top; the choice is kept in the address and remembered in this browser.
+
+- **Reviews today**, over **7 days**, and over **30 days**, with the time spent, how much you **recalled** (reviews of cards you had already learned that you graded Hard, Good, or Easy), your **streak** of study days, and your **open leeches**.
+- **Reviews, last 14 days**: a bar for each study day.
+- **Coming due, next 30 days**: the review and relearning items that fall due each study day, and how many are already past due. Cards still new are not in it.
+- **The last 26 weeks**: a calendar with one square per day, darker for more reviews.
+- **Recall by tag**: your tags ranked by how much you recall over 90 days (a tag needs at least 5 reviews of learned cards), lowest first. Use it with the weak-spot report to decide what to ask Claude to rewrite.
+- **Practiced today** is shown on its own line. Practice answers are never counted in any other number.
+
+Days are study days, which begin at the hour set on the Settings page (4 am by default), not at midnight. Every chart has the same numbers in a table for screen readers.
+
+For scripts: `GET /api/stats`, with `?deckId=` or `?folderId=` to limit it (not both). It needs the API token when one is set, like every other route.
+
 ## Group decks in folders
 
 A course can be many decks. On the decks screen, **New folder** makes a folder and **Move decks** moves ticked decks into it, between folders, or out of any folder. Decks in no folder stay in view under **Ungrouped decks**. A deck is in one folder at most, and folders do not nest.
 
 - **Study folder** starts a session with only the decks in that folder, in deck title order. Name decks so they sort the way you want to study them, for example `CCNA 01` to `CCNA 31`.
 - **Stats** on a folder shows reviews today and over the last 7 and 30 days, time spent, how much you recalled (reviews of cards you had already learned that you graded Hard, Good, or Easy), your streak of study days, the last 14 days, cards by stage, open leeches, and the weakest tags.
+- **Edit** on a folder changes its name and an optional **exam date**. A folder with an exam date shows a countdown ("Exam in 12 days"), counted in study days, and from 14 days before the exam until the day after it, a link to **Practice the folder**. `PUT /api/folders/:id` takes `{"name": "..."}`, `{"examDate": "2026-12-15"}` (`null` clears it), or both.
 - **Deleting a folder** only puts its decks back in the ungrouped list. No deck, card, or review is deleted.
 - Folders are Tessera's own data. They are not in the deck file, so what Claude writes and what you export do not change, and importing a revised deck keeps it in its folder. Backups include folders.
 

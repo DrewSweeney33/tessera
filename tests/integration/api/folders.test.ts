@@ -105,7 +105,9 @@ describe('POST /api/folders', () => {
 				cardCount: 0,
 				counts: { learning: 0, review: 0, new: 0 },
 				reviewsToday: 0,
-				retention: null
+				retention: null,
+				examDate: null,
+				daysToExam: null
 			}
 		});
 	});
@@ -211,6 +213,110 @@ describe('PUT /api/folders/:id', () => {
 			expect(response.status).toBe(404);
 			expect((await errorOf(response)).message).toBe('There is no such folder.');
 		}
+	});
+});
+
+describe('PUT /api/folders/:id with an exam date', () => {
+	const put = (id: number, value: unknown) =>
+		handleRenameFolder(app, String(id), body(value), 'req');
+
+	it('sets the exam date and answers the countdown from the current study day', async () => {
+		const folder = await make('CCNA');
+		const response = await put(folder.id, { examDate: '2026-10-26' });
+		expect(response.status).toBe(200);
+		// The test clock is 2026-10-12 10:00 in Chicago, so the exam is 14 days away.
+		expect(((await response.json()) as FolderResponse).folder).toMatchObject({
+			name: 'CCNA',
+			examDate: '2026-10-26',
+			daysToExam: 14
+		});
+		const listed = ((await (await handleListFolders(app)).json()) as FoldersResponse).folders;
+		expect(listed[0]).toMatchObject({ examDate: '2026-10-26', daysToExam: 14 });
+	});
+
+	it('counts down to zero on the day and goes negative after it', async () => {
+		const folder = await make('CCNA');
+		for (const [date, days] of [
+			['2026-10-12', 0],
+			['2026-10-13', 1],
+			['2026-10-11', -1],
+			['2026-09-30', -12],
+			['2027-01-01', 81]
+		] as const) {
+			const response = await put(folder.id, { examDate: date });
+			expect(((await response.json()) as FolderResponse).folder.daysToExam, date).toBe(days);
+		}
+	});
+
+	it('changes the name and the date together, and leaves a field that is not sent alone', async () => {
+		const folder = await make('Old');
+		await put(folder.id, { name: 'New', examDate: '2026-12-15' });
+		const renamed = ((await (await put(folder.id, { name: 'Newer' })).json()) as FolderResponse)
+			.folder;
+		expect(renamed).toMatchObject({ name: 'Newer', examDate: '2026-12-15' });
+		// What is saved, not only what the answer says.
+		const saved = ((await (await handleListFolders(app)).json()) as FoldersResponse).folders[0];
+		expect(saved).toMatchObject({ name: 'Newer', examDate: '2026-12-15' });
+		const dated = (
+			(await (await put(folder.id, { examDate: '2026-12-16' })).json()) as FolderResponse
+		).folder;
+		expect(dated).toMatchObject({ name: 'Newer', examDate: '2026-12-16' });
+	});
+
+	it('clears the date with null', async () => {
+		const folder = await make('CCNA');
+		await put(folder.id, { examDate: '2026-12-15' });
+		const cleared = ((await (await put(folder.id, { examDate: null })).json()) as FolderResponse)
+			.folder;
+		expect(cleared).toMatchObject({ examDate: null, daysToExam: null });
+	});
+
+	it('refuses a date that is not a real day, names the field, and changes nothing', async () => {
+		const folder = await make('CCNA');
+		await put(folder.id, { examDate: '2026-12-15' });
+		for (const bad of [
+			'2026-02-30',
+			'2026-13-01',
+			'2026-00-10',
+			'26-12-15',
+			'2026/12/15',
+			'December 15',
+			'',
+			' 2026-12-15',
+			'2026-12-15T00:00',
+			'1999-12-31',
+			'2300-01-01',
+			'abc'
+		]) {
+			const response = await put(folder.id, { name: 'Changed', examDate: bad });
+			expect(response.status, bad).toBe(422);
+			expect((await errorOf(response)).details?.errors).toEqual([
+				expect.objectContaining({ path: 'examDate' })
+			]);
+		}
+		const listed = ((await (await handleListFolders(app)).json()) as FoldersResponse).folders;
+		expect(listed[0]).toMatchObject({ name: 'CCNA', examDate: '2026-12-15' });
+	});
+
+	it('refuses a body with nothing to change, an unknown field, or the wrong types', async () => {
+		const folder = await make('CCNA');
+		for (const bad of [
+			{},
+			{ extra: 1 },
+			{ name: 'X', extra: 1 },
+			{ examDate: 20261215 },
+			{ examDate: true },
+			{ name: 5 },
+			[],
+			null
+		]) {
+			expect((await put(folder.id, bad)).status, JSON.stringify(bad)).toBe(422);
+		}
+	});
+
+	it('shows no date on a folder that never had one', async () => {
+		const folder = await make('Plain');
+		expect(folder).toMatchObject({ examDate: null, daysToExam: null });
 	});
 });
 

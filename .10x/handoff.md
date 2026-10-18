@@ -9,16 +9,15 @@
 
 ### What was done
 
-**Slice A of Milestone 4, Practice again, is built, tested, and running on CT123.** A deck or a folder can be practiced again from the decks screen (**Practice again**, **Practice folder**): pick 20, 50, 100, or all cards, shuffled or weakest first; a missed card comes back until it is right; the summary offers the misses again; a session in progress resumes after a reload. Practice writes only `review_log` rows with `mode='cram'`, so the schedule and every study number are untouched (proved by a byte-for-byte test, five planted bugs, and an ESLint confinement). **Nothing is committed or pushed.** CT123 runs `tessera:library-0f2a837-practice`, built from the working tree at the owner's request (no migration; manual backup `manual-before-practice-update.db` taken first; 31 CCNA decks and 1,100 cards intact).
+**Milestone 4 is built and running on CT123.** Slice A (Practice again) was committed as `a66a4d5`. Slice B is built on top of it and **not committed**: a **Stats** tab with a scope picker (all decks, a folder, a deck) showing today, 7 and 30 days, recall, streak, a 14-day bar chart, a 30-day forecast of what falls due (with the overdue count), a 26-week calendar, recall by tag, and a "Practiced today" line that is never added to anything; and an **exam date** on folders (Edit on a folder), shown as a countdown with a Practice the folder link in the last two weeks. Migration `0003_folder_exam_date` is a plain add-column. CT123 runs `tessera:library-a66a4d5-stats`, built from the working tree after a manual backup (`manual-before-stats-update.db`); the first start wrote `pre-migrate-2026-10-18T02-47-19-615Z.db` and applied the migration, the 31 CCNA decks, 1,100 cards, and your CCNA folder are intact.
 
-Checks: unit 1,206, integration 878, full Chromium e2e 285, practice spec 11 on WebKit, security probe 684 with no failure, `probe:remote-check` pass.
+Checks: unit 1,266, integration 903, full Chromium e2e 301, WebKit 42 for the stats, folders, and practice specs, security probe 731 with no failure. The Statistics request takes 376 ms (median) with 100,000 review records and needs no new index.
 
 ### What needs you
 
-1. Try Practice again on the live site (a CCNA deck, then the whole CCNA folder once you make it). Tell me what feels wrong.
-2. Say when to commit and push. The uncommitted work includes the `.10x` files, the code, tests, docs, and the probe changes. The image on CT123 is named for `0f2a837` but contains this work, so a later commit should be redeployed to make the tag honest.
-3. Say "go" for slice B (statistics page, exam date on folders, migration `0003_folder_exam_date`).
-4. Still open from before: the 0.2.0 release candidate, accepted risks S-11 and S-12, Firefox and a phone and screen reader pass, host-side items.
+1. Open Stats on the live site and set an exam date on your CCNA folder (Edit). Tell me what feels wrong.
+2. Say when to commit and push slice B; then I redeploy so the image tag matches a commit and move the docs sync marker.
+3. Next: the 0.2.0 release candidate (the harness `--expect-migration` run needs a published candidate), Milestone 5, or the leftovers (accepted risks S-11 and S-12, Firefox, a phone and screen reader pass, host-side items).
 
 ### Things to know
 

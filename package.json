@@ -23,6 +23,7 @@
 		"test:e2e:all": "node scripts/run-e2e.ts chromium firefox webkit",
 		"smoke": "node scripts/smoke.ts",
 		"benchmark": "node scripts/benchmark.ts",
+		"benchmark:stats": "node scripts/stats-benchmark.ts",
 		"security:probe": "node scripts/security-probe.ts",
 		"probe:remote-check": "node scripts/probe-remote-check.ts",
 		"live:test": "node scripts/live-test.ts",

@@ -48,7 +48,7 @@ export function listLeeches(db: Db, options: { deckId?: string } = {}): LeechIte
 	}));
 }
 
-export function countLeeches(db: Db, options: { folderId?: number } = {}): number {
+export function countLeeches(db: Db, options: { deckId?: string; folderId?: number } = {}): number {
 	return countOpenLeeches(db, options);
 }
 

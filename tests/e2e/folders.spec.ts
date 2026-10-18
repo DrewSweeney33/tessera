@@ -149,6 +149,96 @@ test.describe('making a folder and putting decks in it', () => {
 	});
 });
 
+// The study day label for today in the test server's time zone (America/Chicago, day starting at 4 am), plus some days.
+function studyDay(plusDays = 0): string {
+	const today = new Date(Date.now() - 4 * 3_600_000).toLocaleDateString('en-CA', {
+		timeZone: 'America/Chicago'
+	});
+	const [year, month, day] = today.split('-').map(Number) as [number, number, number];
+	return new Date(Date.UTC(year, month - 1, day + plusDays)).toISOString().slice(0, 10);
+}
+
+test.describe('an exam date on a folder', () => {
+	test('sets a date, shows the countdown, and suggests practice in the last two weeks', async ({
+		page,
+		request
+	}) => {
+		await seedDecks(request, 'e2e-f10');
+		await makeFolder(request, 'E2E Exam');
+		await page.goto('/');
+		const region = folderRegion(page, 'E2E Exam');
+		await expect(region.getByText(/Exam (in|today|tomorrow|was)/)).toHaveCount(0);
+
+		await page.getByRole('button', { name: 'Edit folder E2E Exam' }).click();
+		await expect(page.getByLabel('Exam date (optional)')).toHaveValue('');
+		await page.getByLabel('Exam date (optional)').fill(studyDay(40));
+		await page.getByRole('button', { name: 'Save' }).click();
+		await expect(region.getByText('Exam in 40 days')).toBeVisible();
+		// More than two weeks away: no suggestion.
+		await expect(region.getByRole('link', { name: 'Practice the folder' })).toHaveCount(0);
+
+		await page.getByRole('button', { name: 'Edit folder E2E Exam' }).click();
+		await expect(page.getByLabel('Exam date (optional)')).toHaveValue(studyDay(40));
+		await page.getByLabel('Exam date (optional)').fill(studyDay(5));
+		await page.getByRole('button', { name: 'Save' }).click();
+		await expect(region.getByText('Exam in 5 days')).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Edit folder E2E Exam' })).toBeFocused();
+	});
+
+	test('the suggestion is only shown when the folder has cards, and links to practice', async ({
+		page,
+		request
+	}) => {
+		await seedDecks(request, 'e2e-f11');
+		const id = await makeFolder(request, 'E2E Exam Soon');
+		await putInFolder(request, ['e2e-f11-one'], id);
+		const response = await request.put(`/api/folders/${id}`, {
+			headers: JSON_HEADERS,
+			data: JSON.stringify({ examDate: studyDay(0) })
+		});
+		expect(response.ok()).toBe(true);
+		await page.goto('/');
+		const region = folderRegion(page, 'E2E Exam Soon');
+		await expect(region.getByText('Exam today')).toBeVisible();
+		await region.getByRole('link', { name: 'Practice the folder' }).click();
+		await expect(page).toHaveURL(new RegExp(`/practice\\?folder=${id}$`));
+		await expect(page.getByRole('heading', { name: 'Practice again', level: 1 })).toBeVisible();
+	});
+
+	test('clears the date, and keeps the name when only the date changes', async ({
+		page,
+		request
+	}) => {
+		await seedDecks(request, 'e2e-f12');
+		const id = await makeFolder(request, 'E2E Clear');
+		await request.put(`/api/folders/${id}`, {
+			headers: JSON_HEADERS,
+			data: JSON.stringify({ examDate: studyDay(3) })
+		});
+		await page.goto('/');
+		const region = folderRegion(page, 'E2E Clear');
+		await expect(region.getByText('Exam in 3 days')).toBeVisible();
+		await page.getByRole('button', { name: 'Edit folder E2E Clear' }).click();
+		await page.getByLabel('Exam date (optional)').fill('');
+		await page.getByRole('button', { name: 'Save' }).click();
+		await expect(region.getByText(/Exam in/)).toHaveCount(0);
+		await expect(folderRegion(page, 'E2E Clear')).toBeVisible();
+		const kept = (await folders(request)).find((folder) => folder.id === id);
+		expect(kept?.name).toBe('E2E Clear');
+	});
+
+	test('a date written in the wrong form is refused with the field named', async ({ request }) => {
+		const id = await makeFolder(request, 'E2E Bad Date');
+		const response = await request.put(`/api/folders/${id}`, {
+			headers: JSON_HEADERS,
+			data: JSON.stringify({ examDate: '31/12/2026' })
+		});
+		expect(response.status()).toBe(422);
+		const body = (await response.json()) as { error: { details: { errors: { path: string }[] } } };
+		expect(body.error.details.errors[0]?.path).toBe('examDate');
+	});
+});
+
 test.describe('renaming and deleting a folder', () => {
 	test('renames a folder in place, and refuses a name another folder has', async ({
 		page,
@@ -159,20 +249,20 @@ test.describe('renaming and deleting a folder', () => {
 		await makeFolder(request, 'E2E Beta');
 		await page.goto('/');
 
-		await page.getByRole('button', { name: 'Rename E2E Alpha' }).click();
+		await page.getByRole('button', { name: 'Edit folder E2E Alpha' }).click();
 		const box = page.getByRole('textbox', { name: 'Folder name' });
 		await expect(box).toBeFocused();
 		await box.fill('e2e beta');
-		await page.getByRole('button', { name: 'Save name' }).click();
+		await page.getByRole('button', { name: 'Save' }).click();
 		await expect(
 			page.getByRole('alert').filter({ hasText: 'There is already a folder' })
 		).toBeVisible();
 
 		await box.fill('E2E Gamma');
-		await page.getByRole('button', { name: 'Save name' }).click();
+		await page.getByRole('button', { name: 'Save' }).click();
 		await expect(folderRegion(page, 'E2E Gamma')).toBeVisible();
 		await expect(folderRegion(page, 'E2E Alpha')).toBeHidden();
-		await expect(page.getByRole('button', { name: 'Rename E2E Gamma' })).toBeFocused();
+		await expect(page.getByRole('button', { name: 'Edit folder E2E Gamma' })).toBeFocused();
 	});
 
 	test('asks before deleting, and Keep folder changes nothing', async ({ page, request }) => {

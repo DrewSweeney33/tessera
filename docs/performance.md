@@ -50,9 +50,23 @@ The same 5,000 card deck with 200,000 review records added, which is about five 
 | Online backup while studying                                                       | 0.4 s, passes `integrity_check`                                                                        |
 | Restore from that backup, to healthy                                               | 1.0 s                                                                                                  |
 
-History size barely matters for what a learner does each day, because the queue reads indexed due dates and never scans the review log. The statistics screens planned for a later milestone will read the log and need their own measurement.
+History size barely matters for what a learner does each day, because the queue reads indexed due dates and never scans the review log. The Statistics page reads the log, so it has its own measurement (next section).
+
+## The Statistics page (measured 2026-10-17)
+
+`npm run benchmark:stats` starts the production server on a free port, imports two decks of 1,500 cards, puts one in a folder, writes 100,000 review records straight into the database (90% study reviews and 10% practice answers over 240 days, about 375 study reviews a day, far more than one person does), schedules 80% of the items over the next 70 days, and times the Statistics requests. It exits with an error if the main request takes longer than 1 second.
+
+| Request                                      | Median | 95th percentile |
+| -------------------------------------------- | ------ | --------------- |
+| `GET /api/stats` (every deck)                | 376 ms | 428 ms          |
+| `GET /api/stats?deckId=` (one deck)          | 265 ms | 290 ms          |
+| `GET /api/stats?folderId=` (one folder)      | 282 ms | 305 ms          |
+| `GET /api/folders/:id/stats` (folder panel)  | 232 ms | 243 ms          |
+| `GET /api/decks` (home screen, same history) | 27 ms  | 38 ms           |
+| `GET /api/practice/pool`                     | 15 ms  | 25 ms           |
+
+The response is about 10 KB. The script prints SQLite's plan for the three main queries: the review queries use `review_log_mode_time_idx` (mode, then time) and the forecast uses `card_state_phase_idx`, so there is no scan of the whole log and **no new index was needed**. The cost is reading about 90,000 review times to build the streak, the 14-day chart, and the heatmap. For a normal history of 100 reviews a day (36,000 a year) the page is well under 150 ms. If a history ever reaches millions of rows, the next step is a per-day summary table (ADR-017 names it as the way out).
 
 ## What is not measured yet
 
-- The statistics queries over a large history (they do not exist yet).
 - Slow storage such as a network share. SQLite over NFS or SMB is not supported. Keep the data folder on a local disk or a Docker volume.

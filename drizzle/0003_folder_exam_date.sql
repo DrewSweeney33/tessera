@@ -1,0 +1,1 @@
+ALTER TABLE `folders` ADD `exam_date` text;

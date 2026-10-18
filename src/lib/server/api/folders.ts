@@ -14,7 +14,7 @@ import {
 	folderStats,
 	folderSummary,
 	listFolderSummaries,
-	renameFolder,
+	updateFolder,
 	type FolderProblem
 } from '../folders/index.ts';
 import { readJsonBody } from '../http/body.ts';
@@ -28,6 +28,19 @@ import { getFolder } from '../repos/index.ts';
 
 const MAX_ASSIGNED_DECKS = 500;
 const NameBodySchema = z.strictObject({ name: z.string({ message: 'Give the folder a name.' }) });
+// A change to an existing folder: its name, its exam date (null clears it), or both. At least one is required.
+const ChangeBodySchema = z
+	.strictObject({
+		name: z.string({ message: 'Give the folder a name.' }).optional(),
+		examDate: z
+			.string({ message: 'The exam date must be written as year-month-day, or null to clear it.' })
+			.max(10)
+			.nullable()
+			.optional()
+	})
+	.refine((body) => body.name !== undefined || body.examDate !== undefined, {
+		message: 'Send a name, an exam date, or both.'
+	});
 const AssignBodySchema = z.strictObject({
 	deckIds: z
 		.array(z.string().max(64), { message: 'deckIds must be a list of deck ids.' })
@@ -58,6 +71,13 @@ function problemResponse(problem: FolderProblem, requestId: string): Response {
 				'validation_failed',
 				problem.message,
 				{ errors: [{ path: 'name', code: problem.code, message: problem.message }] },
+				requestId
+			);
+		case 'invalid_exam_date':
+			return errorResponse(
+				'validation_failed',
+				problem.message,
+				{ errors: [{ path: 'examDate', code: problem.code, message: problem.message }] },
 				requestId
 			);
 		case 'name_taken':
@@ -112,7 +132,7 @@ export async function handleCreateFolder(
 	return jsonResponse(body, { status: 201 });
 }
 
-// PUT /api/folders/:id renames the folder.
+// PUT /api/folders/:id changes the folder's name, its exam date, or both.
 export async function handleRenameFolder(
 	app: AppContext,
 	idText: string,
@@ -121,13 +141,31 @@ export async function handleRenameFolder(
 ): Promise<Response> {
 	const id = parseFolderId(idText);
 	if (id === undefined) return folderNotFound(requestId);
-	const name = await readName(request, requestId);
-	if (name instanceof Response) return name;
-	const renamed = renameFolder(app.db, id, name, app.clock.now().toISOString());
-	if (!renamed.ok) return problemResponse(renamed.error, requestId);
-	app.log.info('folder renamed', { requestId, folderId: id });
-	const body: FolderResponse = { folder: folderSummary(app.db, renamed.value, context(app)) };
-	return jsonResponse(body);
+	const body = await readJsonBody(request, requestId);
+	if (body instanceof Response) return body;
+	const parsed = ChangeBodySchema.safeParse(body.value);
+	if (!parsed.success) {
+		return errorResponse(
+			'validation_failed',
+			'The folder is not valid.',
+			{ errors: fieldErrors(parsed.error) },
+			requestId
+		);
+	}
+	const { name, examDate } = parsed.data;
+	const changed = updateFolder(
+		app.db,
+		id,
+		{
+			...(name === undefined ? {} : { name }),
+			...(examDate === undefined ? {} : { examDate })
+		},
+		app.clock.now().toISOString()
+	);
+	if (!changed.ok) return problemResponse(changed.error, requestId);
+	app.log.info('folder changed', { requestId, folderId: id });
+	const response: FolderResponse = { folder: folderSummary(app.db, changed.value, context(app)) };
+	return jsonResponse(response);
 }
 
 // DELETE /api/folders/:id. The decks in it go back to the ungrouped list. Nothing else is deleted, so no title is

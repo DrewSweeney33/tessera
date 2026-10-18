@@ -133,7 +133,7 @@ describe('openDatabase on a fresh directory', () => {
 
 	it('reports every migration as pending on a new database and writes no backup', () => {
 		const handle = open();
-		expect(handle.migration).toEqual({ pending: 3, backupPath: undefined });
+		expect(handle.migration).toEqual({ pending: 4, backupPath: undefined });
 		expect(readdirSync(join(dir.path, 'backups'))).toEqual([]);
 	});
 });
@@ -220,7 +220,7 @@ describe('upgrading an existing database', () => {
 		before.close();
 
 		const after = open(data);
-		expect(after.migration.pending).toBe(2);
+		expect(after.migration.pending).toBe(3);
 		expect(names(after, 'table')).toContain('deck_resets');
 		expect(names(after, 'table')).toContain('folders');
 		expect(
@@ -270,7 +270,7 @@ describe('upgrading an existing database', () => {
 		before.close();
 
 		const after = open(data);
-		expect(after.migration.pending).toBe(1);
+		expect(after.migration.pending).toBe(2);
 		expect(names(after, 'table')).toContain('folders');
 		const decks = after.sqlite.prepare('select id, folder_id from decks order by id').all() as {
 			id: string;
@@ -285,6 +285,56 @@ describe('upgrading an existing database', () => {
 		);
 		const backups = readdirSync(join(data, 'backups'));
 		expect(backups).toHaveLength(1);
+		after.close();
+	});
+
+	// The upgrade that adds a folder's exam date (0003): a database made by the first three migrations, with folders
+	// and grouped decks in it. Nothing may be lost, the folders get no exam date, and the old database is backed up.
+	it('adds the exam date to a database from 0002 and keeps its folders and grouped decks', () => {
+		const old = join(dir.path, 'before-exam-date');
+		cpSync('drizzle', old, { recursive: true });
+		const journalPath = join(old, 'meta', '_journal.json');
+		const journal = JSON.parse(readFileSync(journalPath, 'utf8')) as { entries: unknown[] };
+		journal.entries = journal.entries.slice(0, 3);
+		writeFileSync(journalPath, JSON.stringify(journal, null, 2));
+
+		const data = join(dir.path, 'data');
+		const before = open(data, old);
+		expect(
+			(before.sqlite.prepare('pragma table_info(folders)').all() as { name: string }[]).map(
+				(column) => column.name
+			)
+		).not.toContain('exam_date');
+		insertDeckRaw(before, 'ccna-01');
+		before.sqlite
+			.prepare("insert into folders (name, created_at, updated_at) values ('CCNA', ?, ?)")
+			.run(now, now);
+		before.sqlite.prepare("update decks set folder_id = 1 where id = 'ccna-01'").run();
+		before.close();
+
+		const after = open(data);
+		expect(after.migration.pending).toBe(1);
+		expect(after.sqlite.prepare('select id, name, exam_date from folders').all()).toEqual([
+			{ id: 1, name: 'CCNA', exam_date: null }
+		]);
+		expect(after.sqlite.prepare("select folder_id from decks where id = 'ccna-01'").get()).toEqual({
+			folder_id: 1
+		});
+		const backups = readdirSync(join(data, 'backups'));
+		expect(backups).toHaveLength(1);
+		const backup = new Database(join(data, 'backups', backups[0]!), { readonly: true });
+		try {
+			expect(
+				(backup.prepare('pragma table_info(folders)').all() as { name: string }[]).map(
+					(column) => column.name
+				)
+			).not.toContain('exam_date');
+			expect((backup.prepare('select count(*) as n from folders').get() as { n: number }).n).toBe(
+				1
+			);
+		} finally {
+			backup.close();
+		}
 		after.close();
 	});
 

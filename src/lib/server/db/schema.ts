@@ -23,6 +23,8 @@ export const folders = sqliteTable(
 	{
 		id: integer('id').primaryKey({ autoIncrement: true }),
 		name: text('name').notNull(),
+		// The day of an exam, "YYYY-MM-DD", or null. Shown as a countdown on the folder (ADR-017).
+		examDate: text('exam_date'),
 		createdAt: text('created_at').notNull(),
 		updatedAt: text('updated_at').notNull()
 	},

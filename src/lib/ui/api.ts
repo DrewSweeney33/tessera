@@ -18,6 +18,7 @@ import type {
 	LeechesResponse,
 	ImportResponse,
 	NextResponse,
+	StatsDto,
 	PracticeGradeRequest,
 	PracticeGradeResponse,
 	PracticeItemResponse,
@@ -183,6 +184,10 @@ export const api = {
 	renameFolder: (folderId: number, name: string) =>
 		call<FolderResponse>(`/api/folders/${folderId}`, jsonRequest('PUT', { name })),
 
+	// Changes a folder's name, its exam date (null clears it), or both. A field left out keeps its value.
+	updateFolder: (folderId: number, changes: { name?: string; examDate?: string | null }) =>
+		call<FolderResponse>(`/api/folders/${folderId}`, jsonRequest('PUT', changes)),
+
 	deleteFolder: (folderId: number) =>
 		call<DeleteFolderResponse>(`/api/folders/${folderId}`, jsonRequest('DELETE')),
 
@@ -260,6 +265,9 @@ export const api = {
 
 	review: (request: ReviewRequest) =>
 		call<ReviewResponse>('/api/study/review', jsonRequest('POST', request)),
+
+	// The Statistics page's numbers for every deck (no scope), one deck, or the decks in one folder.
+	stats: (scope: StudyScope = {}) => call<StatsDto>(`/api/stats${scopeQuery(scope)}`),
 
 	practicePool: (scope: PracticeScope) =>
 		call<PracticePoolResponse>(`/api/practice/pool${practiceQuery(scope)}`),

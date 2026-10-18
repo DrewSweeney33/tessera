@@ -1,6 +1,6 @@
 # ADR-017: Practice again, statistics for any scope, and exam dates on folders
 
-**Status:** Accepted by the owner on 2026-10-17 (design conversation for Milestone 4, "Approved").
+**Status:** Accepted by the owner on 2026-10-17 (design conversation for Milestone 4, "Approved"). Built 2026-10-17: slice A (Practice again) and slice B (statistics and folder exam dates).
 **Date:** 2026-10-17
 **Feature:** tessera-v1 (Milestone 4)
 **Author:** Claude (Architect + Staff Engineer)

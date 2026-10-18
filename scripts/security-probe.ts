@@ -745,6 +745,15 @@ try {
 				'and a path variant of a practice route is refused too',
 				(await status('/api/%70ractice/pool?deckId=probe')) === 401
 			);
+			check('the statistics are refused without the token', (await status('/api/stats')) === 401);
+			check(
+				'and so are the statistics of one deck',
+				(await status('/api/stats?deckId=probe')) === 401
+			);
+			check(
+				'and a path variant of the statistics is refused too',
+				(await status('/api/%73tats')) === 401
+			);
 			check('the settings are refused without the token', (await status('/api/settings')) === 401);
 			check(
 				'changing them is refused without the token',
@@ -2714,6 +2723,148 @@ try {
 		);
 	}
 
+	// ---- Statistics and folder exam dates (ADR-017): read only, and a date field that takes one exact form
+	console.log('\n# Statistics and exam dates');
+	await post('/api/import', deck('probe-stats', [basic('s1'), basic('s2')]));
+	const statsReply = await send({ path: '/api/stats' });
+	const statsBody = statsReply.status === 200 ? JSON.parse(statsReply.text) : undefined;
+	check(
+		'the statistics answer for every deck, with every section',
+		statsReply.status === 200 &&
+			statsBody?.scope?.kind === 'all' &&
+			Array.isArray(statsBody.heatmap) &&
+			statsBody.heatmap.length === 26 &&
+			statsBody.forecast?.days?.length === 30 &&
+			statsBody.days?.length === 14 &&
+			typeof statsBody.practicedToday?.answers === 'number',
+		`${statsReply.status} ${statsReply.text.slice(0, 80)}`
+	);
+	const deckStats = await send({ path: '/api/stats?deckId=probe-stats' });
+	check(
+		'the statistics for one deck count only that deck',
+		deckStats.status === 200 &&
+			JSON.parse(deckStats.text).scope?.id === 'probe-stats' &&
+			JSON.parse(deckStats.text).cardCount === 2,
+		deckStats.text.slice(0, 80)
+	);
+	for (const query of [
+		'?deckId=probe-stats&folderId=1',
+		'?deckId=',
+		'?deckId=NOPE%20NOPE',
+		'?deckId=no-such-deck',
+		'?folderId=0',
+		'?folderId=-1',
+		'?folderId=1e3',
+		'?folderId=99999999999999999999',
+		'?folderId=999999',
+		'?deckId[]=a&deckId[]=b',
+		'?deckId=%3Cscript%3E',
+		'?deckId=../../etc/passwd',
+		"?deckId=probe-stats'%20or%20'1'='1"
+	]) {
+		const r = await send({ path: `/api/stats${query}` });
+		// A parameter the server does not read (deckId[]) or an empty one means "every deck", which is harmless.
+		const empty = (query === '?deckId=' || query.startsWith('?deckId[]')) && r.status === 200;
+		check(
+			`the statistics for "${query}" are a 400 or 404 that leaks nothing`,
+			(r.status === 400 || r.status === 404 || empty) &&
+				!/<script|node_modules|\.ts:\d+|root:x:|SQLITE|syntax error/i.test(r.text),
+			`${r.status} ${r.text.slice(0, 80)}`
+		);
+	}
+	for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
+		const r = await send({ method, path: '/api/stats', headers: JSON_HEADERS, body: '{}' });
+		check(
+			`${method} on /api/stats is refused`,
+			[400, 403, 404, 405].includes(r.status),
+			`got ${r.status}`
+		);
+	}
+	const burstStats = await Promise.all(
+		Array.from({ length: 40 }, () => send({ path: '/api/stats?deckId=probe-stats' }))
+	);
+	check(
+		'forty concurrent statistics requests all succeed',
+		burstStats.every((r) => r.status === 200),
+		`${burstStats.filter((r) => r.status !== 200).length} failed`
+	);
+
+	const examFolder = await post('/api/folders', { name: `Probe exam ${runId}` });
+	const examId: number | undefined =
+		examFolder.status === 201 ? JSON.parse(examFolder.text).folder.id : undefined;
+	if (examId === undefined) {
+		check('a folder for the exam date checks can be made', false, `got ${examFolder.status}`);
+	} else {
+		const put = (value: unknown) =>
+			send({
+				method: 'PUT',
+				path: `/api/folders/${examId}`,
+				headers: JSON_HEADERS,
+				body: typeof value === 'string' ? value : JSON.stringify(value)
+			});
+		const set = await put({ examDate: '2030-06-15' });
+		check(
+			'an exam date is saved and the folder answers the countdown',
+			set.status === 200 &&
+				JSON.parse(set.text).folder.examDate === '2030-06-15' &&
+				typeof JSON.parse(set.text).folder.daysToExam === 'number',
+			`${set.status} ${set.text.slice(0, 80)}`
+		);
+		for (const bad of [
+			'2030-02-30',
+			'2030-13-01',
+			'30-06-15',
+			'2030/06/15',
+			'20300615',
+			' 2030-06-15',
+			'2030-06-15T00:00:00Z',
+			'1999-01-01',
+			'2999-01-01',
+			'',
+			'<script>alert(1)</script>',
+			"2030-06-15'; drop table folders; --",
+			'x'.repeat(5000)
+		]) {
+			const r = await put({ examDate: bad });
+			check(
+				`an exam date of ${JSON.stringify(bad).slice(0, 40)} is refused`,
+				[400, 413, 422].includes(r.status) && !/node_modules|\.ts:\d+/.test(r.text),
+				`got ${r.status}`
+			);
+		}
+		for (const bad of [
+			{ examDate: 20300615 },
+			{ examDate: true },
+			{ examDate: ['2030-06-15'] },
+			{ examDate: { day: 1 } },
+			{ examDate: '2030-06-15', extra: 1 },
+			{},
+			[],
+			null
+		]) {
+			const r = await put(bad);
+			check(
+				`a folder change of ${JSON.stringify(bad).slice(0, 40)} is refused`,
+				r.status === 422,
+				`got ${r.status}`
+			);
+		}
+		const still = await send({ path: '/api/folders' });
+		check(
+			'none of the refused dates changed the saved one',
+			JSON.parse(still.text).folders.find((f: { id: number }) => f.id === examId)?.examDate ===
+				'2030-06-15'
+		);
+		const cleared = await put({ examDate: null });
+		check(
+			'null clears the exam date',
+			cleared.status === 200 &&
+				JSON.parse(cleared.text).folder.examDate === null &&
+				JSON.parse(cleared.text).folder.daysToExam === null
+		);
+		await send({ method: 'DELETE', path: `/api/folders/${examId}`, headers: JSON_HEADERS });
+	}
+
 	// ---- 5. Path traversal and error leakage
 	console.log('\n# Paths and errors');
 	for (const path of [
@@ -2800,7 +2951,21 @@ try {
 
 	// ---- 8. Availability
 	console.log('\n# Availability');
-	const burst = await Promise.all(Array.from({ length: 300 }, () => send({ path: '/api/decks' })));
+	// 300 connections at once can overflow the operating system's queue of waiting connections (Windows refuses the
+	// extra ones while the server works through the rest). That is the machine, not the server, so a refused
+	// connection is tried again a few times. What must hold: every request is answered 200 and the server stays up.
+	const patientGet = async (path: string): Promise<Reply> => {
+		for (let attempt = 0; ; attempt++) {
+			try {
+				return await send({ path });
+			} catch (error) {
+				const code = (error as NodeJS.ErrnoException).code;
+				if (code !== 'ECONNREFUSED' || attempt >= 8) throw error;
+				await new Promise((r) => setTimeout(r, 250));
+			}
+		}
+	};
+	const burst = await Promise.all(Array.from({ length: 300 }, () => patientGet('/api/decks')));
 	check(
 		'300 concurrent requests all succeed',
 		burst.every((r) => r.status === 200),
@@ -2825,6 +2990,10 @@ try {
 	else skip('the server process is still running', 'the server is not a local process');
 } catch (error) {
 	console.error('\nProbe aborted:', error instanceof Error ? error.message : error);
+	if (child) {
+		console.error(`The server exited with code ${child.exitCode}. Its last output:`);
+		console.error(serverOutput.join('').split('\n').slice(-12).join('\n'));
+	}
 	failures++;
 } finally {
 	child?.kill();

@@ -202,7 +202,7 @@ M4-01 to M4-08 below replace the original outline. Spec `.10x/specs/2026-10-17-m
 - [x] M4-02 practice API, invariance test, lint rule, probe entries (M), done 2026-10-17: four routes, `server/practice/{item,grade,schema}.ts`, ESLint confinement, byte-for-byte invariance test, 93 new probe checks (684 in all)
 - [x] M4-03 `/practice` page and entry points (M), done 2026-10-17: setup, session, summary, resume, keys, Practice again on deck tiles and Practice folder on folders
 - [x] M4-04 slice A e2e, docs, deploy (S), done 2026-10-17: `practice.spec.ts` (11 tests, Chromium and WebKit), CHANGELOG, README, `docs/claude-workflow.md`, vault notes. Deployed to CT123 as `tessera:library-0f2a837-practice` (built from the uncommitted working tree at the owner's request)
-- [ ] M4-05 statistics by scope, forecast, heatmap, per-tag retention (M)
-- [ ] M4-06 `/stats` page and SVG charts (M)
-- [ ] M4-07 migration `0003`, folder exam date (S)
-- [ ] M4-08 benchmark, indexes, slice B e2e, docs, deploy (S)
+- [x] M4-05 statistics by scope, forecast, heatmap, per-tag retention (M), done 2026-10-17: `core/stats.ts`, `server/stats/`, `GET /api/stats`, repos generalized to a scope, the folder panel shares the code
+- [x] M4-06 `/stats` page and SVG charts (M), done 2026-10-17: scope picker, tiles, `BarChart.svelte`, `Heatmap.svelte`, Stats tab (five tabs now)
+- [x] M4-07 migration `0003`, folder exam date (S), done 2026-10-17: `0003_folder_exam_date`, `updateFolder`, `PUT /api/folders/:id` with `examDate`, countdown and Practice the folder suggestion, Edit replaces Rename
+- [x] M4-08 benchmark, indexes, slice B e2e, docs, deploy (S), done 2026-10-17: `scripts/stats-benchmark.ts` (376 ms median at 100,000 reviews, no new index needed), `stats.spec.ts`, exam date e2e, 67 probe checks, docs. Deployed to CT123 as `tessera:library-a66a4d5-stats` (built from the uncommitted working tree). **Milestone 4 is complete.**

@@ -1,4 +1,4 @@
-import { folderNameProblem, tidyFolderName } from '#lib/core/folder.ts';
+import { examDateProblem, folderNameProblem, tidyFolderName } from '#lib/core/folder.ts';
 import { err, ok, type Result } from '#lib/core/result.ts';
 import type { Db } from '../db/client.ts';
 import type { FolderRow } from '../db/schema.ts';
@@ -10,8 +10,8 @@ import {
 	getDeck,
 	getFolder,
 	insertFolder,
-	renameFolderRow,
-	setDecksFolder
+	setDecksFolder,
+	updateFolderRow
 } from '../repos/index.ts';
 
 // Project folders (folders group decks on the decks screen and scope a study session). A deck is in at most one
@@ -20,6 +20,7 @@ import {
 
 export type FolderProblem =
 	| { kind: 'invalid_name'; code: string; message: string }
+	| { kind: 'invalid_exam_date'; code: string; message: string }
 	| { kind: 'name_taken'; message: string }
 	| { kind: 'not_found' };
 
@@ -47,24 +48,63 @@ export function createFolder(db: Db, name: string, now: string): Result<FolderRo
 	});
 }
 
-// Renaming a folder to the same name with different letter case is allowed, so a folder's capitals can be fixed.
+export interface FolderChanges {
+	name?: string;
+	// "YYYY-MM-DD", or null to clear the exam date.
+	examDate?: string | null;
+}
+
+// Changes a folder's name, its exam date, or both. A field left out is not touched, and nothing is written when any
+// field is refused. Renaming a folder to the same name with different letter case is allowed, so a folder's capitals
+// can be fixed.
+export function updateFolder(
+	db: Db,
+	id: number,
+	changes: FolderChanges,
+	now: string
+): Result<FolderRow, FolderProblem> {
+	if (changes.name !== undefined) {
+		const bad = checkName(changes.name);
+		if (bad) return err(bad);
+	}
+	if (changes.examDate !== undefined && changes.examDate !== null) {
+		const problem = examDateProblem(changes.examDate);
+		if (problem)
+			return err({ kind: 'invalid_exam_date', code: problem.code, message: problem.message });
+	}
+	const tidy = changes.name === undefined ? undefined : tidyFolderName(changes.name);
+	return withTx(db, (tx) => {
+		const folder = getFolder(tx, id);
+		if (!folder) return err({ kind: 'not_found' as const });
+		if (tidy !== undefined) {
+			const same = findFolderByName(tx, tidy);
+			if (same && same.id !== id) return err(nameTaken(tidy));
+		}
+		updateFolderRow(
+			tx,
+			id,
+			{
+				...(tidy === undefined ? {} : { name: tidy }),
+				...(changes.examDate === undefined ? {} : { examDate: changes.examDate })
+			},
+			now
+		);
+		return ok({
+			...folder,
+			...(tidy === undefined ? {} : { name: tidy }),
+			...(changes.examDate === undefined ? {} : { examDate: changes.examDate }),
+			updatedAt: now
+		});
+	});
+}
+
 export function renameFolder(
 	db: Db,
 	id: number,
 	name: string,
 	now: string
 ): Result<FolderRow, FolderProblem> {
-	const bad = checkName(name);
-	if (bad) return err(bad);
-	const tidy = tidyFolderName(name);
-	return withTx(db, (tx) => {
-		const folder = getFolder(tx, id);
-		if (!folder) return err({ kind: 'not_found' as const });
-		const same = findFolderByName(tx, tidy);
-		if (same && same.id !== id) return err(nameTaken(tidy));
-		renameFolderRow(tx, id, tidy, now);
-		return ok({ ...folder, name: tidy, updatedAt: now });
-	});
+	return updateFolder(db, id, { name }, now);
 }
 
 export interface DeletedFolder {

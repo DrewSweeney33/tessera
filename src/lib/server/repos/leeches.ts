@@ -58,8 +58,11 @@ export function selectLeechRows(x: Executor, options: { deckId?: string } = {}):
 		.all();
 }
 
-// How many leeches still need attention: flagged, and not suspended. Limited to one folder's decks when given.
-export function countOpenLeeches(x: Executor, options: { folderId?: number } = {}): number {
+// How many leeches still need attention: flagged, and not suspended. Limited to one deck or one folder's decks when given.
+export function countOpenLeeches(
+	x: Executor,
+	options: { deckId?: string; folderId?: number } = {}
+): number {
 	return (
 		x
 			.select({ total: count() })
@@ -73,6 +76,7 @@ export function countOpenLeeches(x: Executor, options: { folderId?: number } = {
 					eq(cards.archived, false),
 					eq(cards.suspended, false),
 					eq(decks.archived, false),
+					...(options.deckId === undefined ? [] : [eq(cards.deckId, options.deckId)]),
 					...(options.folderId === undefined ? [] : [eq(decks.folderId, options.folderId)])
 				)
 			)

@@ -53,6 +53,7 @@ describe('CI workflow', () => {
 		expect(commands).toContain('npx playwright install --with-deps chromium');
 		expect(commands).toContain('npm run test:e2e');
 		expect(commands).toContain('npm run benchmark');
+		expect(commands).toContain('npm run benchmark:stats');
 		expect(commands).toContain('npm run security:probe');
 		// The probe's remote mode is what the live-image harness relies on, so it is checked on every push.
 		expect(commands).toContain('npm run probe:remote-check');

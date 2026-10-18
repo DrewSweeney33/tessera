@@ -46,6 +46,8 @@ jobs:
         run: npm run test:e2e
       - name: Import benchmark (5,000 cards, 10 second budget)
         run: npm run benchmark
+      - name: Statistics benchmark (100,000 reviews, 1 second budget)
+        run: npm run benchmark:stats
       # Adversarial requests against the real server (headers, CSP, CSRF, limits, injection, log hygiene).
       - name: Security probe
         run: npm run security:probe

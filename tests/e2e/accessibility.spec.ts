@@ -70,7 +70,7 @@ for (const scheme of ['light', 'dark'] as const) {
 				await scan(page, 'home with the new folder form and a problem');
 				await page.getByRole('button', { name: 'Cancel' }).click();
 
-				await page.getByRole('button', { name: `Rename A11y folder ${scheme}` }).click();
+				await page.getByRole('button', { name: `Edit folder A11y folder ${scheme}` }).click();
 				await scan(page, 'home with the rename form');
 				await page.getByRole('button', { name: 'Cancel' }).click();
 

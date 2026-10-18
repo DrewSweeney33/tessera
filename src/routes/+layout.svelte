@@ -65,6 +65,10 @@
 				<span class="tab__icon"><Icon name="import" /></span>
 				<span class="tab__label">Import</span>
 			</a>
+			<a href={resolve('/stats')} class="tab" aria-current={here('/stats') ? 'page' : undefined}>
+				<span class="tab__icon"><Icon name="chart" /></span>
+				<span class="tab__label">Stats</span>
+			</a>
 			<a
 				href={resolve('/leeches')}
 				class="tab"
@@ -160,7 +164,7 @@
 		inset-block-end: 0;
 		z-index: 20;
 		display: grid;
-		grid-template-columns: repeat(4, minmax(0, 1fr));
+		grid-template-columns: repeat(5, minmax(0, 1fr));
 		gap: var(--space-1);
 		padding: var(--space-1) max(var(--space-2), env(safe-area-inset-right))
 			calc(var(--space-1) + env(safe-area-inset-bottom))
@@ -260,7 +264,7 @@
 	/* Tablet: the tab bar stays, with room to breathe. */
 	@media (min-width: 40rem) {
 		.tabs {
-			grid-template-columns: repeat(4, minmax(0, 9rem));
+			grid-template-columns: repeat(5, minmax(0, 9rem));
 			justify-content: center;
 		}
 	}
