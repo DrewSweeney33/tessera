@@ -290,3 +290,20 @@ L-01, L-03, L-02, L-04, L-05, L-06, L-07, L-08, L-10, then L-09 if the owner wan
 | A new write surface on an unauthenticated page | The existing guards, probe entries for every new route, and a security review at the exit |
 | Restore corrupts data | Staged restart (not a hot swap), a `pre-restore` snapshot, `tessera.db.before-restore`, and a crash test |
 | The owner's other, not yet stated, requests | The PM file lists candidates. Each new request gets a story, a place in this order, and a size before it is built. |
+
+## M4 re-plan (2026-10-17)
+
+Done at the start of Milestone 4, after the owner's "Start Milestone 4". Replaces the outline in section 7 (M4-01 to M4-08, 22 hours). Reason: folder statistics (ADR-016) already compute most of the statistics tasks, and the owner's choices narrowed practice to a deck or a folder. About 16 hours in the plan's units. Spec: `.10x/specs/2026-10-17-milestone-4-practice-and-stats-design.md`.
+
+| ID | Task | Size |
+|---|---|---|
+| M4-01 | `core/practice.ts` (queue with loop-back, summary), `server/practice/select.ts` (pool, shuffled and weakest-first order, count); tests | M |
+| M4-02 | `POST /api/practice/start`, `GET /api/practice/item`, `POST /api/practice/grade`; invariance test, lint rule, planted bugs, probe entries | M |
+| M4-03 | `/practice` page (setup, session, summary, resume), entry points on deck tiles and folders, keys | M |
+| M4-04 | Slice A e2e, accessibility, docs, vault notes, deploy | S |
+| M4-05 | Statistics by scope, `GET /api/stats`, forecast, heatmap, per-tag retention, practiced today; tests | M |
+| M4-06 | `/stats` page, scope picker, SVG charts, nav entry | M |
+| M4-07 | Migration `0003_folder_exam_date`, exam date on folders (validation, API, countdown, suggestion, restore test) | S |
+| M4-08 | 100,000-row benchmark and indexes, slice B e2e, accessibility, docs, vault notes, deploy | S |
+
+**Order:** slice A (M4-01 to M4-04, no migration), deploy; slice B (M4-05 to M4-08), harness with `--expect-migration`, deploy. Owner's standing rules apply: backup first, commit and push only on request.

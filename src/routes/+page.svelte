@@ -408,6 +408,15 @@
 			{:else}
 				<span class="state state--done"><Icon name="check" /> Done for now</span>
 			{/if}
+			{#if deck.cardCount > 0}
+				<a
+					class="btn btn--quiet"
+					href="{resolve('/practice')}?deck={encodeURIComponent(deck.id)}"
+					aria-label="Practice {deck.title} again"
+				>
+					<Icon name="repeat" /> Practice again
+				</a>
+			{/if}
 			<a
 				class="btn btn--quiet"
 				href={resolve('/decks/[id]/edit', { id: deck.id })}
@@ -504,6 +513,15 @@
 					<span class="state muted">No cards yet</span>
 				{:else}
 					<span class="state state--done"><Icon name="check" /> Done for now</span>
+				{/if}
+				{#if folder.cardCount > 0}
+					<a
+						class="btn"
+						href="{resolve('/practice')}?folder={folder.id}"
+						aria-label="Practice folder {folder.name}"
+					>
+						<Icon name="repeat" /> Practice folder
+					</a>
 				{/if}
 				<button
 					type="button"

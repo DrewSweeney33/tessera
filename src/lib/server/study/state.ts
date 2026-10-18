@@ -1,3 +1,4 @@
+import type { SerializedState } from '#lib/core/api-types.ts';
 import type { CardPhase, ItemState } from '#lib/core/scheduler/types.ts';
 import type { CardStatePatch } from '../repos/index.ts';
 import type { CardStateRow } from '../db/schema.ts';
@@ -46,5 +47,21 @@ export function toPreColumns(state: ItemState) {
 		preLapses: state.lapses,
 		prePhase: state.phase,
 		preLastReview: state.lastReview ? state.lastReview.toISOString() : null
+	};
+}
+
+// An ItemState with dates as ISO strings, as stored in review_log.result and sent to the client.
+export function serializeState(state: ItemState): SerializedState {
+	return {
+		due: state.due.toISOString(),
+		stability: state.stability,
+		difficulty: state.difficulty,
+		elapsedDays: state.elapsedDays,
+		scheduledDays: state.scheduledDays,
+		learningSteps: state.learningSteps,
+		reps: state.reps,
+		lapses: state.lapses,
+		phase: state.phase,
+		lastReview: state.lastReview ? state.lastReview.toISOString() : null
 	};
 }

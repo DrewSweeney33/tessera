@@ -26,19 +26,31 @@ export interface QueueScope {
 	folderId?: number | undefined;
 }
 
-// Items that may never be shown right now: archived or suspended cards, archived decks,
-// archived review items, and siblings buried until later.
-function eligible(nowIso: string, scope: QueueScope): SQL[] {
+// Items that are not removed or set aside: archived or suspended cards, archived decks, archived review items,
+// limited to the scope. Practice (ADR-017) uses exactly these.
+function active(scope: QueueScope): SQL[] {
 	const conditions: SQL[] = [
 		eq(cardState.archived, false),
 		eq(cards.archived, false),
 		eq(cards.suspended, false),
-		eq(decks.archived, false),
-		or(isNull(cardState.buriedUntil), lte(cardState.buriedUntil, nowIso))!
+		eq(decks.archived, false)
 	];
 	if (scope.deckId !== undefined) conditions.push(eq(cards.deckId, scope.deckId));
 	if (scope.folderId !== undefined) conditions.push(eq(decks.folderId, scope.folderId));
 	return conditions;
+}
+
+// Items that may never be shown right now: the active items without the ones buried until later.
+function eligible(nowIso: string, scope: QueueScope): SQL[] {
+	return [...active(scope), or(isNull(cardState.buriedUntil), lte(cardState.buriedUntil, nowIso))!];
+}
+
+// Everything in the scope that practice may show: whatever its due date and whether or not it is buried.
+export function listPracticePool(x: Executor, scope: QueueScope): QueueRow[] {
+	return selectRows(x)
+		.where(and(...active(scope)))
+		.orderBy(asc(cardState.cardPk), asc(cardState.ordinal))
+		.all();
 }
 
 function selectRows(x: Executor) {

@@ -23,15 +23,19 @@
 		if (page.url.pathname !== '/') void refreshShell();
 	});
 
-	// Decks is also the home of everything about one deck: its editor, a new deck, and a study session.
+	// Decks is also the home of everything about one deck: its editor, a new deck, and a study or practice session.
 	const here = (path: string) => {
 		const at = page.url.pathname;
 		if (path !== '/') return at.startsWith(path);
-		return at === '/' || at.startsWith('/decks') || at.startsWith('/study');
+		return (
+			at === '/' || at.startsWith('/decks') || at.startsWith('/study') || at.startsWith('/practice')
+		);
 	};
 
-	// Studying hides the phone navigation, so the card and the grade buttons have the whole screen.
-	const studying = $derived(page.url.pathname.startsWith('/study'));
+	// Studying or practicing hides the phone navigation, so the card and the answer buttons have the whole screen.
+	const studying = $derived(
+		page.url.pathname.startsWith('/study') || page.url.pathname.startsWith('/practice')
+	);
 </script>
 
 <svelte:head>

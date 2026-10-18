@@ -62,6 +62,52 @@ export interface ReviewRequest {
 	folderId?: number;
 }
 
+// Practice again (ADR-017). A session is limited to one deck or one folder, like a study session.
+export interface PracticePoolResponse {
+	// The deck title or the folder name.
+	label: string;
+	// Items that could be practiced (active cards in the scope, whatever their due date).
+	total: number;
+	// Of those, how many have never been studied (the weakest-first order puts them last).
+	unstudied: number;
+}
+
+export interface PracticeStartRequest {
+	deckId?: string;
+	folderId?: number;
+	count: number | 'all';
+	order: 'shuffle' | 'weakest';
+}
+
+export interface PracticeStartResponse {
+	// Items in the session, already ordered and cut to the count.
+	items: { cardPk: number; ordinal: number }[];
+	// Items that could have been practiced before the count cut.
+	poolSize: number;
+}
+
+// An item to practice: a study item without the schedule parts (no category, previews, or served time).
+export type PracticeItemDto = Omit<StudyItemDto, 'category' | 'previews' | 'servedAt'>;
+
+export interface PracticeItemResponse {
+	item: PracticeItemDto;
+}
+
+export interface PracticeGradeRequest {
+	reviewId: string;
+	cardPk: number;
+	ordinal: number;
+	// True for Got it (stored as grade 3), false for Missed it (grade 1).
+	right: boolean;
+	durationMs?: number;
+	typedAnswer?: string;
+}
+
+export interface PracticeGradeResponse {
+	// True when this review id had already been recorded (a retried request).
+	replayed: boolean;
+}
+
 export interface ReviewResultDto {
 	reviewId: string;
 	replayed: boolean;

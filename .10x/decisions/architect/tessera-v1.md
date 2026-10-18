@@ -183,3 +183,13 @@ Two proposed ADRs for the owner's review.
 - **ADR-014 (backups and restore from the GUI).** Four routes (back up now, list, download, delete) with names that are never paths. Snapshots go into the data folder (never `/tmp`, which is memory-backed). Restore is staged with a clean restart (a marker file, then a swap at the next start) and needs Compose's restart policy. No database upload through the page.
 
 **Failure modes covered:** a full disk (no snapshot means no action, and the answer is 507), a crash during restore (marker plus swap tested for old-or-new, never a mix), a path traversal in a backup name, a hand edit overwritten by a re-import (the preview shows it), and a stale write from a second tab.
+
+## Milestone 4 design: Practice again, statistics, exam dates (2026-10-17, accepted, nothing built)
+
+Spec: `.10x/specs/2026-10-17-milestone-4-practice-and-stats-design.md`. ADR: `.10x/adrs/017-practice-again-statistics-and-exam-dates.md`.
+
+- **Practice again.** The server picks and orders the pool (`server/practice/select.ts`, `eligible()` filters, ignoring due and burying) and returns item references. The browser holds the list and the loop-back state in `sessionStorage` (`core/practice.ts`, pure). Grading inserts one `review_log` row with `mode='cram'`, grade 3 or 1, pre-state copied from `card_state`, and never writes `card_state`, buries, or leeches. Exception to ADR-003 section 2 (server-authoritative queue), recorded in ADR-017.
+- **Isolation by construction.** `src/lib/server/practice/**` and `src/lib/core/practice.ts` may import only `core/scheduler/read.ts`. ESLint restricted-import rule, a byte-for-byte `card_state` test, and planted-bug checks.
+- **Statistics.** The folder statistics code takes a scope (all, folder, deck). `GET /api/stats`; `GET /api/folders/:id/stats` calls the same code. New: heatmap, forecast, per-tag retention, practiced-today line. All study numbers keep `mode='review'`.
+- **Exam date.** Migration `0003_folder_exam_date` adds `folders.exam_date`. `decks.exam_date` stays unused.
+- **Failure modes covered:** practice code changing a schedule, practice rows leaking into study numbers, a double submitted grade, a blocked `sessionStorage`, a slow forecast on a large log, a failed migration on the live database.

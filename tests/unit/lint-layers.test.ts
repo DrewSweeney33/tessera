@@ -62,6 +62,36 @@ describe('layer lint rules', { timeout: 60_000 }, () => {
 		);
 	});
 
+	it('keeps practice code away from anything that changes a schedule (ADR-017)', async () => {
+		const file = 'src/lib/server/practice/example.ts';
+		const rule = 'no-restricted-imports';
+		const lint = (code: string, path = file) => ruleIds(code + '\nexport const f = 1;\n', path);
+		// The review path and the scheduler's review function.
+		expect(await lint("import { submitReview } from '../study/submit.ts';")).toContain(rule);
+		expect(await lint("import { createScheduler } from '#lib/core/scheduler/index.ts';")).toContain(
+			rule
+		);
+		// Card-state writers and the other repository writes.
+		for (const name of ['updateState', 'resetStatesForDeck', 'clearLeech', 'setSuspended']) {
+			expect(await lint(`import { ${name} } from '../repos/index.ts';`)).toContain(rule);
+		}
+		// What practice does use stays allowed.
+		for (const allowed of [
+			"import { getState, insertReviewLog } from '../repos/index.ts';",
+			"import { createReader } from '#lib/core/scheduler/read.ts';",
+			"import { toItemState } from '../study/state.ts';"
+		]) {
+			expect(await lint(allowed)).not.toContain(rule);
+		}
+		// The pure queue in core may not reach the scheduler's review either.
+		expect(
+			await lint(
+				"import { createScheduler } from './scheduler/index.ts';",
+				'src/lib/core/practice.ts'
+			)
+		).toContain(rule);
+	});
+
 	it('forbids reading the clock or randomness in core and server logic', async () => {
 		expect(await ruleIds('export const t = Date.now();\n', 'src/lib/core/example.ts')).toContain(
 			'no-restricted-properties'

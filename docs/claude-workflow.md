@@ -152,6 +152,18 @@ Press **Move to Trash** at the top of a deck's editor. The deck leaves your deck
 
 For scripts: `GET /api/trash`, `POST /api/decks/:id/trash`, `POST /api/decks/:id/restore`, and `POST /api/decks/:id/delete-forever` with `{"confirmTitle": "..."}`. They need the API token when one is set, like every other write.
 
+## Practice again
+
+Normal study follows the schedule, so a card is shown when it is due. Before an exam you may want to go through everything again. **Practice again** on a deck, or **Practice folder** on a folder, does that without touching the schedule.
+
+- Pick how many cards (20, 50, 100, or all) and the order: **Shuffled**, or **Weakest first** (the cards you are least likely to remember come first, and cards you have never studied come last).
+- Every card that is not removed, set aside, or in the Trash is included, whether or not it is due.
+- Show the answer, then press **Got it** or **Missed it** (keys `3` and `1`). A card you miss comes back a few cards later, and the session ends when you have answered every card right once.
+- The summary shows how many cards were right the first time and lets you practice just the misses again. A session in progress is kept in the browser tab, so a reload offers to resume it.
+- Practice never changes when a card is next due, and its answers are not counted in your study numbers (daily limits, retention, streaks, leeches, weak tags, folder statistics).
+
+For scripts: `GET /api/practice/pool?deckId=` (or `?folderId=`), `POST /api/practice/start` with `{"deckId": "...", "count": "all", "order": "shuffle"}`, `GET /api/practice/item?cardPk=&ordinal=`, and `POST /api/practice/grade` with `{"reviewId": "...", "cardPk": 1, "ordinal": 0, "right": true}`. They need the API token when one is set, like every other write.
+
 ## Group decks in folders
 
 A course can be many decks. On the decks screen, **New folder** makes a folder and **Move decks** moves ticked decks into it, between folders, or out of any folder. Decks in no folder stay in view under **Ungrouped decks**. A deck is in one folder at most, and folders do not nest.

@@ -19,6 +19,7 @@
 | 003 | Scheduler isolation, queue, cram |
 | 004 | Container and base image |
 | 005 | Security posture without login |
+| 017 | Practice again, statistics for any scope, exam dates on folders (Milestone 4) |
 
 ## Features
 

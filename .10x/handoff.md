@@ -2,12 +2,39 @@
 
 ## Current handoff
 
-**From:** The team (SDE, QA, Security, DevOps), end of Milestone L and Milestone 3
+**From:** The team (SDE, QA, Security, DevOps), Milestone 4 slice A
+**To:** The owner
+**Date:** 2026-10-17 (updated after slice A)
+**Per-feature files:** `.10x/specs/2026-10-17-milestone-4-practice-and-stats-design.md`, `.10x/adrs/017-practice-again-statistics-and-exam-dates.md`, `.10x/decisions/engineering-manager/tessera-v1.md` ("M4 re-plan"), `.10x/decisions/architect/tessera-v1.md` ("Milestone 4 design")
+
+### What was done
+
+**Slice A of Milestone 4, Practice again, is built, tested, and running on CT123.** A deck or a folder can be practiced again from the decks screen (**Practice again**, **Practice folder**): pick 20, 50, 100, or all cards, shuffled or weakest first; a missed card comes back until it is right; the summary offers the misses again; a session in progress resumes after a reload. Practice writes only `review_log` rows with `mode='cram'`, so the schedule and every study number are untouched (proved by a byte-for-byte test, five planted bugs, and an ESLint confinement). **Nothing is committed or pushed.** CT123 runs `tessera:library-0f2a837-practice`, built from the working tree at the owner's request (no migration; manual backup `manual-before-practice-update.db` taken first; 31 CCNA decks and 1,100 cards intact).
+
+Checks: unit 1,206, integration 878, full Chromium e2e 285, practice spec 11 on WebKit, security probe 684 with no failure, `probe:remote-check` pass.
+
+### What needs you
+
+1. Try Practice again on the live site (a CCNA deck, then the whole CCNA folder once you make it). Tell me what feels wrong.
+2. Say when to commit and push. The uncommitted work includes the `.10x` files, the code, tests, docs, and the probe changes. The image on CT123 is named for `0f2a837` but contains this work, so a later commit should be redeployed to make the tag honest.
+3. Say "go" for slice B (statistics page, exam date on folders, migration `0003_folder_exam_date`).
+4. Still open from before: the 0.2.0 release candidate, accepted risks S-11 and S-12, Firefox and a phone and screen reader pass, host-side items.
+
+### Things to know
+
+- Practice rows are `review_log` rows with `mode='cram'`; every study number already filters `mode='review'`.
+- The unused `decks.exam_date` column stays unused; the exam date lives on `folders`.
+- Folder statistics are generalized, not replaced: `GET /api/folders/:id/stats` stays.
+
+## Handoff history
+
+### 2026-10-12: the team, Milestone L and Milestone 3, to the owner
+
 **To:** The owner
 **Date:** 2026-10-12
 **Per-feature files:** `.10x/reviews/2026-10-12-qa-report-milestone-l.md`, `.10x/reviews/2026-10-12-security-review-milestone-l.md`, `.10x/decisions/sde/tessera-v1.md` (sections from "L-01" to "L-08 Backups, L-09 restore, L-10 harness"), `.10x/adrs/013-*.md`, `.10x/adrs/014-*.md`, `CHANGELOG.md` ([Unreleased])
 
-### What was done
+#### What was done
 
 **Milestone 3 (added after you said "Lets continue").** Leeches and the weak-spot loop are built: a Leeches page (the cards you keep forgetting, with the wrong answers you typed; Reset, Set aside, Put back), your weakest tags, and **Copy the weak-spot report for Claude**, which puts your worst cards on the clipboard as ready-to-edit deck blocks in the import format with a request to rewrite them, keeping every id and type. Claude's answer imports as usual, updates only those cards, and keeps their history. Also a Settings page (new cards per day, reviews per day, target retention, the hour the day starts, the leech threshold, mixing new and due cards), and the mixing option now really mixes. ADR-015 records the design; the review is `.10x/reviews/2026-10-12-m3-qa-and-security.md`. Pushed to `main`, CI green through the leech work. **CT123 runs this build** (built on the host from commit 3147959 and tagged `tessera:library-3147959`; the owner's standing instruction, "Always up the container", is that each finished piece goes there after a backup). Your "Smoke test" deck is in the Trash there, as you left it.
 
@@ -17,7 +44,7 @@ Milestone L is built, pushed to `main`, and tested: **L-01 to L-10, including th
 
 Checks, all passing on the last commit: 1,736 unit and integration tests, 217 browser tests on each of Chromium and WebKit, an accessibility scan of every new state in light and dark, layout at phone widths, and about 490 security probe checks. The live-image harness ran on CT123's Docker (test project only, `~/tessera-test`) against an image built from the code: **106 passed, 0 failed**. That run included the restore (the server stopped itself, Docker restarted it, the data was the backup's) and an upgrade from 0.1.1 with a rollback.
 
-### What needs you
+#### What needs you
 
 1. **Choose the version and say when to cut a release candidate.** This is the first release with a database change (`0001_deck_resets`), so semver says **0.2.0**. Nothing has been tagged. The CI image build runs on tags, so a candidate such as `v0.2.0-rc.1` is the way to get a published image to test on CT123 before the final release (the harness has to be run against the published candidate: `TESSERA_LIVE_SSH=andrew@192.168.30.102 npm run live:test -- --image ghcr.io/drewsweeney33/tessera:0.2.0-rc.1 --expect-migration`).
 2. **Read the two accepted risks in the security review (S-11, S-12).** Anyone who can reach the page can delete a deck for good, delete a backup, or restore an older backup (which restarts Tessera). The typed word protects against a slip, not a person. Keep it behind your VPN or NPM Access List as now. Say if you want an optional page password or a limit on backups, or leave them as accepted.
@@ -26,20 +53,19 @@ Checks, all passing on the last commit: 1,736 unit and integration tests, 217 br
 5. **Restore needs the restart policy** (`restart: unless-stopped` in `compose.yaml`). CT123's compose file has it. If you ever run without one, the page says what to do.
 6. **Still open from before:** the OPNsense rule so only NPM reaches 192.168.30.102:3000, clearing the build cache on CT123, a daily off-box backup copy (the Backups page now makes the download easy, but a scheduled copy is still yours), Uptime Kuma, the VLAN/host/Pi-hole/firewall notes for CT123 in the vault, trying the Claude skill in a real conversation (R-9), a screen reader and phone pass (R-3, R-10), and a multi-day soak (R-8).
 
-### Next, once you decide
+#### Next, once you decide
 
 - Cut the release candidate, run the harness against it, then release 0.2.0 on your word.
 - Then Milestone 4: "Practice again" (cram mode, the other half of US-14: grades never change the schedule) and statistics (today, retention, a forecast, a streak, per-tag retention). After that, Milestone 5 (polish and the rest of the plan). The checkpoint rule (5 study days) was overridden by your "next milestone", so the order is yours.
 - Backlog: B-3 (chunked oversized bodies reset the connection), B-4 (reorder cards in the editor).
 
-### Things to know
+#### Things to know
 
 - **The image build on CT123 used to hang in `npm prune`.** The Dockerfile now installs the runtime modules in their own stage with `npm ci --omit=dev`, and building on that host takes seconds. The cause of the hang itself was not found.
 - The harness works only in `~/tessera-test` and never touches `/opt/tessera`. It now uses six ports (3001 to 3006) and a `previous`/`upgraded` pair of services for the upgrade test.
 - A release candidate tag publishes only its exact tag and a pre-release.
 - Restoring from the page stops the server with SIGTERM, which Windows cannot deliver, so it is a container feature.
 
-## Handoff history
 
 ### 2026-10-12: the team, the overnight run, to the owner
 

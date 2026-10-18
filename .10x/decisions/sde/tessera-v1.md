@@ -804,3 +804,13 @@ Milestone L (library management) started on the owner's go-ahead (ADR-013 and AD
 **Found on the way.** Svelte's `bind:value` on a number input gives a number (or null), not text, so `.trim()` threw and the page died with a 500; the form keeps text and converts when saving. Two overlapping builds left a half-built `build/`; one build at a time.
 
 **Not done.** Per-deck limits in the page (the database column exists), and a setting for the 90-day window of the weak-tag table.
+
+## M4 slice A, Practice again (2026-10-17)
+
+Spec `.10x/specs/2026-10-17-milestone-4-practice-and-stats-design.md`, ADR-017. Built M4-01 to M4-04. Nothing committed.
+
+- **Built.** `src/lib/core/practice.ts` (shuffle, weakest-first, count cut, the loop-back queue, summary, skip, parse of a saved session). `src/lib/server/practice/` (`pool.ts`, `item.ts`, `grade.ts`, `schema.ts`, `index.ts`), `src/lib/server/api/practice.ts`, four routes under `src/routes/api/practice/`, `src/lib/ui/practice-session.ts`, the `/practice` page, and entry points on deck tiles and folders. `repos/study-queries.ts` gained `active()` (shared with `eligible()`) and `listPracticePool`.
+- **Deviations and findings.** Cloze ordinals start at 1, not 0 (tests assumed 0). `serializeState` moved from `study/submit.ts` to `study/state.ts` (re-exported) so practice does not import the review path. `submitReview` now refuses (400 `review_id_reused`) an id that belongs to a practice row. The phone navigation is hidden on `/practice` as on `/study`. The `/practice` page copies the study page styles (technical debt: extract a shared piece next time either changes). The wrong typed answers on the Leeches page come from any log row with grade 1, so practice answers can appear there; left as it is and noted in the vault Gotchas.
+- **Enforcement.** ESLint `allowImportNames` confines `server/practice/**` to read functions plus `insertReviewLog`; `core/practice.ts` may import no scheduler module but types. Proven by `tests/unit/lint-layers.test.ts`. Five planted bugs were each caught by the tests (practice row written as `review`, a practice answer that updates card state, a pool that includes suspended cards, a miss that is not looped back, a right answer that stays in the queue).
+- **Checks.** Unit 1,206, integration 878, full Chromium e2e 285 pass, `practice.spec.ts` 11 on WebKit, `security:probe` 684 checks no failure, `probe:remote-check` pass. Firefox not run locally (known). Not done by hand: a phone and screen reader pass.
+- **Tech debt.** The probe's "oversized body" checks send a `content-length`; chunked oversized bodies on small-limit routes are still backlog B-3.

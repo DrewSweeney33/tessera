@@ -724,6 +724,27 @@ try {
 				'and the folder list works with the token',
 				(await status('/api/folders', withToken)) === 200
 			);
+			// Practice again only reads and adds log rows, but it is still app data: every practice route needs the token.
+			check(
+				'the practice pool is refused without the token',
+				(await status('/api/practice/pool?deckId=probe')) === 401
+			);
+			check(
+				'starting a practice session is refused without the token',
+				(await status('/api/practice/start', JSON_HEADERS, 'POST')) === 401
+			);
+			check(
+				'a practice item is refused without the token',
+				(await status('/api/practice/item?cardPk=1&ordinal=0')) === 401
+			);
+			check(
+				'recording a practice answer is refused without the token',
+				(await status('/api/practice/grade', JSON_HEADERS, 'POST')) === 401
+			);
+			check(
+				'and a path variant of a practice route is refused too',
+				(await status('/api/%70ractice/pool?deckId=probe')) === 401
+			);
 			check('the settings are refused without the token', (await status('/api/settings')) === 401);
 			check(
 				'changing them is refused without the token',
@@ -2412,6 +2433,287 @@ try {
 			originalNewPerDay
 	);
 
+	// ---- Practice again (ADR-017): it adds log rows and changes nothing else
+	console.log('\n# Practice again');
+	// Answer ids are fresh each run: the remote check runs this probe twice against one server.
+	const runId = Date.now().toString(36);
+	await post('/api/import', deck('probe-practice', [basic('p1'), basic('p2'), basic('p3')]));
+	const practiceDeck = async () =>
+		JSON.parse((await send({ path: '/api/decks' })).text).decks.find(
+			(d: { id: string }) => d.id === 'probe-practice'
+		);
+	const practiceServed = async () =>
+		JSON.parse((await send({ path: '/api/study/next?deckId=probe-practice' })).text);
+	const practiceBefore = await practiceServed();
+	const poolReply = await send({ path: '/api/practice/pool?deckId=probe-practice' });
+	check(
+		'the practice pool counts the items of a deck',
+		poolReply.status === 200 && JSON.parse(poolReply.text).total === 3,
+		poolReply.text.slice(0, 80)
+	);
+	for (const query of [
+		'',
+		'?deckId=probe-practice&folderId=1',
+		'?deckId=',
+		'?deckId=NOPE%20NOPE',
+		'?deckId=no-such-deck',
+		'?folderId=0',
+		'?folderId=-1',
+		'?folderId=1e3',
+		'?folderId=99999999999999999999',
+		'?folderId=999999',
+		'?deckId[]=a&deckId[]=b',
+		'?deckId=%3Cscript%3E'
+	]) {
+		const r = await send({ path: `/api/practice/pool${query}` });
+		check(
+			`the practice pool for "${query}" is a 400 or 404 that leaks nothing`,
+			(r.status === 400 || r.status === 404) &&
+				!/<script|node_modules|\.ts:\d+|root:x:/.test(r.text),
+			`${r.status} ${r.text.slice(0, 80)}`
+		);
+	}
+	for (const body of [
+		'{}',
+		'[]',
+		'null',
+		'"text"',
+		'{"deckId":"probe-practice"}',
+		'{"deckId":"probe-practice","count":0,"order":"shuffle"}',
+		'{"deckId":"probe-practice","count":-1,"order":"shuffle"}',
+		'{"deckId":"probe-practice","count":1.5,"order":"shuffle"}',
+		'{"deckId":"probe-practice","count":1e9,"order":"shuffle"}',
+		'{"deckId":"probe-practice","count":"many","order":"shuffle"}',
+		'{"deckId":"probe-practice","count":"all","order":"random"}',
+		'{"deckId":"probe-practice","folderId":1,"count":"all","order":"shuffle"}',
+		'{"deckId":"probe-practice","count":"all","order":"shuffle","extra":1}',
+		'{"__proto__":{"polluted":true},"deckId":"probe-practice","count":"all","order":"shuffle"}',
+		'{"deckId":["probe-practice"],"count":"all","order":"shuffle"}',
+		'{not json'
+	]) {
+		const r = await post('/api/practice/start', body);
+		check(
+			`practice start refuses ${body.slice(0, 50)}`,
+			[400, 422].includes(r.status) && !/node_modules|\.ts:\d+/.test(r.text),
+			`got ${r.status}`
+		);
+	}
+	// A body over the small limit, sent with its length so the answer is a 413 (a chunked one is backlog B-3).
+	const bigPractice = `{"deckId":"probe-practice","count":"all","order":"shuffle","pad":"${'x'.repeat(20_000)}"}`;
+	const oversized = await send({
+		method: 'POST',
+		path: '/api/practice/start',
+		headers: { ...JSON_HEADERS, 'content-length': String(Buffer.byteLength(bigPractice)) },
+		body: bigPractice
+	});
+	check(
+		'an oversized practice start is refused with 413',
+		oversized.status === 413,
+		`got ${oversized.status}`
+	);
+	const bigGrade = `{"reviewId":"probe-practice-big1","cardPk":1,"ordinal":0,"right":true,"typedAnswer":"${'y'.repeat(20_000)}"}`;
+	const oversizedGrade = await send({
+		method: 'POST',
+		path: '/api/practice/grade',
+		headers: { ...JSON_HEADERS, 'content-length': String(Buffer.byteLength(bigGrade)) },
+		body: bigGrade
+	});
+	check(
+		'an oversized practice answer is refused with 413',
+		oversizedGrade.status === 413,
+		`got ${oversizedGrade.status}`
+	);
+
+	const startReply = await post('/api/practice/start', {
+		deckId: 'probe-practice',
+		count: 'all',
+		order: 'weakest'
+	});
+	const practiceStarted: { items?: { cardPk: number; ordinal: number }[]; poolSize?: number } =
+		JSON.parse(startReply.text);
+	check(
+		'a practice session starts with ordered references',
+		startReply.status === 200 &&
+			practiceStarted.items?.length === 3 &&
+			practiceStarted.poolSize === 3,
+		startReply.text.slice(0, 80)
+	);
+	check(
+		'starting a session changes nothing',
+		(await practiceServed()).item?.cardPk === practiceBefore.item?.cardPk
+	);
+
+	for (const query of [
+		'',
+		'?cardPk=1',
+		'?ordinal=0',
+		'?cardPk=abc&ordinal=0',
+		'?cardPk=-1&ordinal=0',
+		'?cardPk=1.5&ordinal=0',
+		'?cardPk=1e3&ordinal=0',
+		'?cardPk=0&ordinal=0',
+		'?cardPk=99999999999999999999&ordinal=0',
+		'?cardPk=1&ordinal=x',
+		'?cardPk=1&ordinal=9999',
+		'?cardPk=999999&ordinal=0',
+		'?cardPk=%3Cscript%3E&ordinal=0'
+	]) {
+		const r = await send({ path: `/api/practice/item${query}` });
+		check(
+			`a practice item for "${query}" is a 400 or 404 that leaks nothing`,
+			(r.status === 400 || r.status === 404) &&
+				!/<script|node_modules|\.ts:\d+|root:x:/.test(r.text),
+			`${r.status} ${r.text.slice(0, 80)}`
+		);
+	}
+	const first = practiceStarted.items?.[0];
+	if (!first) {
+		check('a practice item can be read', false, 'no item to read');
+	} else {
+		const itemReply = await send({
+			path: `/api/practice/item?cardPk=${first.cardPk}&ordinal=${first.ordinal}`
+		});
+		const shown = JSON.parse(itemReply.text).item;
+		check(
+			'a practice item is read, without schedule parts',
+			itemReply.status === 200 &&
+				shown?.cardPk === first.cardPk &&
+				shown.previews === undefined &&
+				shown.servedAt === undefined,
+			itemReply.text.slice(0, 80)
+		);
+
+		const answer = (overrides: Record<string, unknown> = {}) => ({
+			reviewId: `probe-${runId}-0001`,
+			cardPk: first.cardPk,
+			ordinal: first.ordinal,
+			right: false,
+			...overrides
+		});
+		const graded = await post('/api/practice/grade', answer());
+		check(
+			'a practice answer is recorded',
+			graded.status === 200 && JSON.parse(graded.text).replayed === false,
+			`${graded.status} ${graded.text.slice(0, 80)}`
+		);
+		const replayed = await post('/api/practice/grade', answer());
+		check(
+			'the same answer sent again is a replay, not a second row',
+			replayed.status === 200 && JSON.parse(replayed.text).replayed === true
+		);
+		const reused = await post(
+			'/api/practice/grade',
+			answer({ cardPk: practiceStarted.items?.[1]?.cardPk ?? first.cardPk + 1 })
+		);
+		check(
+			'an answer id used for another card is refused',
+			reused.status === 400,
+			`got ${reused.status}`
+		);
+		for (let i = 2; i <= 12; i++) {
+			await post(
+				'/api/practice/grade',
+				answer({ reviewId: `probe-${runId}-${String(i).padStart(4, '0')}`, right: i % 2 === 0 })
+			);
+		}
+		const after = await practiceServed();
+		check(
+			'twelve practice answers left the study queue as it was',
+			after.item?.cardPk === practiceBefore.item?.cardPk &&
+				JSON.stringify(after.counts) === JSON.stringify(practiceBefore.counts) &&
+				JSON.stringify(after.item?.state) === JSON.stringify(practiceBefore.item?.state),
+			`${JSON.stringify(after.counts)} vs ${JSON.stringify(practiceBefore.counts)}`
+		);
+		check(
+			'and the deck still shows all its cards as new',
+			(await practiceDeck())?.counts?.new === 3,
+			JSON.stringify((await practiceDeck())?.counts)
+		);
+		const asReview = await post('/api/study/review', {
+			reviewId: `probe-${runId}-0001`,
+			cardPk: first.cardPk,
+			ordinal: first.ordinal,
+			grade: 3,
+			servedAt: new Date().toISOString()
+		});
+		check(
+			'a practice answer id cannot be replayed as a study review',
+			asReview.status === 400,
+			`got ${asReview.status}`
+		);
+
+		for (const body of [
+			'{}',
+			'[]',
+			'null',
+			JSON.stringify(answer({ right: 'yes' })),
+			JSON.stringify(answer({ right: 1 })),
+			JSON.stringify(answer({ grade: 3 })),
+			JSON.stringify(answer({ reviewId: 'short' })),
+			JSON.stringify(answer({ reviewId: 'has spaces and <b>markup</b>' })),
+			JSON.stringify(answer({ reviewId: 'x'.repeat(65) })),
+			JSON.stringify(answer({ cardPk: 'one' })),
+			JSON.stringify(answer({ cardPk: -1, reviewId: 'probe-practice-neg1' })),
+			JSON.stringify(answer({ ordinal: 100, reviewId: 'probe-practice-ord1' })),
+			JSON.stringify(answer({ durationMs: -5, reviewId: 'probe-practice-dur1' })),
+			JSON.stringify(answer({ typedAnswer: 'x'.repeat(2001), reviewId: 'probe-practice-typ1' })),
+			'{"__proto__":{"polluted":true},"reviewId":"probe-practice-pro1","cardPk":1,"ordinal":0,"right":true}',
+			'{not json'
+		]) {
+			const r = await post('/api/practice/grade', body);
+			check(
+				`a practice answer of ${body.slice(0, 50)} is refused`,
+				[400, 422].includes(r.status) && !/node_modules|\.ts:\d+/.test(r.text),
+				`got ${r.status}`
+			);
+		}
+		const missing = await post(
+			'/api/practice/grade',
+			answer({ cardPk: 999_999, reviewId: 'probe-practice-gone1' })
+		);
+		check('an answer for a card that does not exist is a 404', missing.status === 404);
+		check(
+			'and none of the refused answers changed the queue',
+			(await practiceServed()).item?.cardPk === practiceBefore.item?.cardPk
+		);
+	}
+
+	const wrongMethods: [string, string][] = [
+		['GET', '/api/practice/start'],
+		['GET', '/api/practice/grade'],
+		['POST', '/api/practice/pool'],
+		['POST', '/api/practice/item'],
+		['PUT', '/api/practice/grade'],
+		['DELETE', '/api/practice/start'],
+		['PATCH', '/api/practice/grade']
+	];
+	for (const [method, path] of wrongMethods) {
+		const r = await send({
+			method,
+			path,
+			headers: method === 'GET' ? {} : JSON_HEADERS,
+			...(method === 'GET' ? {} : { body: '{}' })
+		});
+		check(
+			`${method} on ${path} is refused`,
+			[400, 403, 404, 405].includes(r.status),
+			`got ${r.status}`
+		);
+	}
+	for (const path of ['/api/practice/start', '/api/practice/grade']) {
+		const r = await send({
+			method: 'POST',
+			path,
+			headers: { 'content-type': 'text/plain', origin: 'https://evil.example' },
+			body: '{}'
+		});
+		check(
+			`a cross-site POST to ${path} is refused`,
+			[400, 403, 415].includes(r.status),
+			`got ${r.status}`
+		);
+	}
+
 	// ---- 5. Path traversal and error leakage
 	console.log('\n# Paths and errors');
 	for (const path of [
@@ -2462,6 +2764,15 @@ try {
 			ordinal: next.item.ordinal,
 			grade: 3,
 			servedAt: next.item.servedAt,
+			typedAnswer: marker
+		});
+	}
+	if (next.item) {
+		await post('/api/practice/grade', {
+			reviewId: 'probe-practice-log-01',
+			cardPk: next.item.cardPk,
+			ordinal: next.item.ordinal,
+			right: false,
 			typedAnswer: marker
 		});
 	}

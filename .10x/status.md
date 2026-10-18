@@ -1,6 +1,6 @@
 # Tessera Status
 
-**Last updated:** 2026-10-11
+**Last updated:** 2026-10-17 (Milestone 4 designed, see "M4 re-plan and design")
 **Current phase:** Phase 4 Implementation, Milestone 2 in progress (started 2026-10-11). The repository is live on GitHub (public) with CI green on Linux. M2-00 to M2-15 are done and pushed (CI fully green on ad454a0, including the first image scan). No release exists; `v0.1.0` is the M2 exit.
 **Feature slug:** `tessera-v1`
 
@@ -156,7 +156,7 @@ Manual deck creation, editing, practice again and start over, deck deletion (Tra
 
 ### M4 Cram and stats (8 tasks, 22 hours)
 
-- [ ] M4-01 to M4-08, see EM file section 7. Re-plan at M3 exit.
+- [ ] Re-planned 2026-10-17: see "M4 re-plan and design" below and the EM file, "M4 re-plan". Original outline in EM section 7 is superseded.
 
 ### M5 PWA, polish, docs, release (9 tasks, 36 hours)
 
@@ -193,3 +193,16 @@ Added 2026-10-11 at the owner's request. Neither blocks use of 0.1.0. Both were 
 6. Deferred to v1.1: auto-generated choice distractors, undo last grade.
 
 Decided by the owner on 2026-10-11: the API token covers external clients only and same-origin browser requests are exempt (ADR-009, supersedes ADR-005 section 2). License `AGPL-3.0-only`. Repository public. Standing approval to push CI fixes.
+
+### M4 re-plan and design (2026-10-17)
+
+M4-01 to M4-08 below replace the original outline. Spec `.10x/specs/2026-10-17-milestone-4-practice-and-stats-design.md`, ADR-017 accepted. Slice A = M4-01 to M4-04 (no migration), slice B = M4-05 to M4-08 (migration `0003_folder_exam_date`).
+
+- [x] M4-01 practice queue and pool (M), done 2026-10-17: `core/practice.ts`, `server/practice/pool.ts`, `listPracticePool`
+- [x] M4-02 practice API, invariance test, lint rule, probe entries (M), done 2026-10-17: four routes, `server/practice/{item,grade,schema}.ts`, ESLint confinement, byte-for-byte invariance test, 93 new probe checks (684 in all)
+- [x] M4-03 `/practice` page and entry points (M), done 2026-10-17: setup, session, summary, resume, keys, Practice again on deck tiles and Practice folder on folders
+- [x] M4-04 slice A e2e, docs, deploy (S), done 2026-10-17: `practice.spec.ts` (11 tests, Chromium and WebKit), CHANGELOG, README, `docs/claude-workflow.md`, vault notes. Deployed to CT123 as `tessera:library-0f2a837-practice` (built from the uncommitted working tree at the owner's request)
+- [ ] M4-05 statistics by scope, forecast, heatmap, per-tag retention (M)
+- [ ] M4-06 `/stats` page and SVG charts (M)
+- [ ] M4-07 migration `0003`, folder exam date (S)
+- [ ] M4-08 benchmark, indexes, slice B e2e, docs, deploy (S)

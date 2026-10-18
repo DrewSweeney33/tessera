@@ -39,6 +39,33 @@ const noDrizzle = {
 	message: 'Drizzle belongs in src/lib/server/db and src/lib/server/repos only.'
 };
 
+// Practice again (ADR-017) must not be able to change a schedule. Its code may read the scheduler's read-only half
+// and the state mappers, and import only these repository functions: reads, and the one write that adds a row to
+// the review log. Everything else (the review path, card-state writers, burying, leech writers) is refused.
+const practiceNoScheduler = {
+	group: ['**/scheduler/*', '!**/scheduler/read.ts', '!**/scheduler/types.ts'],
+	message: 'Practice code may use only the read-only half of the scheduler (ADR-017).'
+};
+const practiceNoStudy = {
+	group: ['**/study/*', '!**/study/state.ts'],
+	message: 'Practice code must not import the study path: it could change a schedule (ADR-017).'
+};
+const practiceRepos = {
+	group: ['**/repos/*'],
+	allowImportNames: [
+		'getCard',
+		'getDeck',
+		'getFolder',
+		'getReviewLog',
+		'getState',
+		'insertReviewLog',
+		'listPracticePool',
+		'QueueScope'
+	],
+	message:
+		'Practice code may use only read functions and insertReviewLog from the repositories (ADR-017).'
+};
+
 const restrict = ({ paths = [], patterns = [] }) => [
 	'error',
 	{ paths: [noTsFsrs, ...paths], patterns }
@@ -101,6 +128,25 @@ export default defineConfig(
 			'no-restricted-imports': restrict({
 				paths: [noDbDriver, noDrizzle],
 				patterns: [noUi]
+			})
+		}
+	},
+	// Practice again cannot reach anything that changes a schedule (ADR-017).
+	{
+		files: ['src/lib/server/practice/**/*.ts'],
+		rules: {
+			'no-restricted-imports': restrict({
+				paths: [noDbDriver, noDrizzle],
+				patterns: [noUi, practiceNoScheduler, practiceNoStudy, practiceRepos]
+			})
+		}
+	},
+	{
+		files: ['src/lib/core/practice.ts'],
+		rules: {
+			'no-restricted-imports': restrict({
+				paths: [noDbDriver, noDrizzle],
+				patterns: [noServer, noUi, noPlatform, practiceNoScheduler]
 			})
 		}
 	},

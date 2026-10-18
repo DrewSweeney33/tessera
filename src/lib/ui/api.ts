@@ -18,6 +18,12 @@ import type {
 	LeechesResponse,
 	ImportResponse,
 	NextResponse,
+	PracticeGradeRequest,
+	PracticeGradeResponse,
+	PracticeItemResponse,
+	PracticePoolResponse,
+	PracticeStartRequest,
+	PracticeStartResponse,
 	RestoreDeckResponse,
 	SettingsDto,
 	SettingsResponse,
@@ -77,6 +83,16 @@ function deckQuery(deckId: string | undefined): string {
 function scopeQuery(scope: StudyScope): string {
 	if (scope.folderId !== undefined) return `?folderId=${scope.folderId}`;
 	return deckQuery(scope.deckId);
+}
+
+// What a practice session covers: exactly one deck or one folder.
+export type PracticeScope =
+	{ deckId: string; folderId?: undefined } | { folderId: number; deckId?: undefined };
+
+function practiceQuery(scope: PracticeScope): string {
+	return scope.folderId !== undefined
+		? `?folderId=${scope.folderId}`
+		: `?deckId=${encodeURIComponent(scope.deckId)}`;
 }
 
 // Sends the request, marked as coming from the Tessera page (ADR-011). A network failure becomes an ApiError.
@@ -244,6 +260,18 @@ export const api = {
 
 	review: (request: ReviewRequest) =>
 		call<ReviewResponse>('/api/study/review', jsonRequest('POST', request)),
+
+	practicePool: (scope: PracticeScope) =>
+		call<PracticePoolResponse>(`/api/practice/pool${practiceQuery(scope)}`),
+
+	practiceStart: (request: PracticeStartRequest) =>
+		call<PracticeStartResponse>('/api/practice/start', jsonRequest('POST', request)),
+
+	practiceItem: (cardPk: number, ordinal: number) =>
+		call<PracticeItemResponse>(`/api/practice/item?cardPk=${cardPk}&ordinal=${ordinal}`),
+
+	practiceGrade: (request: PracticeGradeRequest) =>
+		call<PracticeGradeResponse>('/api/practice/grade', jsonRequest('POST', request)),
 
 	importDeck: (text: string, options: ImportOptions) => {
 		const query = new URLSearchParams();

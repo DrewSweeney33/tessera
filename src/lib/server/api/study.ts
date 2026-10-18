@@ -51,7 +51,7 @@ function deckScope(
 }
 
 // Validates the optional deck and folder a request is limited to. Naming both is refused: a session has one scope.
-function sessionScope(
+export function sessionScope(
 	app: AppContext,
 	deckParam: string | null | undefined,
 	folderParam: string | number | null | undefined,

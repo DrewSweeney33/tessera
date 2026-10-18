@@ -5,7 +5,7 @@ import {
 	DEFAULT_SCHEDULER_CONFIG,
 	type Scheduler
 } from '#lib/core/scheduler/index.ts';
-import type { Grade, ItemState } from '#lib/core/scheduler/types.ts';
+import type { Grade } from '#lib/core/scheduler/types.ts';
 import { nextRollover } from '#lib/core/study-day.ts';
 import type { Clock } from '../clock.ts';
 import { withTx, type Db } from '../db/index.ts';
@@ -20,7 +20,7 @@ import {
 	updateState
 } from '../repos/index.ts';
 import type { ReviewInput } from './schema.ts';
-import { toItemState, toPreColumns, toStatePatch } from './state.ts';
+import { serializeState, toItemState, toPreColumns, toStatePatch } from './state.ts';
 
 export type ReviewFailureCode = 'not_found' | 'stale_review' | 'review_id_reused';
 
@@ -40,20 +40,7 @@ export interface SubmitContext {
 	timeZone: string;
 }
 
-export function serializeState(state: ItemState): SerializedState {
-	return {
-		due: state.due.toISOString(),
-		stability: state.stability,
-		difficulty: state.difficulty,
-		elapsedDays: state.elapsedDays,
-		scheduledDays: state.scheduledDays,
-		learningSteps: state.learningSteps,
-		reps: state.reps,
-		lapses: state.lapses,
-		phase: state.phase,
-		lastReview: state.lastReview ? state.lastReview.toISOString() : null
-	};
-}
+export { serializeState };
 
 // One scheduler per target retention is plenty. They are stateless.
 const schedulers = new Map<number, Scheduler>();
@@ -78,7 +65,12 @@ export function submitReview(
 		// lastReview is newer than servedAt, so a replay would otherwise look stale.
 		const existing = getReviewLog(tx, input.reviewId);
 		if (existing) {
-			if (existing.cardPk !== input.cardPk || existing.ordinal !== input.ordinal) {
+			// A practice row (mode 'cram') has no stored result and is not a review: its id cannot be reused here.
+			if (
+				existing.mode !== 'review' ||
+				existing.cardPk !== input.cardPk ||
+				existing.ordinal !== input.ordinal
+			) {
 				return err({
 					code: 'review_id_reused',
 					message: 'This reviewId was already used for a different card.'

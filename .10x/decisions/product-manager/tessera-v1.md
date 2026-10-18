@@ -123,3 +123,12 @@ Not requirements. A list for the owner to cross out or promote, gathered from th
 The owner accepted ADR-013 and ADR-014 and said "next milestone", with no changes. That settles the five questions as the team assumed them: (1) "retrain after completion" means both practice again (no effect on the schedule) and start over (reset progress); (2) delete goes to a Trash first, with permanent delete behind it; (3) a hand edit that a later re-import overwrites is shown in the import preview and the owner decides, with no locked cards; (4) restore from the GUI comes after backup, download, and the snapshots, as a stretch (L-09) that is in the plan but built last; (5) library management (milestone L) comes before the weak-spot work. The owner has not yet listed other features, so the candidate list stands as candidates.
 
 **The checkpoint gate** (5 study days) was overridden by the owner's instruction to start the next milestone. The CTO file records this.
+
+## Milestone 4 scope decisions (2026-10-17)
+
+Owner's answers in the design conversation. They refine US-7 (practice) and US-8 (statistics), and the "practice again" half of US-13.
+
+- US-7 as built: practice again covers **one deck or one folder** (not tag, not weakest-only). Count choices 20, 50, 100, all (default all). Order: shuffled or weakest first. A missed card **loops back** in the session until answered right once. Grades never change FSRS state. Tag scope can follow later.
+- US-8 as built: a **/stats page with a scope picker** (all decks, a folder, a deck): today, retention, streak, 26-week heatmap, 30-day forecast, items by stage, per-tag retention, practiced today.
+- New: a folder can carry an **exam date**, shown as a countdown, with a Practice folder suggestion in the last 14 days. Not on decks.
+- Success criteria: practice leaves every schedule byte-identical; study numbers are unchanged by practice rows; the stats page loads in under a second on a 100,000-row log.
