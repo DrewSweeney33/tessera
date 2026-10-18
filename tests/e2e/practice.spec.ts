@@ -37,6 +37,12 @@ test.afterEach(async ({ request }) => {
 });
 
 async function scan(page: Page, label: string) {
+	// Scan the settled page: a transition in progress shows in-between colours to axe.
+	await page.evaluate(() =>
+		Promise.all(
+			document.getAnimations().map((animation) => animation.finished.catch(() => undefined))
+		)
+	);
 	const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
 	const summary = results.violations.map(
 		(violation) =>

@@ -9,6 +9,13 @@ import { basicCards, deckOf, importViaApi, makeLeech } from './helpers.ts';
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice'];
 
 async function scan(page: Page, label: string) {
+	// A button that was just enabled or focused is still fading to its final colours, and axe reads the colours it is
+	// showing at that instant (WebKit is the slowest to settle). Scan the settled page.
+	await page.evaluate(() =>
+		Promise.all(
+			document.getAnimations().map((animation) => animation.finished.catch(() => undefined))
+		)
+	);
 	const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
 	const summary = results.violations.map(
 		(violation) =>
