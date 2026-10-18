@@ -231,3 +231,20 @@ Spec `.10x/specs/2026-10-18-milestone-6-study-quality-design.md`, ADR-019 (undo 
 - [x] M6-07 slice B e2e, docs (S), done 2026-10-18; deployed together with slice C
 - [x] M6-08 Quiz me (L), done 2026-10-18: `core/quiz.ts` (pure, seeded), `listQuizSources`, `getPracticeItem` with a seed, `quiz` and `quizSeed` on the routes, setup checkbox, seed kept in sessionStorage; 19 unit, 18 integration tests, ten planted bugs (nine caught, one equivalent)
 - [x] M6-09 slice C e2e, accessibility, probe, QA and security review, docs (M), done 2026-10-18: `practice-quiz.spec.ts` (9), 107 new probe checks (900), review written; deploy of slices B and C together (one backup) recorded in the runbook
+
+### M7 re-plan and design (2026-10-18)
+
+Spec `.10x/specs/2026-10-18-milestone-7-safe-on-the-network-design.md`, ADR-021 accepted by the owner on 2026-10-18 ("Approved, go"). Milestone 7 of the four: **safe on the network** (about 24 h, no migration). Decisions: the password lives in the compose file (`TESSERA_PASSWORD`, off when unset), a login lasts until the person signs out (Sign out everywhere bumps a counter), a refused Back up now at the limit (`TESSERA_MAX_BACKUPS`, default 10, manual backups only). Three slices, each deployed to CT123 after a backup, the password left off on the live instance.
+
+- [x] M7-01 config (`TESSERA_PASSWORD`, `TESSERA_MAX_BACKUPS`), auth core: cookie make and verify, key derivation, delay schedule, `next` path check; unit tests (M)
+- [x] M7-02 the guard, `/api/auth/*`, the epoch in `settings`, the slow-down, the every-route test; integration tests (L)
+- [x] M7-03 `/login`, redirects, the 401 handling in the request helper, Settings Security section; e2e, accessibility (M)
+- [x] M7-04 probe in password mode and the sign-in section, docs, slice A deploy (M) Done 2026-10-18: slice A deployed to CT123 as `tessera:library-fe7d813-m7a` with sign-in off.
+- [x] M7-05 backup limit: config, 409 `backup_limit`, counts in the list, Backups page; tests (S)
+- [x] M7-06 B-3: 413 after draining a chunked body on small-limit routes; tests and probe (S)
+- [x] M7-07 slice B docs, deploy (S) Done 2026-10-18: slice B deployed as `tessera:library-fe7d813-m7b`, live `TESSERA_MAX_BACKUPS` raised to 50 (19 manual backups held), nothing deleted.
+- [x] M7-08 QA and security review, deployment guide, SECURITY.md, README, vault, deploy (M)
+
+### M7 result (2026-10-18)
+
+Milestone 7 is built, verified, and running on CT123 as `tessera:library-fe7d813-m7b` (uncommitted working tree on `fe7d813`), sign-in off, `TESSERA_MAX_BACKUPS=50` in the live compose. Review `.10x/reviews/2026-10-18-qa-and-security-m7.md`. Unit 1,352, integration 1,022, probe 906 (955 in `--password-mode`), Chromium 383, sign-in spec on WebKit 15 of 15, planted bugs 22 of 23 (one equivalent). Closed: S-11 (when the password is on), S-12, B-3. Reduced: S-14, S-15. New accepted: S-19 to S-22. The owner's: commit and push, choose a password (kept in Bitwarden, never in a note), the phone pass, and the release number (0.3.0 for Milestones 6 and 7 together). Next: Milestone 8, designed with the owner when it starts.

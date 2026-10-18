@@ -4,11 +4,15 @@ export type ApiErrorCode =
 	| 'bad_request'
 	| 'validation_failed'
 	| 'unauthorized'
+	| 'invalid_password'
+	| 'forbidden'
 	| 'not_found'
 	| 'stale_review'
 	| 'conflict'
+	| 'backup_limit'
 	| 'payload_too_large'
 	| 'unsupported_media_type'
+	| 'too_many_requests'
 	| 'misdirected_request'
 	| 'service_unavailable'
 	| 'storage_full'
@@ -17,11 +21,15 @@ export type ApiErrorCode =
 export const STATUS_BY_CODE: Record<ApiErrorCode, number> = {
 	bad_request: 400,
 	unauthorized: 401,
+	invalid_password: 401,
+	forbidden: 403,
 	not_found: 404,
 	stale_review: 409,
 	conflict: 409,
+	backup_limit: 409,
 	payload_too_large: 413,
 	unsupported_media_type: 415,
+	too_many_requests: 429,
 	validation_failed: 422,
 	misdirected_request: 421,
 	service_unavailable: 503,

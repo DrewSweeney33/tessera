@@ -39,3 +39,7 @@ SDE: S-01 first, S-02 after the owner decides, `docs/security.md`. DevOps: GitHu
 ## M6 security notes (2026-10-18)
 
 New routes: `POST /api/study/undo`, `POST /api/practice/undo`; changed: `POST /api/practice/start` (`tag`, `quiz`), `GET /api/practice/item`. All behind the host check, JSON content-type rule, cross-site guard, and API token (ADR-009), strict Zod bodies, review id regex, probe checks for wrong methods, bad bodies, `__proto__`, unknown fields, and the token rule. No new accepted risk beyond S-11 (anyone who can reach the page can already grade, so they can undo); Milestone 7 closes that class. The quiz builder reads only the owner's own cards and sends nothing anywhere. The one accepted edge is in ADR-019 (a delayed duplicate answer after an undo).
+
+## M7 security notes (2026-10-18)
+
+Closes S-11 when the password is on, S-12 with the backup limit, and puts S-14 and S-15 behind a login; S-16 stays by design. New attack surface: `/login`, `/api/auth/*`, a cookie. Controls: HttpOnly, SameSite=Lax, Secure over HTTPS, HMAC key derived from the password (a password change signs everyone out), constant-time comparisons, no lockout (a stranger cannot lock the owner out), capped waiting attempts, nothing about the password or cookie in a log or a URL, strict small bodies. Known and accepted: a copied cookie survives a one-device sign out until Sign out everywhere or a password change; a restore from an older backup can lower the epoch; the password is in the compose file; plain-HTTP LAN use sends the password unencrypted.

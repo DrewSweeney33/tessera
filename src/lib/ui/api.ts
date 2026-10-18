@@ -2,6 +2,7 @@ import type {
 	ApiErrorBody,
 	AssignDecksRequest,
 	AssignDecksResponse,
+	AuthStatusResponse,
 	BackupsResponse,
 	CreateBackupResponse,
 	CreateDeckRequest,
@@ -43,6 +44,7 @@ import type {
 // Straight from the file, so the browser bundle does not pull in the Markdown and schema readers.
 import { CLIENT_HEADER, CLIENT_HEADER_VALUE } from '#lib/core/client-header.ts';
 import { CONTENT_TYPES, type DeckFormat } from '#lib/core/parse/detect.ts';
+import { safeNextPath } from '#lib/core/safe-next.ts';
 
 // The browser talks to the server with JSON fetch calls only (ADR-006).
 export class ApiError extends Error {
@@ -130,7 +132,28 @@ function parseBody(text: string): unknown {
 	}
 }
 
+// Where a page that finds out it is not signed in sends the browser. Replaceable so a test can watch it.
+let goToSignIn: (target: string) => void = (target) => window.location.assign(target);
+
+export function setSignInRedirect(redirect: (target: string) => void): void {
+	goToSignIn = redirect;
+}
+
+// A 401 whose reason is sign_in_required means sign-in is on and this browser is not signed in (ADR-021), whether it
+// never was or the person signed out on another device. The browser goes to the login and comes back to this page
+// after. Any other 401 (a wrong password, a token) is shown where it happened.
+function leaveForSignIn(response: Response, body: unknown): void {
+	if (response.status !== 401 || typeof window === 'undefined') return;
+	const details = (body as ApiErrorBody | undefined)?.error?.details as
+		{ reason?: unknown } | undefined;
+	if (details?.reason !== 'sign_in_required') return;
+	const { pathname, search } = window.location;
+	if (pathname === '/login') return;
+	goToSignIn(`/login?next=${encodeURIComponent(safeNextPath(pathname + search))}`);
+}
+
 function failureOf(response: Response, body: unknown): ApiError {
+	leaveForSignIn(response, body);
 	const error = (body as ApiErrorBody | undefined)?.error;
 	return new ApiError(
 		response.status,
@@ -181,6 +204,17 @@ export interface StudyScope {
 }
 
 export const api = {
+	// Sign-in (ADR-021). Whether it is on, and whether this browser is signed in.
+	authStatus: () => call<AuthStatusResponse>('/api/auth/status'),
+
+	signIn: (password: string) =>
+		call<AuthStatusResponse>('/api/auth/login', jsonRequest('POST', { password })),
+
+	signOut: () => call<AuthStatusResponse>('/api/auth/logout', jsonRequest('POST', {})),
+
+	signOutEverywhere: () =>
+		call<AuthStatusResponse>('/api/auth/logout-all', jsonRequest('POST', {})),
+
 	decks: () => call<DecksResponse>('/api/decks'),
 
 	folders: () => call<FoldersResponse>('/api/folders'),

@@ -11,6 +11,14 @@ You need Tessera reachable over HTTPS from the phone (for example `https://tesse
 - [ ] The home screen icon is the four tiles, sharp, not cropped or on a white square (on Android the shape of the icon follows your launcher).
 - [ ] Opening it shows Tessera in its own window with no address bar, and the bar at the top matches the app's colour.
 
+## 1b. Sign in (only if you set `TESSERA_PASSWORD`)
+
+- [ ] Opening the address shows a **Sign in** page with one password field and no tab bar. After signing in you land on the page you asked for.
+- [ ] Your password manager offers to fill the password (and, the first time, to save it). The field is not capitalised or auto-corrected.
+- [ ] A wrong password says "That password is not right." and keeps what you typed. **Show password** shows it and **Hide password** hides it again.
+- [ ] Close the app completely and open it again: you are still signed in (a login lasts until you sign out).
+- [ ] Settings, then Security: **Sign out** takes you back to the sign-in page. Sign in on a second device, then use **Sign out everywhere** on it: your phone is sent to the sign-in page the next time it asks the server for anything.
+
 ## 2. Study
 
 - [ ] Study a deck. Show answer, the answer buttons, and typed and choice cards are easy to reach with a thumb; the tab bar is hidden while studying.

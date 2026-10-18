@@ -61,12 +61,16 @@ describe('readBodyText', () => {
 		expect(((await body(request, 100)) as Response).status).toBe(413);
 	});
 
-	it('stops reading as soon as the limit is passed', async () => {
+	it('does not read an endless stream to the end: it reads a bounded amount past the limit and cuts it off', async () => {
 		let pulled = 0;
+		let cancelled = false;
 		const stream = new ReadableStream<Uint8Array>({
 			pull(controller) {
 				pulled++;
 				controller.enqueue(new Uint8Array(1024));
+			},
+			cancel() {
+				cancelled = true;
 			}
 		});
 		const request = new Request('http://localhost/x', {
@@ -76,8 +80,44 @@ describe('readBodyText', () => {
 		} as RequestInit);
 		const result = await body(request, 4096);
 		expect((result as Response).status).toBe(413);
-		// An endless stream must not be consumed to the end.
-		expect(pulled).toBeLessThan(20);
+		expect(cancelled).toBe(true);
+		// The limit (4 KB) plus the drain allowance (1 MB), in 1 KB pulls, with a little slack for the stream's own
+		// read-ahead.
+		expect(pulled).toBeGreaterThan(1000);
+		expect(pulled).toBeLessThan(1100);
+	});
+
+	it('reads the rest of a body that is only a little over the limit before answering, so the sender is not cut off', async () => {
+		// A 20 KB body sent in 1 KB chunks to a route whose limit is 16 KB (B-3).
+		let sent = 0;
+		let cancelled = false;
+		const chunk = new Uint8Array(1024);
+		const stream = new ReadableStream<Uint8Array>({
+			pull(controller) {
+				if (sent === 20) controller.close();
+				else {
+					sent++;
+					controller.enqueue(chunk);
+				}
+			},
+			cancel() {
+				cancelled = true;
+			}
+		});
+		const request = new Request('http://localhost/x', {
+			method: 'POST',
+			body: stream,
+			duplex: 'half'
+		} as RequestInit);
+		const result = (await body(request, 16 * 1024)) as Response;
+		expect(result.status).toBe(413);
+		expect(sent).toBe(20);
+		expect(cancelled).toBe(false);
+	});
+
+	it('still answers when the stream fails while the rest is being discarded', async () => {
+		const result = (await body(chunked(['a'.repeat(50), new Error('aborted')]), 10)) as Response;
+		expect(result.status).toBe(413);
 	});
 
 	it('turns the adapter size-limit error into a 413 instead of a 500', async () => {

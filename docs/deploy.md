@@ -80,7 +80,7 @@ The server takes a backup of the database before it upgrades the database layout
 
 ## Reaching it from your phone or another computer
 
-**Tessera has no login.** Anyone who can reach the port can read and change everything, so the way you reach it matters more than any setting. `compose.yaml` publishes the port on `127.0.0.1` only, so out of the box only the machine it runs on can use it. Pick one of these to go further, in this order of preference.
+**Out of the box Tessera has no login.** Anyone who can reach the port can read and change everything, so the way you reach it matters more than any setting. `compose.yaml` publishes the port on `127.0.0.1` only, so out of the box only the machine it runs on can use it. Pick one of these to go further, in this order of preference. You can also turn on a password for the web page ([below](#a-password-for-the-web-page-optional)), which is a good extra layer on any of them and the minimum for any network you do not fully control.
 
 ### 1. A private network such as Tailscale or WireGuard (simplest)
 
@@ -170,7 +170,7 @@ Without it the answer is `401` and a message that says what to send. `/healthz` 
 
 **What it does:** stops scripts and tools that do not pretend to be the web page, and stops other websites from using a visitor's browser to reach your Tessera.
 
-**What it does not do:** it does not protect the web page. Tessera has no login, so anyone who can open the page in a browser can use it, and a script that copies what the page sends can use the API too. The token is not a replacement for options 1 and 2 above. If other people or devices on your network should not use your Tessera, keep it behind a private network or a reverse proxy that asks for a password.
+**What it does not do:** it does not protect the web page. Without a page password, anyone who can open the page in a browser can use it, and a script that copies what the page sends can use the API too. The token is not a replacement for options 1 and 2 above. If other people or devices on your network should not use your Tessera, set a page password ([below](#a-password-for-the-web-page-optional)), or keep it behind a private network or a reverse proxy that asks for a password.
 
 How the page is recognised: the browser says so itself (`Sec-Fetch-Site: same-origin`, or an `Origin` header that names this server), or, over plain HTTP on a network address where browsers send neither, a header that only the page itself can send. See [ADR-011](../.10x/adrs/011-recognizing-the-web-page-for-the-api-token.md).
 
@@ -178,6 +178,31 @@ Two things to know:
 
 - If a reverse proxy in front of Tessera uses **HTTP Basic** authentication, it uses the same `Authorization` header, so a script cannot send both. Point scripts at Tessera directly (for example on the private network) instead of through that proxy.
 - If you open an API address directly in a browser tab (for example `/api/decks`), the browser identifies it as typed in, so it needs the token. The web pages themselves are not affected.
+
+### A password for the web page (optional)
+
+Setting `TESSERA_PASSWORD` turns on a login. Every page and every `/api` route then needs it, except the sign-in page itself, `/healthz` (so the Docker health check keeps working), and `/api/schema` (the public deck format). It is off when the line is absent, and nothing changes for anyone who does not turn it on.
+
+**Turning it on.** Make a password of 12 or more characters, for example `openssl rand -base64 24`, keep it in your password manager, and put it in `compose.yaml`:
+
+```yaml
+environment:
+  TESSERA_PASSWORD: put-your-long-generated-password-here
+```
+
+Run `docker compose up -d`. The startup log says `sign-in: on` and never the password. Open Tessera: it asks for the password, and after you enter it, takes you to the page you asked for.
+
+**Staying signed in.** A login lasts until you sign out. Each device keeps its own. On the Settings page, **Sign out** ends the login on that device, and **Sign out everywhere** ends it on every device, including that one. Changing `TESSERA_PASSWORD` also ends every login.
+
+Sign out on one device does not take back a copy of the login that was kept somewhere else. If you think a device is lost or a login was copied, use **Sign out everywhere**, or change the password.
+
+**Wrong guesses are slowed down, not blocked.** From the fourth wrong guess in 15 minutes, each answer waits half a second, then one second, two, four, up to 30 seconds. The right password waits the same time, so nobody can lock you out by guessing, and a signed-in device is never affected. A right password clears the count.
+
+**Use the HTTPS address.** The password is sent when you sign in. Over a plain `http://` address on your network it travels unencrypted, and the login cookie cannot be marked secure. Put Tessera behind a reverse proxy with HTTPS (set `PROTOCOL_HEADER` and `HOST_HEADER` as above, and the proxy must send `X-Forwarded-Proto`) or reach it over a VPN.
+
+**Scripts.** A password does not stop scripts that use the API token: set `TESSERA_API_TOKEN` as well and they keep working with `Authorization: Bearer`. With a password set and no token, only a signed-in browser can use the API. A browser login only works from the Tessera web page itself, and a script that wants the API should use the token.
+
+**If you cannot get in.** The password lives in `compose.yaml`, not in the database. Edit the line (or delete it to turn sign-in off), run `docker compose up -d`, and sign in again. Nothing in your decks or history depends on the password.
 
 ## Settings you may want to change
 
@@ -188,11 +213,13 @@ Edit `compose.yaml`, then run `docker compose up -d`.
 | `TZ`                              | **Set this.** It decides when a study day rolls over (04:00 local time). The default is UTC, which makes the day change at odd hours elsewhere. Use a name like `America/Chicago`. |
 | The left side of the port mapping | If port 3000 is taken, use for example `127.0.0.1:3100:3000`.                                                                                                                      |
 | `TESSERA_API_TOKEN`               | Optional. Makes scripts send a password to use the API. Does not protect the web page. See "The API token" above.                                                                  |
+| `TESSERA_PASSWORD`                | Optional. A password for the web page, 12 to 200 characters. Turns on sign-in for every page and API route. See "A password for the web page" above.                               |
+| `TESSERA_MAX_BACKUPS`             | Optional, 1 to 1000, default 10. The most backups taken by you that Back up now keeps before it asks you to delete one. Safety copies Tessera makes itself are not counted.        |
 | `LOG_LEVEL`                       | `debug`, `info` (default), `warn`, or `error`.                                                                                                                                     |
 | `TESSERA_ALLOWED_HOSTS`           | **Set this if you use a real domain name**, for example a reverse proxy address. See "Host names" above.                                                                           |
 | `mem_limit: 512m`                 | Optional cap, under the service. Tessera uses about 60 percent of this at its busiest.                                                                                             |
 
-`TESSERA_ALLOWED_HOSTS` and `TESSERA_API_TOKEN` are described above. The token appears in the file as a comment.
+`TESSERA_ALLOWED_HOSTS`, `TESSERA_API_TOKEN`, and `TESSERA_PASSWORD` are described above. The token and the password appear in the file as comments.
 
 ## Where the data lives
 

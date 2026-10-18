@@ -37,3 +37,7 @@ M1 exit gate: ready with three conditions (owner confirmation, first green CI ru
 ## M6 test strategy (2026-10-18)
 
 Undo is the dangerous one: byte-for-byte invariance over grades 1 to 4 and every starting phase (new, learning, review, relearning), leech crossing, cloze siblings, stale tab (not newest, changed since), double undo, counts returning (reviews today, daily limit, streak), planted bugs. Practice undo deletes exactly one `cram` row and the existing whole-database invariance test still passes. Tag scope: Trash and archived excluded, no cards, invalid tag, exactly-one-scope. Quiz: pure builder unit tests (too few candidates, duplicates, long or multi-line, determinism, same-deck preference), API test, planted bug (right answer missing). Editor order: keyboard reorder, save, reload, ids and histories unchanged, stale save refused. E2E in Chromium and WebKit per slice, accessibility in both themes, phone layout at 320 px.
+
+## M7 test strategy (2026-10-18)
+
+Pure tests for the cookie and key; an every-route test that fails the build for an undecided route; the whole existing probe run signed in plus a new signed-out section; browser tests for the redirect round trip, a wrong password, both sign outs in two contexts, a mid-session 401, accessibility and 320 px; backup limit at, below and above; a chunked 20 KB body to every small-limit route.

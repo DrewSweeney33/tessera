@@ -206,3 +206,7 @@ Spec: `.10x/specs/2026-10-18-milestone-5-pwa-and-close-out-design.md`. ADR: `.10
 ## M6 design (2026-10-18)
 
 ADR-019 and ADR-020. Undo deletes the log row and restores state from the `pre_*` columns in one transaction, guarded by newest-`review`-row-overall and unchanged-since; no migration, no tombstone (accepted edge: a delayed duplicate of the original answer request, because the client does not retry). Practice undo deletes the newest `cram` row only. A tag is a third practice scope (`json_each(cards.tags)`). Quiz me is built on the server in a pure module `core/quiz.ts` with a seeded shuffle, only when the practice session started with `quiz: true`, and the picked option is not stored as a typed answer. Layering: the new practice code stays inside the existing ESLint confinement (no scheduler writes); undo is the only new writer of `card_state` and lives in `server/study/`.
+
+## M7 design (2026-10-18)
+
+ADR-021. A signed-cookie login with no session table (`v1.<epoch>.<issued>.<mac>`, key derived from the password, epoch in `settings`), scrypt plus `timingSafeEqual`, a global growing delay instead of a lockout, the API check as the gate and the pages as a convenience redirect, the token kept for scripts, cookie requests that change data must also pass `isWebPageRequest`, and an every-route test. Backups: a 409 limit on manual ones. Oversized chunked bodies: 413 after draining up to 1 MB.

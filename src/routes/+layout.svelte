@@ -20,8 +20,11 @@
 
 	// The home page sets the leech count from what it loads anyway. Every other page asks once per visit.
 	afterNavigate(() => {
-		if (page.url.pathname !== '/') void refreshShell();
+		if (page.url.pathname !== '/' && page.url.pathname !== '/login') void refreshShell();
 	});
+
+	// The sign-in page has no tab bar: nothing behind it can be reached yet (ADR-021).
+	const signingIn = $derived(page.url.pathname === '/login');
 
 	// Decks is also the home of everything about one deck: its editor, a new deck, and a study or practice session.
 	const here = (path: string) => {
@@ -46,66 +49,80 @@
 
 <a class="skip-link" href="#main">Skip to content</a>
 
-<div class="shell" class:shell--studying={studying}>
-	<div class="rail">
-		<header class="bar">
-			<a class="wordmark" href={resolve('/')} aria-label="Tessera, home">
+<div class="shell" class:shell--studying={studying} class:shell--bare={signingIn}>
+	{#if signingIn}
+		<header class="bare-bar">
+			<span class="wordmark">
 				<Logo />
 				<span>Tessera</span>
-			</a>
+			</span>
 			<ThemeToggle />
 		</header>
+	{:else}
+		<div class="rail">
+			<header class="bar">
+				<a class="wordmark" href={resolve('/')} aria-label="Tessera, home">
+					<Logo />
+					<span>Tessera</span>
+				</a>
+				<ThemeToggle />
+			</header>
 
-		<nav aria-label="Main" class="tabs">
-			<a href={resolve('/')} class="tab" aria-current={here('/') ? 'page' : undefined}>
-				<span class="tab__icon"><Icon name="decks" /></span>
-				<span class="tab__label">Decks</span>
-			</a>
-			<a href={resolve('/import')} class="tab" aria-current={here('/import') ? 'page' : undefined}>
-				<span class="tab__icon"><Icon name="import" /></span>
-				<span class="tab__label">Import</span>
-			</a>
-			<a href={resolve('/stats')} class="tab" aria-current={here('/stats') ? 'page' : undefined}>
-				<span class="tab__icon"><Icon name="chart" /></span>
-				<span class="tab__label">Stats</span>
-			</a>
-			<a
-				href={resolve('/leeches')}
-				class="tab"
-				aria-current={here('/leeches') ? 'page' : undefined}
-			>
-				<span class="tab__icon"><Icon name="leeches" /></span>
-				<span class="tab__label">Leeches</span>{#if shell.openLeeches > 0}<span class="tab__badge"
-						><span class="sr-only">&nbsp;(</span>{shell.openLeeches}<span class="sr-only">)</span
-						></span
-					>{/if}
-			</a>
-			<a
-				href={resolve('/settings')}
-				class="tab"
-				aria-current={here('/settings') ? 'page' : undefined}
-			>
-				<span class="tab__icon"><Icon name="settings" /></span>
-				<span class="tab__label">Settings</span>
-			</a>
-			<a
-				href={resolve('/trash')}
-				class="tab tab--minor tab--first-minor"
-				aria-current={here('/trash') ? 'page' : undefined}
-			>
-				<span class="tab__icon"><Icon name="trash" /></span>
-				<span class="tab__label">Trash</span>
-			</a>
-			<a
-				href={resolve('/backups')}
-				class="tab tab--minor"
-				aria-current={here('/backups') ? 'page' : undefined}
-			>
-				<span class="tab__icon"><Icon name="backups" /></span>
-				<span class="tab__label">Backups</span>
-			</a>
-		</nav>
-	</div>
+			<nav aria-label="Main" class="tabs">
+				<a href={resolve('/')} class="tab" aria-current={here('/') ? 'page' : undefined}>
+					<span class="tab__icon"><Icon name="decks" /></span>
+					<span class="tab__label">Decks</span>
+				</a>
+				<a
+					href={resolve('/import')}
+					class="tab"
+					aria-current={here('/import') ? 'page' : undefined}
+				>
+					<span class="tab__icon"><Icon name="import" /></span>
+					<span class="tab__label">Import</span>
+				</a>
+				<a href={resolve('/stats')} class="tab" aria-current={here('/stats') ? 'page' : undefined}>
+					<span class="tab__icon"><Icon name="chart" /></span>
+					<span class="tab__label">Stats</span>
+				</a>
+				<a
+					href={resolve('/leeches')}
+					class="tab"
+					aria-current={here('/leeches') ? 'page' : undefined}
+				>
+					<span class="tab__icon"><Icon name="leeches" /></span>
+					<span class="tab__label">Leeches</span>{#if shell.openLeeches > 0}<span class="tab__badge"
+							><span class="sr-only">&nbsp;(</span>{shell.openLeeches}<span class="sr-only">)</span
+							></span
+						>{/if}
+				</a>
+				<a
+					href={resolve('/settings')}
+					class="tab"
+					aria-current={here('/settings') ? 'page' : undefined}
+				>
+					<span class="tab__icon"><Icon name="settings" /></span>
+					<span class="tab__label">Settings</span>
+				</a>
+				<a
+					href={resolve('/trash')}
+					class="tab tab--minor tab--first-minor"
+					aria-current={here('/trash') ? 'page' : undefined}
+				>
+					<span class="tab__icon"><Icon name="trash" /></span>
+					<span class="tab__label">Trash</span>
+				</a>
+				<a
+					href={resolve('/backups')}
+					class="tab tab--minor"
+					aria-current={here('/backups') ? 'page' : undefined}
+				>
+					<span class="tab__icon"><Icon name="backups" /></span>
+					<span class="tab__label">Backups</span>
+				</a>
+			</nav>
+		</div>
+	{/if}
 
 	<main id="main" tabindex="-1">
 		{@render children()}
@@ -120,6 +137,22 @@
 
 	.rail {
 		display: contents;
+	}
+
+	/* The sign-in page: the name and the theme toggle, nothing to navigate to. */
+	.bare-bar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
+		min-height: var(--bar-height);
+		padding-inline: max(var(--gutter), env(safe-area-inset-left))
+			max(var(--gutter), env(safe-area-inset-right));
+		padding-block-start: env(safe-area-inset-top);
+	}
+
+	.shell--bare main {
+		padding-block-end: env(safe-area-inset-bottom);
 	}
 
 	.bar {
@@ -315,6 +348,10 @@
 			display: grid;
 			grid-template-columns: var(--rail-width) minmax(0, 1fr);
 			align-items: start;
+		}
+
+		.shell--bare {
+			display: block;
 		}
 
 		.rail {

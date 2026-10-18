@@ -7,6 +7,7 @@ import {
 import { closeApp, getApp, initApp } from '#lib/server/app.ts';
 import {
 	apiTokenGuard,
+	authGuard,
 	contentTypeGuard,
 	hostGuard,
 	requestLogging,
@@ -23,11 +24,13 @@ export const init: ServerInit = () => {
 
 // Order matters: logging wraps everything, security headers cover even rejected requests, the host check
 // comes before anything reads the request, and the token check comes before the content type is judged so
-// that a caller without the token learns nothing about the API.
+// that a caller without the token learns nothing about the API. authGuard (sign-in, ADR-021) and apiTokenGuard (the
+// token alone, ADR-009) never both act: the first applies when TESSERA_PASSWORD is set, the second when it is not.
 export const handle: Handle = sequence(
 	requestLogging,
 	securityHeaders,
 	hostGuard,
+	authGuard,
 	apiTokenGuard,
 	contentTypeGuard
 );

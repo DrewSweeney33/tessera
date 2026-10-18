@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { resolve } from '$app/paths';
-	import type { SettingsDto, SettingsResponse } from '#lib/core/api-types.ts';
+	import type { AuthStatusResponse, SettingsDto, SettingsResponse } from '#lib/core/api-types.ts';
 	import { settingProblems, type SettingKey, type SettingProblem } from '#lib/core/settings.ts';
 	import { ApiError, api, failureMessage } from '#lib/ui/api.ts';
 	import Icon from '#lib/ui/Icon.svelte';
@@ -28,6 +28,25 @@
 	let saved = $state(false);
 	let busy = $state(false);
 
+	// Sign-in (ADR-021). Undefined until asked, or when the answer could not be had: the section then says nothing.
+	let auth = $state<AuthStatusResponse | undefined>();
+	let confirmEverywhere = $state(false);
+	let signingOut = $state(false);
+	let signOutFailure = $state<string | undefined>();
+
+	async function signOut(everywhere: boolean) {
+		if (signingOut) return;
+		signingOut = true;
+		signOutFailure = undefined;
+		try {
+			await (everywhere ? api.signOutEverywhere() : api.signOut());
+			window.location.assign('/login');
+		} catch (error) {
+			signOutFailure = failureMessage(error, 'Something went wrong. You are still signed in.');
+			signingOut = false;
+		}
+	}
+
 	const percentOf = (fraction: number) => String(Math.round(fraction * 10_000) / 100);
 
 	function fill(settings: SettingsDto) {
@@ -51,6 +70,12 @@
 				kind: 'error',
 				message: failureMessage(error, 'Something went wrong loading the settings.')
 			};
+			return;
+		}
+		try {
+			auth = await api.authStatus();
+		} catch {
+			auth = undefined;
 		}
 	}
 
@@ -332,6 +357,77 @@
 			</p>
 		</form>
 
+		{#if auth}
+			<section class="security stack" aria-labelledby="security-heading">
+				<h2 id="security-heading">Security</h2>
+				{#if auth.enabled}
+					<p>
+						Sign-in is <strong>on</strong>. This device stays signed in until you sign out.
+					</p>
+					{#if signOutFailure}
+						<div class="callout callout--error" role="alert"><p>{signOutFailure}</p></div>
+					{/if}
+					<p class="actions">
+						<button type="button" class="btn" disabled={signingOut} onclick={() => signOut(false)}>
+							Sign out
+						</button>
+						{#if !confirmEverywhere}
+							<button
+								type="button"
+								class="btn"
+								disabled={signingOut}
+								onclick={() => (confirmEverywhere = true)}
+							>
+								Sign out everywhere
+							</button>
+						{/if}
+					</p>
+					{#if confirmEverywhere}
+						<div class="callout" role="group" aria-label="Confirm signing out everywhere">
+							<p>
+								This signs out every device, including this one. Each will need the password again.
+							</p>
+							<p class="actions">
+								<button
+									type="button"
+									class="btn btn--danger"
+									disabled={signingOut}
+									data-state={signingOut ? 'loading' : undefined}
+									onclick={() => signOut(true)}
+								>
+									Sign out everywhere
+								</button>
+								<button
+									type="button"
+									class="btn"
+									disabled={signingOut}
+									onclick={() => (confirmEverywhere = false)}
+								>
+									Cancel
+								</button>
+							</p>
+						</div>
+					{/if}
+					<p class="muted small">
+						Sign out ends the login on this device only. A copy of the login kept on another device
+						keeps working until you use Sign out everywhere or change the password in
+						<code>compose.yaml</code>.
+					</p>
+				{:else}
+					<p>
+						Sign-in is <strong>off</strong>. Anyone who can open this page can use Tessera and
+						change or delete anything in it.
+					</p>
+					<p class="muted small">
+						To turn it on, set <code>TESSERA_PASSWORD</code> in <code>compose.yaml</code> to a
+						password of 12 or more characters and restart Tessera. The deployment guide (<code
+							>docs/deploy.md</code
+						>) has the steps.
+					</p>
+				{/if}
+			</section>
+		{/if}
+
 		<section class="housekeeping" aria-labelledby="housekeeping-heading">
 			<h2 id="housekeeping-heading">Housekeeping</h2>
 			<a class="housekeeping__link" href={resolve('/trash')}>
@@ -421,6 +517,14 @@
 		flex-wrap: wrap;
 		gap: var(--space-3);
 		align-items: center;
+		margin: 0;
+	}
+
+	.security h2 {
+		font-size: var(--text-md);
+	}
+
+	.security p {
 		margin: 0;
 	}
 

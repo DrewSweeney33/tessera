@@ -4,10 +4,10 @@ This page says what Tessera protects, what it does not, and what you need to do.
 
 ## The short version
 
-- **Tessera has no login.** Anyone who can open the page in a browser can read, change, and delete everything in it.
-- So the way you reach it is the protection. Out of the box the port is open on the machine it runs on and nowhere else (`127.0.0.1`).
-- To use it from a phone or another computer, use a private network such as Tailscale or WireGuard, or a reverse proxy that asks for a password. [docs/deploy.md](deploy.md) shows how.
-- Never put it on the internet without a proxy that requires a password.
+- **Out of the box Tessera has no login.** Anyone who can open the page in a browser can read, change, and delete everything in it. **You can turn on a password** (`TESSERA_PASSWORD`): then every page and every API route needs it.
+- Without a password, the way you reach it is the protection. Out of the box the port is open on the machine it runs on and nowhere else (`127.0.0.1`).
+- To use it from a phone or another computer, set a password and use a private network such as Tailscale or WireGuard, or a reverse proxy with HTTPS. [docs/deploy.md](deploy.md) shows how.
+- Never put it on the internet without a password, and preferably also a proxy or VPN.
 - Inside that boundary, Tessera defends itself against hostile deck content, hostile web pages in your browser, and malformed requests. Those defenses are described below, with their limits.
 - Keep backups. They are the answer to almost every bad outcome. See [docs/operations.md](operations.md).
 
@@ -40,7 +40,20 @@ The worst realistic outcome is that your decks are changed or deleted, not that 
 ### Network exposure
 
 - The sample `compose.yaml` publishes the port on `127.0.0.1` only. Opening it further is an explicit edit, with a warning in the file.
-- There is no built-in authentication. That is a decision, not a gap: access control belongs to a VPN or a reverse proxy, which do it better than a login screen added to a small app.
+- Authentication is **off by default and optional** (see "The page password" below). Access control still belongs first to a VPN or a reverse proxy, which do it better than a login screen added to a small app. The password is a second layer, and the minimum for a network you do not fully control.
+
+### The page password (optional)
+
+Setting `TESSERA_PASSWORD` in `compose.yaml` (12 to 200 characters) turns on a login ([ADR-021](../.10x/adrs/021-an-optional-page-password.md)). With it set, every page and `/api` route needs a login or the API token, except the sign-in page, `/healthz`, `/api/schema`, and the app's own static files, which hold no data.
+
+- **One password, no accounts.** It lives in `compose.yaml`, not in the database, so a forgotten password is one edited line. Keep it in a password manager.
+- **The login is a signed cookie** (`HttpOnly`, `SameSite=Lax`, and `Secure` when you reach Tessera over HTTPS), kept until you sign out. It is signed with a key made from the password, so changing the password signs every device out. **Sign out everywhere** on the Settings page signs out every device, and **Sign out** ends the login on that device only.
+- **The password is checked in constant time**, and never logged, put in a URL, or sent back. A wrong answer says only that it is wrong.
+- **Wrong guesses are slowed, never blocked:** after three wrong guesses in 15 minutes, each answer waits half a second, then one, two, four, up to 30 seconds, counted across everyone (behind a proxy every caller has the proxy's address). A stranger cannot lock you out, and the right password waits the same time.
+- **A signed-in request that changes data must also look like the Tessera page** (the same-origin test the API token uses), on top of `SameSite` and the JSON content type rules.
+- **The API token still works for scripts.** Set both. With a password and no token, only a signed-in browser can use the API.
+
+What it does not do: it does not encrypt anything (use HTTPS), it is not two-factor, a copied login cookie works until **Sign out everywhere** or a password change (signing out on one device does not take it back), and a restore from a backup taken before a **Sign out everywhere** can bring that counter back down, so change the password if you restore after revoking a login.
 
 ### Host names (blocks DNS rebinding)
 
@@ -52,7 +65,7 @@ Without a setting it answers `localhost`, any IP address, single-word names such
 
 Setting `TESSERA_API_TOKEN` makes the API ask for a password from anything that is not the Tessera web page. It stops scripts that do not pretend to be the page, and it stops other websites from using a visitor's browser to reach your Tessera.
 
-**It is not a login.** The web page has no authentication, so anyone who can open the page can use it. A script that copies what the page sends can use the API too. The token does not replace a VPN or a password-protecting proxy. If other people or devices on your network must not use your Tessera, put it behind one of those. See [docs/deploy.md](deploy.md#the-api-token-for-scripts-not-for-the-web-page) for how the page is recognised and for the two things that can surprise you.
+**It is not a login for the web page.** Without a page password, anyone who can open the page can use it, and a script that copies what the page sends can use the API too. The token does not replace a page password, a VPN, or a password-protecting proxy. If other people or devices on your network must not use your Tessera, set `TESSERA_PASSWORD` or put it behind one of those. (With a page password set, the page needs the login cookie and the token is for scripts only.) See [docs/deploy.md](deploy.md#the-api-token-for-scripts-not-for-the-web-page) for how the page is recognised and for the two things that can surprise you.
 
 The token must be at least 24 characters, is compared in constant time, and is never written to a log.
 
@@ -82,7 +95,7 @@ The browser is told to run scripts only from Tessera itself (`script-src 'self'`
 
 ### Logs
 
-The server writes one line per request. Logs never contain card text, typed answers, or the API token. This is checked on every CI run by sending a marker through the app and searching the whole log.
+The server writes one line per request. Logs never contain card text, typed answers, the API token, the page password, or a login cookie. This is checked on every CI run by sending a marker through the app and searching the whole log.
 
 ### The container
 
@@ -98,6 +111,7 @@ It runs as a normal user (not root), with a read-only filesystem apart from `/da
 ## What you should do
 
 - [ ] Keep the port on `127.0.0.1` unless you have a reason. If you need other devices, use a VPN or a password-protecting proxy.
+- [ ] If other people or devices on your network can reach the port, set `TESSERA_PASSWORD` (12+ characters, kept in a password manager) and use the HTTPS address.
 - [ ] If you use a real domain name, set `TESSERA_ALLOWED_HOSTS`.
 - [ ] Only set `TESSERA_API_TOKEN` if you have scripts that call the API, and keep the token out of anything you share or commit.
 - [ ] Do not import decks you do not trust without looking at the preview. The preview shows exactly what will change before anything is saved.
@@ -107,9 +121,9 @@ It runs as a normal user (not root), with a read-only filesystem apart from `/da
 
 ## What Tessera does not protect against
 
-- **Anyone who can reach the port or open the page.** There is no login.
+- **Anyone who can reach the port or open the page, unless you set `TESSERA_PASSWORD`.** There is no login by default.
 - **Anyone with access to the machine or its disk.** The database is a plain file and is not encrypted.
-- **Traffic you send over plain HTTP across a network.** Tessera speaks plain HTTP. Use a VPN or a proxy that provides HTTPS if the network is not yours.
+- **Traffic you send over plain HTTP across a network.** Tessera speaks plain HTTP, so the password and the login cookie travel unencrypted at a plain `http://` address. Use a VPN or a proxy that provides HTTPS if the network is not yours.
 - **A flood of requests.** There is no rate limiting. That is acceptable for one person behind a proxy or VPN.
 - **Mistakes in your own decks.** Tessera checks the structure, not whether the facts are true.
 

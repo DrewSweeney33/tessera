@@ -1,4 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
+import {
+	passwordPort,
+	passwordServerMaxBackups,
+	passwordValue
+} from './tests/e2e/password-server.ts';
 import { tokenPort, tokenValue } from './tests/e2e/token-server.ts';
 
 const port = 4177;
@@ -64,12 +69,22 @@ export default defineConfig({
 		serviceWorkers: 'block'
 	},
 	webServer: [
-		e2eServer(port, { HOST: '127.0.0.1', DATA_DIR: '.e2e-data' }),
+		// The backup limit is out of the way here: these specs make many backups on purpose. The limit itself is tested
+		// on the password server below, which has a small one.
+		e2eServer(port, { HOST: '127.0.0.1', DATA_DIR: '.e2e-data', TESSERA_MAX_BACKUPS: '1000' }),
 		// A second server with an API token set, listening on every address so a test can reach it by the machine's
 		// LAN address over plain HTTP, as a homelab user would (ADR-011).
 		e2eServer(tokenPort, {
 			HOST: '0.0.0.0',
 			DATA_DIR: '.e2e-data-token',
+			TESSERA_API_TOKEN: tokenValue
+		}),
+		// A third server with a page password and the same token set, for the sign-in tests (ADR-021).
+		e2eServer(passwordPort, {
+			HOST: '127.0.0.1',
+			DATA_DIR: '.e2e-data-password',
+			TESSERA_MAX_BACKUPS: String(passwordServerMaxBackups),
+			TESSERA_PASSWORD: passwordValue,
 			TESSERA_API_TOKEN: tokenValue
 		})
 	]

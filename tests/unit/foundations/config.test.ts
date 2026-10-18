@@ -19,6 +19,8 @@ describe('parseConfig', () => {
 			port: 3000,
 			dataDir: './data',
 			apiToken: undefined,
+			password: undefined,
+			maxBackups: 10,
 			allowedHosts: undefined,
 			timeZone: 'UTC',
 			logLevel: 'info'
@@ -62,6 +64,34 @@ describe('parseConfig', () => {
 		expect(list).toHaveLength(1);
 		expect(list[0]).toContain('TESSERA_API_TOKEN');
 		expect(list[0]).toContain('at least 24 characters');
+	});
+
+	it('reads the page password and the backup limit', () => {
+		const password = 'correct horse battery';
+		const config = parsed({ TESSERA_PASSWORD: password, TESSERA_MAX_BACKUPS: '25' });
+		expect(config.password).toBe(password);
+		expect(config.maxBackups).toBe(25);
+		expect(parsed({ TESSERA_PASSWORD: '  ', TESSERA_MAX_BACKUPS: '' })).toMatchObject({
+			password: undefined,
+			maxBackups: 10
+		});
+	});
+
+	it('rejects a short or over-long password without echoing it', () => {
+		const short = problems({ TESSERA_PASSWORD: 'tooshort' });
+		expect(short).toHaveLength(1);
+		expect(short[0]).toContain('TESSERA_PASSWORD');
+		expect(short[0]).toContain('at least 12 characters');
+		expect(short[0]).not.toContain('tooshort');
+		expect(problems({ TESSERA_PASSWORD: 'x'.repeat(201) })[0]).toContain('at most 200');
+	});
+
+	it('rejects a backup limit outside 1 to 1000', () => {
+		for (const value of ['0', '1001', '-3', '2.5', 'many']) {
+			expect(problems({ TESSERA_MAX_BACKUPS: value })[0]).toContain('TESSERA_MAX_BACKUPS');
+		}
+		expect(parsed({ TESSERA_MAX_BACKUPS: '1' }).maxBackups).toBe(1);
+		expect(parsed({ TESSERA_MAX_BACKUPS: '1000' }).maxBackups).toBe(1000);
 	});
 
 	it('rejects invalid port, time zone, and log level, reporting all problems at once', () => {

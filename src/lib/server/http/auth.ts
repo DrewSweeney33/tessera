@@ -27,6 +27,33 @@ export function requiresToken(pathname: string): boolean {
 	return path === '/api' || path.startsWith('/api/');
 }
 
+// True for a path under /api, as the router sees it.
+export function isApiPath(pathname: string): boolean {
+	const path = routingPath(pathname);
+	return path === '/api' || path.startsWith('/api/');
+}
+
+// What stays open when sign-in is on (ADR-021), each only for the method it is meant for. Everything else is refused
+// without a login. The app's own files never get here: adapter-node hands them out before any hook, and they hold no
+// data. A new route is closed until it is added here, and tests/integration/api/auth-routes.test.ts lists every route.
+export function isOpenWithoutSignIn(method: string, pathname: string): boolean {
+	const path = routingPath(pathname);
+	const m = method.toUpperCase();
+	const read = m === 'GET' || m === 'HEAD';
+	switch (path) {
+		case '/login':
+		case '/api/auth/status':
+			return read;
+		case '/api/auth/login':
+		case '/api/auth/logout':
+			return m === 'POST';
+		case '/healthz':
+			return read;
+		default:
+			return read && OPEN_API_PATHS.has(path);
+	}
+}
+
 // "Authorization: Bearer <token>". The scheme name is not case sensitive. Anything else gives undefined.
 export function bearerToken(header: string | null): string | undefined {
 	if (header === null) return undefined;

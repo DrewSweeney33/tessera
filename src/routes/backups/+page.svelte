@@ -4,6 +4,7 @@
 	import type {
 		BackupDto,
 		BackupKind,
+		BackupLimitDto,
 		LastRestoreDto,
 		RestorePreviewResponse
 	} from '#lib/core/api-types.ts';
@@ -18,6 +19,7 @@
 		| {
 				kind: 'ready';
 				backups: BackupDto[];
+				limit: BackupLimitDto;
 				lastRestore?: LastRestoreDto;
 				pendingRestore?: string;
 		  };
@@ -54,6 +56,7 @@
 			view = {
 				kind: 'ready',
 				backups: response.backups,
+				limit: response.limit,
 				...(response.lastRestore ? { lastRestore: response.lastRestore } : {}),
 				...(response.pendingRestore ? { pendingRestore: response.pendingRestore } : {})
 			};
@@ -67,8 +70,10 @@
 
 	onMount(load);
 
+	const atLimit = $derived(view.kind === 'ready' && view.limit.manualCount >= view.limit.maxManual);
+
 	async function backUpNow() {
-		if (busy) return;
+		if (busy || atLimit) return;
 		busy = 'create';
 		problem = undefined;
 		try {
@@ -210,13 +215,38 @@
 		<button
 			type="button"
 			class="btn btn--primary"
-			disabled={busy !== undefined}
+			disabled={busy !== undefined || atLimit}
+			aria-describedby={atLimit ? 'backup-limit' : undefined}
 			data-state={busy === 'create' ? 'loading' : undefined}
 			onclick={backUpNow}
 		>
 			<Icon name="backups" /> Back up now
 		</button>
 	</p>
+
+	{#if view.kind === 'ready'}
+		{#if atLimit}
+			<div id="backup-limit" class="callout" role="status">
+				<p>
+					<strong>You have {view.limit.manualCount} of {view.limit.maxManual} backups.</strong>
+					That is the most Back up now keeps. Delete one you no longer need below, and it works again.
+					Tessera never deletes a backup for you. To keep more, raise
+					<code>TESSERA_MAX_BACKUPS</code>
+					in <code>compose.yaml</code>.
+				</p>
+			</div>
+		{/if}
+		<p class="muted small">
+			Taken by you: {view.limit.manualCount} of {view.limit.maxManual}.
+			{#if view.limit.safetyCopies > 0}
+				Safety copies Tessera made itself: {view.limit.safetyCopies}
+				({formatBytes(view.limit.safetyCopiesBytes)}). They are not counted, and Tessera never
+				deletes them for you.
+			{:else}
+				Tessera has made no safety copies of its own yet.
+			{/if}
+		</p>
+	{/if}
 
 	{#if justMade}
 		<div class="callout callout--ok" role="status">

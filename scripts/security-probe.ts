@@ -13,6 +13,11 @@
 //   --token-base URL   a server started with TESSERA_API_TOKEN set to PROBE_TOKEN
 //   --logs-cmd CMD, --hosts-logs-cmd CMD, --token-logs-cmd CMD   shell commands that print each server's log
 // (see scripts/lib/probe-config.ts). The live-image harness (scripts/live-test.ts) supplies all of them.
+//
+// Password mode (ADR-021): `node scripts/security-probe.ts --password-mode` starts the main server with
+// TESSERA_PASSWORD and TESSERA_API_TOKEN set, signs in, and then runs every check in this file signed in (the requests
+// to the main server carry the login cookie and the token, unless a check sends its own). It then adds the sign-in
+// section, which sends requests with no credentials at all. It needs a local build: it cannot be used with --base.
 // The main --base server must run with the image's default settings: no ORIGIN, PROTOCOL_HEADER, HOST_HEADER,
 // TESSERA_ALLOWED_HOSTS, or TESSERA_API_TOKEN. The host-name and same-origin checks assume that, and fail
 // (they do not pass) against a server configured otherwise, such as one set up for a reverse proxy.
@@ -22,7 +27,7 @@ import http from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { freePort } from './lib/net.ts';
-import { PROBE_ALLOWED_HOSTS, PROBE_TOKEN } from './lib/probe-config.ts';
+import { PROBE_ALLOWED_HOSTS, PROBE_PASSWORD, PROBE_TOKEN } from './lib/probe-config.ts';
 
 const args = process.argv.slice(2);
 const flag = (name: string): string | undefined =>
@@ -33,6 +38,16 @@ const tokenBase = flag('--token-base');
 const logsCommand = flag('--logs-cmd');
 const hostsLogsCommand = flag('--hosts-logs-cmd');
 const tokenLogsCommand = flag('--token-logs-cmd');
+const passwordMode = args.includes('--password-mode');
+if (passwordMode && baseArg) {
+	console.error(
+		'--password-mode starts its own server with a password, so it cannot be used with --base.'
+	);
+	process.exit(2);
+}
+// What every request to the main server carries in password mode: the login cookie and the API token. A check that
+// sends its own cookie or authorization header keeps it, and one that sets `anonymous` sends neither.
+const credentials: { cookie?: string; authorization?: string } = {};
 
 let failures = 0;
 let skipped = 0;
@@ -64,6 +79,8 @@ interface Reply {
 }
 
 let origin: URL;
+// The main server's address, set once below, so `origin === main.origin` means "the main server".
+const main: { origin?: URL } = {};
 
 function send(options: {
 	method?: string;
@@ -72,7 +89,20 @@ function send(options: {
 	body?: string | Buffer;
 	chunks?: Buffer[];
 	fresh?: boolean;
+	anonymous?: boolean;
 }): Promise<Reply> {
+	// Compared by identity: checks against the extra servers swap `origin` for theirs, and those get no credentials.
+	const signedIn = passwordMode && origin === main.origin && !options.anonymous;
+	const lower = Object.keys(options.headers ?? {}).map((name) => name.toLowerCase());
+	const headers = {
+		...(signedIn && credentials.cookie && !lower.includes('cookie')
+			? { cookie: credentials.cookie }
+			: {}),
+		...(signedIn && credentials.authorization && !lower.includes('authorization')
+			? { authorization: credentials.authorization }
+			: {}),
+		...options.headers
+	};
 	return new Promise((resolve, reject) => {
 		const req = http.request(
 			{
@@ -80,7 +110,7 @@ function send(options: {
 				port: origin.port,
 				method: options.method ?? 'GET',
 				path: options.path,
-				headers: options.headers,
+				headers,
 				// A connection of its own only when asked (see the installable app section): reusing one after the server
 				// answered a write early and closed it fails the next request.
 				...(options.fresh ? { agent: false } : {})
@@ -201,12 +231,29 @@ if (baseArg) {
 			HOST: '127.0.0.1',
 			DATA_DIR: dataDir,
 			BODY_SIZE_LIMIT: '5M',
-			LOG_LEVEL: 'debug'
+			LOG_LEVEL: 'debug',
+			...(passwordMode ? { TESSERA_PASSWORD: PROBE_PASSWORD, TESSERA_API_TOKEN: PROBE_TOKEN } : {})
 		},
 		stdio: ['ignore', 'pipe', 'pipe']
 	});
 	child.stdout?.on('data', (d) => serverOutput.push(String(d)));
 	child.stderr?.on('data', (d) => serverOutput.push(String(d)));
+}
+
+main.origin = origin;
+
+// Signs in with the real password and returns the login cookie ("tessera_session=..."), or undefined.
+async function signInForCookie(): Promise<string | undefined> {
+	const reply = await send({
+		method: 'POST',
+		path: '/api/auth/login',
+		anonymous: true,
+		headers: { 'content-type': 'application/json', 'x-tessera-client': 'web' },
+		body: JSON.stringify({ password: PROBE_PASSWORD })
+	});
+	return reply.status === 200
+		? String(reply.headers['set-cookie']?.[0] ?? '').split(';')[0]
+		: undefined;
 }
 
 try {
@@ -217,6 +264,16 @@ try {
 			// not up yet
 		}
 		await new Promise((r) => setTimeout(r, 200));
+	}
+
+	if (passwordMode) {
+		const cookie = await signInForCookie();
+		if (!cookie) throw new Error('could not sign in to the password-mode server');
+		credentials.cookie = cookie;
+		credentials.authorization = `Bearer ${PROBE_TOKEN}`;
+		console.log(
+			'Password mode: every request to the main server carries the login cookie and the API token.'
+		);
 	}
 
 	// ---- 1. Response headers (ADR-005 section 5)
@@ -1369,9 +1426,8 @@ try {
 		['a title of 20 000 characters', JSON.stringify({ title: 'x'.repeat(20_000) }), [413, 422]],
 		['40 000 bytes', JSON.stringify({ title: 'x'.repeat(40_000) }), [413]]
 	] as const) {
-		// Sent with a Content-Length, as browsers and curl send it. (A chunked upload over this route's small limit
-		// gets its connection reset instead of a 413. That is how the study route behaves too, and it is on the
-		// backlog as B-3.)
+		// Sent with a Content-Length, as browsers and curl send it. (A chunked upload is tested for every small-limit
+		// route in the section on oversized bodies without a declared length.)
 		const r = await send({
 			method: 'POST',
 			path: '/api/decks',
@@ -1694,8 +1750,7 @@ try {
 	}
 	const badJson = await post('/api/decks/probe-trash/delete-forever', '{not json');
 	check('a body that is not JSON is a 400', badJson.status === 400, `got ${badJson.status}`);
-	// Sent with its true Content-Length, as browsers and curl do (a chunked upload over a small limit has its
-	// connection reset instead of getting a 413: backlog B-3).
+	// Sent with its true Content-Length, as browsers and curl do (the chunked case has its own section).
 	const hugeText = JSON.stringify({ confirmTitle: 'x'.repeat(40_000) });
 	const hugeBody = await send({
 		method: 'POST',
@@ -2723,7 +2778,8 @@ try {
 		);
 	}
 
-	// A body over the small limit, sent with its length so the answer is a 413 (a chunked one is backlog B-3).
+	// A body over the small limit, sent with its length so the answer is a 413 (the chunked case is tested for every
+	// small-limit route in the section on oversized bodies without a declared length).
 	const bigPractice = `{"deckId":"probe-practice","count":"all","order":"shuffle","pad":"${'x'.repeat(20_000)}"}`;
 	const oversized = await send({
 		method: 'POST',
@@ -3366,6 +3422,633 @@ try {
 			`${r.status}`
 		);
 	}
+
+	// ---- 4i. Sign-in (ADR-021)
+	console.log('\n# Sign-in');
+	const MARK = { 'x-tessera-client': 'web' };
+	const anon = (options: Parameters<typeof send>[0]) => send({ ...options, anonymous: true });
+	const anonPost = (path: string, body: unknown, headers: Record<string, string> = {}) =>
+		anon({
+			method: 'POST',
+			path,
+			headers: { ...JSON_HEADERS, ...headers },
+			body: typeof body === 'string' ? body : JSON.stringify(body)
+		});
+	const errorOf = (reply: Reply) => {
+		try {
+			return (
+				JSON.parse(reply.text) as { error?: { code?: string; details?: { reason?: string } } }
+			).error;
+		} catch {
+			return undefined;
+		}
+	};
+	const cookieHeaderOf = (reply: Reply) => String(reply.headers['set-cookie']?.[0] ?? '');
+	const cookiePairOf = (reply: Reply) => cookieHeaderOf(reply).split(';')[0] ?? '';
+
+	if (!passwordMode) {
+		const off = await send({ path: '/api/auth/status' });
+		check(
+			'with no password set, the sign-in status says it is off',
+			off.status === 200 && JSON.parse(off.text).enabled === false
+		);
+		check(
+			'with no password set, signing in is a 404 and sets no cookie',
+			(await anonPost('/api/auth/login', { password: 'x'.repeat(20) })).status === 404
+		);
+		check(
+			'with no password set, a page is not redirected',
+			(await send({ path: '/settings' })).status === 200
+		);
+		// The rest of the section (about 50 checks) needs a server with a password: run with --password-mode. That
+		// is a choice of mode, not a check that could not run, so it is not listed as a skip.
+	} else {
+		const realCookie = credentials.cookie ?? '';
+		// ---- Without any credentials
+		const apiReads = [
+			'/api/decks',
+			'/api/settings',
+			'/api/backups',
+			'/api/backups/probe-x',
+			'/api/stats',
+			'/api/trash',
+			'/api/folders',
+			'/api/leeches',
+			'/api/study/next',
+			'/api/practice/pool?deckId=probe-x',
+			'/api/report/weak-spots',
+			'/api/decks/probe-x',
+			'/api/decks/probe-x/export'
+		];
+		let refusedReads = 0;
+		for (const path of apiReads) {
+			const reply = await anon({ path });
+			const error = errorOf(reply);
+			if (
+				reply.status === 401 &&
+				error?.code === 'unauthorized' &&
+				error.details?.reason === 'sign_in_required' &&
+				reply.headers['cache-control'] === 'no-store' &&
+				reply.headers['x-content-type-options'] === 'nosniff' &&
+				Boolean(reply.headers['x-request-id'])
+			) {
+				refusedReads++;
+			} else {
+				check(`GET ${path} without a login is refused`, false, `got ${reply.status}`);
+			}
+		}
+		check(
+			`${apiReads.length} API reads without a login are all 401 with the sign-in reason and the security headers`,
+			refusedReads === apiReads.length
+		);
+
+		const apiWrites: [string, string][] = [
+			['POST', '/api/decks'],
+			['POST', '/api/import'],
+			['POST', '/api/folders'],
+			['POST', '/api/backups'],
+			['POST', '/api/study/review'],
+			['POST', '/api/study/undo'],
+			['POST', '/api/practice/grade'],
+			['POST', '/api/practice/undo'],
+			['POST', '/api/auth/logout-all'],
+			['POST', '/api/decks/probe-x/delete-forever'],
+			['POST', '/api/decks/probe-x/start-over'],
+			['POST', '/api/backups/probe-x/restore'],
+			['PUT', '/api/settings'],
+			['PUT', '/api/folder-assignments'],
+			['DELETE', '/api/backups/probe-x'],
+			['DELETE', '/api/folders/1']
+		];
+		let refusedWrites = 0;
+		for (const [method, path] of apiWrites) {
+			const reply = await anon({
+				method,
+				path,
+				headers: JSON_HEADERS,
+				...(method === 'DELETE' ? {} : { body: '{}' })
+			});
+			if (reply.status === 401 && errorOf(reply)?.details?.reason === 'sign_in_required')
+				refusedWrites++;
+			else check(`${method} ${path} without a login is refused`, false, `got ${reply.status}`);
+		}
+		check(
+			`${apiWrites.length} API writes without a login are all 401`,
+			refusedWrites === apiWrites.length
+		);
+
+		let redirected = 0;
+		const pages = [
+			'/',
+			'/settings',
+			'/stats',
+			'/decks/new',
+			'/import',
+			'/study',
+			'/backups',
+			'/trash',
+			'/no-such-page'
+		];
+		for (const path of pages) {
+			const reply = await anon({ path });
+			if (
+				reply.status === 303 &&
+				reply.headers['location'] === `/login?next=${encodeURIComponent(path)}` &&
+				reply.text === ''
+			) {
+				redirected++;
+			} else {
+				check(`page ${path} without a login goes to the login`, false, `got ${reply.status}`);
+			}
+		}
+		check(
+			`${pages.length} pages without a login all go to the login and carry no content`,
+			redirected === pages.length
+		);
+		const query = await anon({ path: '/settings?tab=one&x=%2F' });
+		check(
+			'the page asked for is kept in next, as a path with its query only',
+			query.headers['location'] === '/login?next=%2Fsettings%3Ftab%3Done%26x%3D%252F'
+		);
+		for (const path of ['//evil.example', '/%2F%2Fevil.example']) {
+			const reply = await anon({ path });
+			check(
+				`a request for ${path} never produces a redirect to another site`,
+				// The address typed in may appear inside next as an encoded value, which is harmless. What must never
+				// happen is a Location that leaves this site.
+				String(reply.headers['location'] ?? '').startsWith('/login?next=')
+			);
+		}
+
+		const open = await anon({ path: '/api/auth/status' });
+		check(
+			'the status route answers anyone and says nobody is signed in',
+			open.status === 200 &&
+				JSON.parse(open.text).enabled === true &&
+				JSON.parse(open.text).signedIn === false &&
+				open.headers['cache-control'] === 'no-store'
+		);
+		check('/healthz stays open', (await anon({ path: '/healthz' })).status === 200);
+		check('/api/schema stays open', (await anon({ path: '/api/schema' })).status === 200);
+		check('the login page is served', (await anon({ path: '/login' })).status === 200);
+		check(
+			'the app files hold no data and stay open (the manifest and the offline page)',
+			(await anon({ path: '/manifest.webmanifest' })).status === 200 &&
+				(await anon({ path: '/offline.html' })).status === 200
+		);
+		check(
+			'a write is refused to the open routes that are read only',
+			(await anon({ method: 'POST', path: '/api/auth/status', headers: JSON_HEADERS, body: '{}' }))
+				.status === 401 &&
+				(await anon({ method: 'POST', path: '/healthz', headers: JSON_HEADERS, body: '{}' }))
+					.status === 401
+		);
+		check(
+			'HEAD and OPTIONS to the API without a login reveal nothing',
+			(await anon({ method: 'HEAD', path: '/api/decks' })).status === 401 &&
+				(await anon({ method: 'OPTIONS', path: '/api/decks' })).status === 401
+		);
+
+		// ---- What does not count as a login
+		let notEnough = 0;
+		const lookLikeThePage: [string, Record<string, string>][] = [
+			['the page marker', MARK],
+			['Sec-Fetch-Site: same-origin', { 'sec-fetch-site': 'same-origin' }],
+			['a matching Origin', { origin: origin.origin }],
+			['all three together', { ...MARK, 'sec-fetch-site': 'same-origin', origin: origin.origin }],
+			['a wrong API token', { authorization: 'Bearer wrong-token-0123456789abcdef0123456789' }],
+			['a token in the wrong scheme', { authorization: `Basic ${PROBE_TOKEN}` }],
+			['the token as a cookie', { cookie: `tessera_session=${PROBE_TOKEN}` }]
+		];
+		for (const [label, headers] of lookLikeThePage) {
+			const reply = await anon({ path: '/api/decks', headers });
+			if (reply.status === 401) notEnough++;
+			else check(`${label} is not a login`, false, `got ${reply.status}`);
+		}
+		check(
+			`${lookLikeThePage.length} things that look like a login but are not (the page marker, a wrong token, a forged cookie) are refused`,
+			notEnough === lookLikeThePage.length
+		);
+		check(
+			'the API token alone does not open a page',
+			(await anon({ path: '/settings', headers: { authorization: `Bearer ${PROBE_TOKEN}` } }))
+				.status === 303
+		);
+		check(
+			'the API token alone opens the API for a script',
+			(await anon({ path: '/api/decks', headers: { authorization: `Bearer ${PROBE_TOKEN}` } }))
+				.status === 200
+		);
+		const encoded = await anon({ path: '/%61pi/decks' });
+		const upper = await anon({ path: '/API/decks' });
+		const slashed = await anon({ path: '/api//decks' });
+		check(
+			'an encoded, upper-case, or doubled-slash path to the API does not slip past the check',
+			encoded.status === 401 && upper.status !== 200 && slashed.status !== 200,
+			`${encoded.status} ${upper.status} ${slashed.status}`
+		);
+		const preflight = await anon({
+			method: 'OPTIONS',
+			path: '/api/decks',
+			headers: {
+				origin: 'https://evil.example',
+				'access-control-request-method': 'POST',
+				'access-control-request-headers': 'content-type'
+			}
+		});
+		check(
+			'a cross-site preflight gets no permission',
+			!Object.keys(preflight.headers).some((h) => h.startsWith('access-control-'))
+		);
+
+		// ---- Forged and damaged cookies
+		const now = Math.floor(Date.now() / 1000);
+		const mac43 = 'A'.repeat(43);
+		const [, , , realMac = ''] = realCookie.replace('tessera_session=', '').split('.');
+		const flipped = `${realMac[0] === 'A' ? 'B' : 'A'}${realMac.slice(1)}`;
+		const realValue = realCookie.replace('tessera_session=', '');
+		const forged: [string, string][] = [
+			['an empty value', 'tessera_session='],
+			['a version only', 'tessera_session=v1'],
+			['the right shape with a made-up signature', `tessera_session=v1.0.${now}.${mac43}`],
+			['another counter', `tessera_session=v1.99.${now}.${mac43}`],
+			[
+				'one changed character in the signature',
+				`tessera_session=${realValue.slice(0, -43)}${flipped}`
+			],
+			['the signature cut short', `tessera_session=${realValue.slice(0, -1)}`],
+			['junk after the value', `tessera_session=${realValue}x`],
+			['a space before the value', `tessera_session= v1.${realValue.slice(3)}.`],
+			['another version', `tessera_session=${realValue.replace(/^v1/, 'v2')}`],
+			['a very long value', `tessera_session=${'a'.repeat(5000)}`],
+			['a very long header', `x=${'b'.repeat(9000)}; tessera_session=${realValue}`],
+			[
+				'the forged one first, the real one second',
+				`tessera_session=v1.0.${now}.${mac43}; ${realCookie}`
+			]
+		];
+		let forgedRefused = 0;
+		for (const [label, cookie] of forged) {
+			const reply = await anon({ path: '/api/decks', headers: { cookie } });
+			if (reply.status === 401) forgedRefused++;
+			else check(`${label} is refused`, false, `got ${reply.status}`);
+		}
+		check(
+			`${forged.length} forged or damaged cookies are all refused`,
+			forgedRefused === forged.length
+		);
+		check(
+			'the real cookie works',
+			(await anon({ path: '/api/decks', headers: { cookie: realCookie } })).status === 200
+		);
+
+		// ---- What the login looks like
+		const wrongBodies: [string, string, number, Record<string, string>?][] = [
+			['an empty password', JSON.stringify({ password: '' }), 401],
+			['a very long password', JSON.stringify({ password: 'x'.repeat(500) }), 401],
+			['a number', JSON.stringify({ password: 12345 }), 422],
+			['no password field', '{}', 422],
+			['an extra field', JSON.stringify({ password: PROBE_PASSWORD, admin: true }), 422],
+			['an array', '[]', 422],
+			['text that is not JSON', 'password=abc', 400],
+			[
+				'a body over 1 KB',
+				JSON.stringify({ password: 'x'.repeat(2000) }),
+				413,
+				// Declared length, so the answer arrives before the connection closes (the chunked case is slice B).
+				{
+					'content-length': String(
+						Buffer.byteLength(JSON.stringify({ password: 'x'.repeat(2000) }))
+					)
+				}
+			],
+			[
+				// A form-typed body with no Origin is refused by SvelteKit's own origin check (403), before the content
+				// type guard (415) is reached. Either way the password is not tried.
+				'the wrong content type',
+				JSON.stringify({ password: PROBE_PASSWORD }),
+				403,
+				{ 'content-type': 'text/plain' }
+			]
+		];
+		let wrongHandled = 0;
+		for (const [label, body, expected, headers] of wrongBodies) {
+			const reply = await anonPost('/api/auth/login', body, headers);
+			const echoed = reply.text.includes('xxxxxxxx') || reply.text.includes(PROBE_PASSWORD);
+			if (reply.status === expected && !reply.headers['set-cookie'] && !echoed) wrongHandled++;
+			else check(`login with ${label} is ${expected} with no cookie`, false, `got ${reply.status}`);
+		}
+		check(
+			`${wrongBodies.length} wrong or malformed logins are refused with the right status, no cookie, and no echo`,
+			wrongHandled === wrongBodies.length
+		);
+		const wrongOne = await anonPost('/api/auth/login', { password: 'a wrong guess' });
+		check(
+			'a wrong password is a plain 401 invalid_password that says nothing about why',
+			wrongOne.status === 401 &&
+				errorOf(wrongOne)?.code === 'invalid_password' &&
+				wrongOne.headers['set-cookie'] === undefined &&
+				!/length|short|long|character/i.test(wrongOne.text)
+		);
+		check('logging in is POST only', (await anon({ path: '/api/auth/login' })).status === 401);
+
+		const good = await anonPost('/api/auth/login', { password: PROBE_PASSWORD });
+		const goodCookie = cookieHeaderOf(good);
+		check(
+			'the right password signs in',
+			good.status === 200 && JSON.parse(good.text).signedIn === true
+		);
+		check(
+			'the cookie is HttpOnly, SameSite=Lax, for the whole site, and kept 400 days',
+			/;\s*HttpOnly/i.test(goodCookie) &&
+				/;\s*SameSite=Lax/i.test(goodCookie) &&
+				/;\s*Path=\//i.test(goodCookie) &&
+				/;\s*Max-Age=34560000/i.test(goodCookie)
+		);
+		check(
+			'over plain HTTP the cookie is not marked Secure (it would be dropped)',
+			!/;\s*Secure/i.test(goodCookie)
+		);
+		const behindProxy = await anonPost(
+			'/api/auth/login',
+			{ password: PROBE_PASSWORD },
+			{ 'x-forwarded-proto': 'https' }
+		);
+		check(
+			'behind an HTTPS proxy the cookie is marked Secure',
+			/;\s*Secure/i.test(cookieHeaderOf(behindProxy))
+		);
+		check(
+			'the login answer is not cached and has the security headers',
+			good.headers['cache-control'] === 'no-store' &&
+				good.headers['x-content-type-options'] === 'nosniff'
+		);
+		check(
+			'the cookie value is a version, a counter, a time, and a signature, and holds nothing else',
+			/^tessera_session=v1\.\d+\.\d+\.[A-Za-z0-9_-]{43}$/.test(cookiePairOf(good))
+		);
+		const signedCookie = cookiePairOf(good);
+
+		// ---- A login is not enough for a request that does not look like the page
+		const asCookie = { cookie: signedCookie };
+		check(
+			'a signed-in read needs nothing more',
+			(await anon({ path: '/api/decks', headers: asCookie })).status === 200
+		);
+		let cookieWrites = 0;
+		const cookieAttempts: [string, Record<string, string>][] = [
+			['no sign of being the page', {}],
+			['Sec-Fetch-Site: cross-site', { 'sec-fetch-site': 'cross-site', ...MARK }],
+			['Sec-Fetch-Site: same-site', { 'sec-fetch-site': 'same-site' }],
+			['another site as Origin', { origin: 'https://evil.example', ...MARK }],
+			['Origin: null', { origin: 'null' }]
+		];
+		for (const [label, headers] of cookieAttempts) {
+			const reply = await anonPost(
+				'/api/folders',
+				{ name: 'probe-cookie-write' },
+				{ ...asCookie, ...headers }
+			);
+			if (reply.status === 403 && errorOf(reply)?.code === 'forbidden') cookieWrites++;
+			else check(`a signed-in write with ${label} is refused`, false, `got ${reply.status}`);
+		}
+		check(
+			`${cookieAttempts.length} signed-in writes that do not look like the Tessera page are refused with 403`,
+			cookieWrites === cookieAttempts.length
+		);
+		const asPage = await anonPost(
+			'/api/folders',
+			{ name: 'probe-cookie-page' },
+			{ ...asCookie, ...MARK }
+		);
+		check(
+			'a signed-in write from the page is accepted',
+			asPage.status === 201 || asPage.status === 200,
+			`got ${asPage.status}`
+		);
+		const wrongSite = await anon({
+			method: 'DELETE',
+			path: '/api/folders/1',
+			headers: { ...asCookie, origin: 'https://evil.example' }
+		});
+		check(
+			'a signed-in delete from another site is refused',
+			wrongSite.status === 403,
+			`got ${wrongSite.status}`
+		);
+		check(
+			'no sign-in response carries a CORS header',
+			![good, wrongOne, open].some((r) =>
+				Object.keys(r.headers).some((h) => h.startsWith('access-control-'))
+			)
+		);
+
+		// ---- Wrong guesses are slowed, never locked
+		const timed = async (password: string) => {
+			const started = Date.now();
+			const reply = await anonPost('/api/auth/login', { password });
+			return { reply, ms: Date.now() - started };
+		};
+		await anonPost('/api/auth/login', { password: PROBE_PASSWORD }); // a success clears earlier wrong guesses
+		const first = await timed('wrong guess one');
+		const second = await timed('wrong guess two');
+		const third = await timed('wrong guess three');
+		const fourth = await timed('wrong guess four');
+		const fifth = await timed('wrong guess five');
+		check(
+			'the first three wrong guesses are answered at once',
+			[first, second, third].every((t) => t.reply.status === 401 && t.ms < 400),
+			`${first.ms} ${second.ms} ${third.ms} ms`
+		);
+		check(
+			'the fourth waits about half a second and the fifth about a second, both still 401',
+			fourth.reply.status === 401 &&
+				fourth.ms >= 450 &&
+				fourth.ms < 1500 &&
+				fifth.reply.status === 401 &&
+				fifth.ms >= 950 &&
+				fifth.ms < 2500,
+			`${fourth.ms} ${fifth.ms} ms`
+		);
+		const afterWrong = await timed(PROBE_PASSWORD);
+		check(
+			'the right password after wrong guesses is not locked out, but waits the same time',
+			afterWrong.reply.status === 200 && afterWrong.ms >= 1900 && afterWrong.ms < 4000,
+			`${afterWrong.reply.status} after ${afterWrong.ms} ms`
+		);
+		const cleared = await timed(PROBE_PASSWORD);
+		check(
+			'a success forgives the wrong guesses: the next sign-in is quick',
+			cleared.reply.status === 200 && cleared.ms < 400,
+			`${cleared.ms} ms`
+		);
+
+		// ---- Signing out
+		const out = await anonPost('/api/auth/logout', {}, { cookie: signedCookie });
+		check(
+			'signing out clears the cookie',
+			out.status === 200 &&
+				/tessera_session=;/.test(cookieHeaderOf(out)) &&
+				/Max-Age=0/i.test(cookieHeaderOf(out))
+		);
+		check(
+			'signing out when nobody is signed in is harmless',
+			(await anonPost('/api/auth/logout', {})).status === 200
+		);
+		check(
+			'a copy of the cookie still works after signing out on one device (the stated limit)',
+			(await anon({ path: '/api/decks', headers: { cookie: signedCookie } })).status === 200
+		);
+
+		// ---- Signing out everywhere
+		const tokenOnly = await anonPost(
+			'/api/auth/logout-all',
+			{},
+			{ authorization: `Bearer ${PROBE_TOKEN}` }
+		);
+		check(
+			'signing out everywhere needs a login, the API token is not enough',
+			tokenOnly.status === 401 && errorOf(tokenOnly)?.details?.reason === 'sign_in_required'
+		);
+		check(
+			'signing out everywhere is refused when it does not look like the page',
+			(await anonPost('/api/auth/logout-all', {}, { cookie: signedCookie })).status === 403
+		);
+		const secondDevice = cookiePairOf(
+			await anonPost('/api/auth/login', { password: PROBE_PASSWORD })
+		);
+		const everywhere = await anonPost(
+			'/api/auth/logout-all',
+			{},
+			{ cookie: signedCookie, ...MARK }
+		);
+		check(
+			'signing out everywhere answers 200 and clears this cookie',
+			everywhere.status === 200 && /Max-Age=0/i.test(cookieHeaderOf(everywhere))
+		);
+		check(
+			'after it, every earlier cookie is refused: this device, a second device, and the probe',
+			(
+				await Promise.all(
+					[signedCookie, secondDevice, realCookie].map((cookie) =>
+						anon({ path: '/api/decks', headers: { cookie } })
+					)
+				)
+			).every((reply) => reply.status === 401)
+		);
+		check(
+			'the API token still works for scripts after it',
+			(await anon({ path: '/api/decks', headers: { authorization: `Bearer ${PROBE_TOKEN}` } }))
+				.status === 200
+		);
+		const fresh = await signInForCookie();
+		check('signing in again works and gives a cookie that works', Boolean(fresh));
+		if (fresh) credentials.cookie = fresh;
+
+		// ---- The password and the cookie never reach the logs
+		await new Promise((r) => setTimeout(r, 300));
+		const signInLog = readMainLog();
+		if (signInLog === undefined) {
+			skip('the password and the cookie never reach the logs', 'the server log is not available');
+		} else {
+			check('the server says at startup that sign-in is on', /sign-in: on/.test(signInLog));
+			check('the password never reaches the logs', !signInLog.includes(PROBE_PASSWORD));
+			check(
+				'a wrong guess never reaches the logs',
+				!signInLog.includes('wrong guess one') && !signInLog.includes('a wrong guess')
+			);
+			check(
+				'no login cookie value reaches the logs',
+				![signedCookie, secondDevice, realCookie, fresh ?? '-'].some((cookie) =>
+					signInLog.includes(cookie.replace('tessera_session=', ''))
+				)
+			);
+			check(
+				'the logs say a sign-in failed and succeeded',
+				/sign-in failed/.test(signInLog) && /signed in/.test(signInLog)
+			);
+		}
+	}
+
+	// ---- 4j. Oversized bodies without a declared length (B-3)
+	console.log('\n# Oversized bodies, chunked');
+	// A body sent in chunks has no Content-Length, so the server learns its size only by reading. Over a small route's
+	// limit (16 KB) the answer must still be a 413 that the sender receives, not a connection reset (the sender was
+	// still writing when the server stopped reading). Every route that reads a small JSON body is sent 20 KB in two
+	// chunks. A route that needs something to exist first gets it from the sections above.
+	const twentyKb = [Buffer.alloc(10_000, 0x78), Buffer.alloc(10_000, 0x78)];
+	const smallRoutes: [string, string, number?][] = [
+		['POST', '/api/decks'],
+		['POST', '/api/folders'],
+		['PUT', '/api/folders/1'],
+		['PUT', '/api/folder-assignments'],
+		['POST', '/api/study/review'],
+		['POST', '/api/study/undo'],
+		['POST', '/api/practice/start'],
+		['POST', '/api/practice/grade'],
+		['POST', '/api/practice/undo'],
+		['PUT', '/api/settings'],
+		['POST', '/api/decks/probe-x/delete-forever'],
+		['POST', '/api/decks/probe-x/start-over'],
+		['POST', '/api/backups/probe-x/restore'],
+		// The sign-in body has a limit of 1 KB. Without a password the route is a 404 before it reads anything.
+		...(passwordMode ? [['POST', '/api/auth/login', 2] as [string, string, number]] : [])
+	];
+	let chunkedRefused = 0;
+	for (const [method, path, kilobytes] of smallRoutes) {
+		const chunks = kilobytes
+			? [Buffer.alloc(kilobytes * 512, 0x78), Buffer.alloc(kilobytes * 512, 0x78)]
+			: twentyKb;
+		try {
+			const reply = await send({
+				method,
+				path,
+				headers: { ...JSON_HEADERS, ...MARK },
+				chunks,
+				fresh: true
+			});
+			if (reply.status === 413) chunkedRefused++;
+			else
+				check(
+					`a chunked body over the limit to ${method} ${path} is a 413`,
+					false,
+					`got ${reply.status}`
+				);
+		} catch (error) {
+			check(
+				`a chunked body over the limit to ${method} ${path} is a 413`,
+				false,
+				`no answer: ${(error as Error).message}`
+			);
+		}
+	}
+	check(
+		`a 20 KB body with no declared length is answered 413, and the sender receives it, on all ${smallRoutes.length} small-body routes`,
+		chunkedRefused === smallRoutes.length
+	);
+	const stillHealthy = await send({ path: '/healthz' });
+	check(
+		'the server is still healthy after the oversized chunked bodies',
+		stillHealthy.status === 200
+	);
+	// A body that goes on for megabytes is not a mistake: it is read for a while and then cut off. The server must not
+	// buffer it, and must stay up.
+	const hugeChunks = Array.from({ length: 24 }, () => Buffer.alloc(256 * 1024, 0x78));
+	try {
+		await send({
+			method: 'POST',
+			path: '/api/decks',
+			headers: { ...JSON_HEADERS, ...MARK },
+			chunks: hugeChunks,
+			fresh: true
+		});
+	} catch {
+		// A reset is allowed here: the body was far over the limit.
+	}
+	check(
+		'a 6 MB chunked body to a 16 KB route is answered or cut off, and the server stays up',
+		(await send({ path: '/healthz' })).status === 200
+	);
 
 	// ---- 5. Path traversal and error leakage
 	console.log('\n# Paths and errors');

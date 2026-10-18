@@ -1,9 +1,24 @@
 import type { Handle } from '@sveltejs/kit/hooks';
 import { getApp } from '../app.ts';
-import { bearerToken, isWebPageRequest, requiresToken, tokenMatches } from './auth.ts';
+import {
+	makeSessionValue,
+	needsRenewal,
+	safeNextPath,
+	sessionCookieHeader
+} from '../auth/index.ts';
+import { isHttps, nowSeconds, sessionOf } from '../auth/request.ts';
+import { getSessionEpoch } from '../repos/settings.ts';
+import {
+	bearerToken,
+	isApiPath,
+	isOpenWithoutSignIn,
+	isWebPageRequest,
+	requiresToken,
+	tokenMatches
+} from './auth.ts';
 import { checkContentType } from './content-type.ts';
 import { errorResponse } from './errors.ts';
-import { withHeaders } from './headers.ts';
+import { withHeaders, withSetCookie } from './headers.ts';
 import { displayableHost, isHostAllowed } from './hosts.ts';
 import { resolveRequestId } from './request-id.ts';
 
@@ -70,7 +85,10 @@ export const hostGuard: Handle = async ({ event, resolve }) => {
 export const apiTokenGuard: Handle = async ({ event, resolve }) => {
 	const app = getApp();
 	const expected = app.config.apiToken;
-	if (expected === undefined || !requiresToken(event.url.pathname)) return resolve(event);
+	// With sign-in on, authGuard has already decided: it accepts the token or a login, and the web page alone is not enough.
+	if (app.auth || expected === undefined || !requiresToken(event.url.pathname)) {
+		return resolve(event);
+	}
 
 	const headers = event.request.headers;
 	if (tokenMatches(bearerToken(headers.get('authorization')), expected)) return resolve(event);
@@ -90,6 +108,76 @@ export const apiTokenGuard: Handle = async ({ event, resolve }) => {
 			event.locals.requestId
 		),
 		{ 'www-authenticate': 'Bearer realm="tessera"' }
+	);
+};
+
+// ADR-021: with TESSERA_PASSWORD set, every page and /api route needs a login, except the few in
+// isOpenWithoutSignIn. In order: the API token (scripts), then the login cookie, then a refusal. The cookie, the
+// password, and the token are never logged.
+export const authGuard: Handle = async ({ event, resolve }) => {
+	const app = getApp();
+	if (!app.auth) return resolve(event);
+	const { pathname, search } = event.url;
+	const method = event.request.method.toUpperCase();
+	if (isOpenWithoutSignIn(method, pathname)) return resolve(event);
+
+	const headers = event.request.headers;
+	const api = isApiPath(pathname);
+	const expected = app.config.apiToken;
+	if (
+		api &&
+		expected !== undefined &&
+		tokenMatches(bearerToken(headers.get('authorization')), expected)
+	) {
+		return resolve(event);
+	}
+
+	const session = sessionOf(app, headers);
+	if (session) {
+		// A login cookie is sent by the browser on its own, so a request that changes something must also look like the
+		// Tessera page itself. SameSite and the JSON content type already stop another site, this is a third lock.
+		const changes = method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS';
+		if (api && changes && !isWebPageRequest(headers, event.url.host)) {
+			app.log.warn('request refused, signed in but not from the Tessera page', {
+				requestId: event.locals.requestId,
+				method,
+				path: pathname
+			});
+			return errorResponse(
+				'forbidden',
+				'A signed-in request that changes data must come from the Tessera web page. Scripts should use the API token instead.',
+				undefined,
+				event.locals.requestId
+			);
+		}
+		const response = await resolve(event);
+		if (!needsRenewal(session, nowSeconds(app))) return response;
+		const cookie = sessionCookieHeader(
+			makeSessionValue(app.auth.key, getSessionEpoch(app.db), nowSeconds(app)),
+			isHttps(headers)
+		);
+		return withSetCookie(response, cookie);
+	}
+
+	if (!api && (method === 'GET' || method === 'HEAD')) {
+		const target = `/login?next=${encodeURIComponent(safeNextPath(pathname + search))}`;
+		return new Response(null, {
+			status: 303,
+			headers: { location: target, 'cache-control': 'no-store' }
+		});
+	}
+
+	app.log.warn('request refused, sign-in needed', {
+		requestId: event.locals.requestId,
+		method,
+		path: pathname,
+		sentToken: headers.has('authorization')
+	});
+	return errorResponse(
+		'unauthorized',
+		'Sign in to Tessera first. In a browser, open the page and sign in. A script needs the API token: send the header "Authorization: Bearer <your TESSERA_API_TOKEN>".',
+		{ reason: 'sign_in_required' },
+		event.locals.requestId
 	);
 };
 

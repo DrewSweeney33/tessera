@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { createAuth, type AuthState } from './auth/index.ts';
 import { checkDataDir } from './boot-check.ts';
 import { getConfig, type Config } from './config.ts';
 import { systemClock, systemRng, type Clock, type Rng } from './clock.ts';
@@ -15,6 +16,8 @@ export interface AppContext {
 	rng: Rng;
 	database: DatabaseHandle;
 	db: Db;
+	// Sign-in (ADR-021). Undefined when no TESSERA_PASSWORD is set.
+	auth: AuthState | undefined;
 	version: string;
 	// Asks the process to stop cleanly, after a restore has been staged. A supervisor (the restart policy) then
 	// starts it again, and the restore is applied before the database is opened.
@@ -28,6 +31,8 @@ export interface CreateAppOptions {
 	log?: Logger;
 	migrationsFolder?: string;
 	requestShutdown?: () => void;
+	// How a wrong password is made to wait. Tests pass a fast one.
+	sleep?: (ms: number) => Promise<void>;
 }
 
 function readVersion(): string {
@@ -62,6 +67,7 @@ export function createApp(options: CreateAppOptions = {}): AppContext {
 		rng: options.rng ?? systemRng,
 		database,
 		db: database.db,
+		auth: createAuth(config, clock, options.sleep),
 		version: readVersion(),
 		requestShutdown:
 			options.requestShutdown ??
@@ -96,6 +102,11 @@ export function initApp(): AppContext {
 			'API token: set. Requests to /api/* from outside the Tessera web page need Authorization: Bearer. The web page itself is not protected by the token, so keep it behind a VPN or a reverse proxy that asks for a password.'
 		);
 	}
+	current.log.info(
+		current.auth
+			? 'sign-in: on. Every page and /api route needs a signed-in browser or the API token, except /login, /healthz, and /api/schema.'
+			: 'sign-in: off (no TESSERA_PASSWORD). Anyone who can open this page can use it.'
+	);
 	return current;
 }
 

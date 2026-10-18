@@ -6,6 +6,10 @@ export interface Config {
 	readonly port: number;
 	readonly dataDir: string;
 	readonly apiToken: string | undefined;
+	// The page password (ADR-021). Undefined means sign-in is off.
+	readonly password: string | undefined;
+	// The most backups of kind manual that Back up now will make before it asks for one to be deleted.
+	readonly maxBackups: number;
 	readonly allowedHosts: readonly string[] | undefined;
 	readonly timeZone: string;
 	readonly logLevel: LogLevel;
@@ -34,6 +38,18 @@ const EnvSchema = z.object({
 			.min(24, 'must be at least 24 characters (generate one with: openssl rand -hex 32)')
 			.optional()
 	),
+	TESSERA_PASSWORD: z.preprocess(
+		blank,
+		z
+			.string()
+			.min(
+				12,
+				'must be at least 12 characters (a generated one is best, keep it in a password manager)'
+			)
+			.max(200, 'must be at most 200 characters')
+			.optional()
+	),
+	TESSERA_MAX_BACKUPS: z.preprocess(blank, z.coerce.number().int().min(1).max(1000).default(10)),
 	TESSERA_ALLOWED_HOSTS: z.preprocess(blank, z.string().optional()),
 	TZ: z.preprocess(
 		blank,
@@ -62,6 +78,8 @@ export function parseConfig(env: Record<string, string | undefined>): Result<Con
 			port: e.PORT,
 			dataDir: e.DATA_DIR,
 			apiToken: e.TESSERA_API_TOKEN,
+			password: e.TESSERA_PASSWORD,
+			maxBackups: e.TESSERA_MAX_BACKUPS,
 			allowedHosts: hosts && hosts.length > 0 ? Object.freeze(hosts) : undefined,
 			timeZone: e.TZ,
 			logLevel: e.LOG_LEVEL

@@ -34,9 +34,9 @@ Open <http://localhost:3000>, choose **Import**, and paste the contents of [`exa
 
 Your data lives in a Docker volume. Do not back it up by copying `tessera.db` while Tessera is running, because recent changes sit in a side file and the copy can be empty. [docs/operations.md](docs/operations.md) has a one-line backup command that is safe while you study, plus restore, upgrade, and rollback steps. Take a backup before you rely on it.
 
-### Security: there is no login
+### Security: a login you can turn on
 
-Tessera is a single-user app and has no accounts. `compose.yaml` publishes the port on `127.0.0.1` only, on purpose. To use it from another device, the safest route is a private network such as Tailscale, or a reverse proxy that asks for a password. [docs/deploy.md](docs/deploy.md) walks through each option and what to avoid. [docs/security.md](docs/security.md) says what Tessera protects, what it does not, and what you should do. See [ADR-005](.10x/adrs/005-security-posture-without-login.md) for the reasoning and [SECURITY.md](SECURITY.md) to report a problem.
+Tessera is a single-user app and has no accounts. Out of the box there is no login, and `compose.yaml` publishes the port on `127.0.0.1` only, on purpose. To use it from another device, set `TESSERA_PASSWORD` (one password, in `compose.yaml`, off when unset) and use a private network such as Tailscale, or a reverse proxy with HTTPS. [docs/deploy.md](docs/deploy.md) walks through each option and what to avoid. [docs/security.md](docs/security.md) says what Tessera protects, what it does not, and what you should do. See [ADR-005](.10x/adrs/005-security-posture-without-login.md) for the reasoning and [SECURITY.md](SECURITY.md) to report a problem.
 
 If you use a reverse proxy that terminates TLS, set `PROTOCOL_HEADER=x-forwarded-proto` and `HOST_HEADER=x-forwarded-host` (commented out in `compose.yaml`) so the app sees the real address.
 
@@ -104,6 +104,8 @@ Limits: 5 MB and 5,000 cards per import.
 | `TZ`                    | `UTC`                           | Time zone that decides when a study day rolls over                                                                                               |
 | `LOG_LEVEL`             | `info`                          | `debug`, `info`, `warn`, or `error`                                                                                                              |
 | `TESSERA_API_TOKEN`     | unset                           | Optional password for scripts that call the API. The web page does not need it and is not protected by it, see [docs/deploy.md](docs/deploy.md). |
+| `TESSERA_PASSWORD`      | unset                           | Optional password for the web page, 12+ characters. Turns on sign-in for every page and API route, see [docs/deploy.md](docs/deploy.md).         |
+| `TESSERA_MAX_BACKUPS`   | `10`                            | The most backups taken by you that Back up now keeps (1 to 1000), then it asks you to delete one. See [docs/operations.md](docs/operations.md).  |
 | `TESSERA_ALLOWED_HOSTS` | unset                           | Host names Tessera answers to, comma separated (`*.example.com` allowed). Needed for a real domain name, see [docs/deploy.md](docs/deploy.md).   |
 
 ## Development

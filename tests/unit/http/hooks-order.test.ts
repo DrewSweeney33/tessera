@@ -15,11 +15,14 @@ describe('the request pipeline in src/hooks.server.ts', () => {
 	it('runs the guards in this order', () => {
 		// Logging wraps everything. Security headers cover even refused requests. The host check comes before
 		// anything that reads the request. The token check is before the content type is judged, so a caller
-		// without the token learns nothing about the API. The content type guard last.
+		// without the token learns nothing about the API. The sign-in check (authGuard, ADR-021) comes right after
+		// the host check and before the token check, which it replaces when a password is set. The content type
+		// guard last.
 		expect(handlers).toEqual([
 			'requestLogging',
 			'securityHeaders',
 			'hostGuard',
+			'authGuard',
 			'apiTokenGuard',
 			'contentTypeGuard'
 		]);

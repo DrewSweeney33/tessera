@@ -13,7 +13,22 @@ Start with what you see. Every message quoted here is exactly what the app print
 
 ## A script gets 401
 
-When `TESSERA_API_TOKEN` is set, a script must send `Authorization: Bearer <token>`. The web page does not need it. See [deploy.md](deploy.md#the-api-token-for-scripts-not-for-the-web-page).
+When `TESSERA_API_TOKEN` is set, a script must send `Authorization: Bearer <token>`. The web page does not need it unless a page password is set. See [deploy.md](deploy.md#the-api-token-for-scripts-not-for-the-web-page).
+
+When `TESSERA_PASSWORD` is set, the API needs the token (for scripts) or a signed-in browser. A script with no token set gets `401` with the reason `sign_in_required`: set `TESSERA_API_TOKEN` as well and send it.
+
+## The page asks for a password, or you cannot sign in
+
+| What you see                                                                               | Why                                                                                                                | Fix                                                                                                    |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| Every page goes to a sign-in page                                                          | `TESSERA_PASSWORD` is set in `compose.yaml`                                                                        | Sign in with it, or delete the line and run `docker compose up -d` to turn sign-in off                 |
+| "That password is not right."                                                              | A wrong guess, or the password was changed in `compose.yaml` and the container restarted                           | Use the value now in `compose.yaml`. After several wrong guesses each answer waits a little on purpose |
+| Sign-in works but you are asked again at once                                              | The address is plain `http://` behind a proxy that sends `X-Forwarded-Proto: https`, or the browser blocks cookies | Use the HTTPS address, check the proxy sends the header, and allow cookies for the site                |
+| The container restarts and the log says `TESSERA_PASSWORD: must be at least 12 characters` | The password in `compose.yaml` is too short or too long                                                            | Use 12 to 200 characters                                                                               |
+
+## Back up now is greyed out, or a script gets 409 `backup_limit`
+
+You have as many backups taken by you as `TESSERA_MAX_BACKUPS` allows (10 by default). Delete one you no longer need on the Backups page (download it first if you want to keep it somewhere else), or raise the limit in `compose.yaml` and run `docker compose up -d`. Tessera never deletes a backup for you, and the copies it makes itself (before an upgrade or a delete) are not counted. See [operations.md](operations.md#backups).
 
 ## An import is refused
 

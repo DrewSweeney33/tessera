@@ -338,3 +338,20 @@ Done after the owner's "next milestone" and the design conversation. Milestone 6
 | M6-09 | Slice C e2e, accessibility, probe, QA and security review, docs, deploy; release decision | M |
 
 **Order:** slice A (M6-01 to M6-04), deploy; slice B (M6-05 to M6-07), deploy; slice C (M6-08 and M6-09), deploy. The owner's standing rules apply: backup before each deploy, commit and push only on request, the tag is the owner's call.
+
+## M7 re-plan (2026-10-18)
+
+Milestone 7 of the four the owner chose (6 study quality done, 7 safe on the network, 8 the Claude authoring loop, 9 close out toward 1.0). About 24 hours, three slices, no migration. Spec `.10x/specs/2026-10-18-milestone-7-safe-on-the-network-design.md`.
+
+| ID | Task | Size |
+|---|---|---|
+| M7-01 | Config, auth core (cookie, key, delay schedule, `next` check), unit tests | M |
+| M7-02 | Guard, `/api/auth/*`, epoch, slow-down, every-route test, integration tests | L |
+| M7-03 | `/login`, redirects, request helper 401, Settings Security, e2e and accessibility | M |
+| M7-04 | Probe in password mode and the sign-in section, docs, deploy slice A | M |
+| M7-05 | Backup limit | S |
+| M7-06 | B-3 chunked body 413 | S |
+| M7-07 | Slice B docs and deploy | S |
+| M7-08 | QA and security review, guides, vault, deploy | M |
+
+**Order:** A (M7-01 to M7-04), deploy; B (M7-05 to M7-07), deploy; C (M7-08), deploy. Standing rules: backup before each deploy, commit and push only on request, the tag is the owner's call, the live password stays off (the owner chooses it, it goes in the password manager and never in a note).

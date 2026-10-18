@@ -1,6 +1,7 @@
-# Tessera has no login. This file publishes the port on loopback only (127.0.0.1) on purpose.
-# To reach it from other machines, put a reverse proxy with authentication in front of it, or
-# change the port mapping below to "3000:3000" ONLY on a network you fully trust. See ADR-005.
+# Tessera has no login unless you set TESSERA_PASSWORD below. This file publishes the port on loopback only
+# (127.0.0.1) on purpose. To reach it from other machines, set a password, or put a reverse proxy with
+# authentication in front of it, or change the port mapping below to "3000:3000" ONLY on a network you fully
+# trust. See ADR-005 and ADR-021.
 services:
   tessera:
     build: .
@@ -14,6 +15,13 @@ services:
       # Optional. Scripts calling /api/* (except /healthz and /api/schema) must send "Authorization: Bearer <token>".
       # 24+ characters. The web page does not need it, and it does not protect the web page. See docs/deploy.md.
       # TESSERA_API_TOKEN: change-me-to-a-long-random-value
+      # Optional. A password for the web page, 12+ characters (a generated one, kept in your password manager).
+      # With it set, every page and every /api route needs a login, and a login lasts until you sign out. Scripts
+      # keep using TESSERA_API_TOKEN. Delete the line and restart to turn sign-in off. See docs/deploy.md.
+      # TESSERA_PASSWORD: change-me-to-a-long-random-password
+      # Optional. The most backups taken by you that Back up now keeps (1 to 1000, default 10). At the limit it says
+      # to delete one first; Tessera never deletes a backup for you. Copies it makes itself are not counted.
+      # TESSERA_MAX_BACKUPS: 10
       # Host names Tessera answers to (defends against DNS rebinding). Without this line it answers localhost,
       # any IP address, single-word names, and names ending in .local, .lan, .home.arpa, .internal, or
       # .localdomain. Set it if you reach Tessera by another name, for example through a reverse proxy.

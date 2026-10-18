@@ -416,8 +416,20 @@ export interface LastRestoreDto {
 	message: string;
 }
 
+// How many backups the person has made and how many Back up now will keep (TESSERA_MAX_BACKUPS, ADR-021), and what the
+// copies Tessera makes by itself take up. Those are never counted against the limit and never deleted.
+export interface BackupLimitDto {
+	// Backups of kind manual: the ones Back up now makes, and any file named manual-... put in the folder.
+	manualCount: number;
+	maxManual: number;
+	// Copies made before an upgrade, a delete for good, a start over, or a restore.
+	safetyCopies: number;
+	safetyCopiesBytes: number;
+}
+
 export interface BackupsResponse {
 	backups: BackupDto[];
+	limit: BackupLimitDto;
 	// Present when the last start applied, or could not apply, a restore.
 	lastRestore?: LastRestoreDto;
 	// The backup a restore is waiting to bring back at the next start, if one is.
@@ -498,6 +510,13 @@ export interface SettingsDto {
 	rolloverHour: number;
 	leechThreshold: number;
 	interleave: boolean;
+}
+
+// GET /api/auth/status, and what sign-in, Sign out, and Sign out everywhere answer (ADR-021).
+export interface AuthStatusResponse {
+	// False when no TESSERA_PASSWORD is set.
+	enabled: boolean;
+	signedIn: boolean;
 }
 
 export interface SettingsResponse {
