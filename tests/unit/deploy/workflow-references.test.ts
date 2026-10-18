@@ -20,7 +20,7 @@ interface Job {
 	needs?: string | string[];
 	uses?: string;
 	steps?: Step[];
-	strategy?: { matrix?: Record<string, unknown[]> };
+	strategy?: { matrix?: Record<string, unknown> };
 }
 
 const folder = '.github/workflows';
@@ -34,12 +34,32 @@ function load(file: string): { jobs: Record<string, Job>; text: string } {
 	return { jobs: (parse(text) as { jobs: Record<string, Job> }).jobs, text };
 }
 
+// The values a matrix key can take: a list, the platforms named in an expression (`fromJSON('["linux/amd64"]')`), and
+// any value an `include` entry gives it.
+function matrixValues(matrix: Record<string, unknown> | undefined, key: string): string[] {
+	const base = matrix?.[key];
+	const fromBase = Array.isArray(base)
+		? base.map(String)
+		: typeof base === 'string'
+			? [...base.matchAll(/linux\/\w+/g)].map((m) => m[0])
+			: [];
+	const include = Array.isArray(matrix?.['include'])
+		? (matrix['include'] as Record<string, unknown>[])
+		: [];
+	const fromInclude = include.flatMap((entry) => (key in entry ? [String(entry[key])] : []));
+	return [...new Set([...fromBase, ...fromInclude])];
+}
+
+function matrixDefines(matrix: Record<string, unknown> | undefined, key: string): boolean {
+	return matrixValues(matrix, key).length > 0 || key in (matrix ?? {});
+}
+
 // Every combination of the matrix values a run line might use, for `${{ matrix.key }}`.
-function expand(command: string, matrix: Record<string, unknown[]> | undefined): string[] {
+function expand(command: string, matrix: Record<string, unknown> | undefined): string[] {
 	const keys = [...new Set([...command.matchAll(/\$\{\{ matrix\.(\w+) \}\}/g)].map((m) => m[1]!))];
 	let results = [command];
 	for (const key of keys) {
-		const values = (matrix?.[key] ?? []).map(String);
+		const values = matrixValues(matrix, key);
 		results = results.flatMap((c) => values.map((v) => c.replaceAll(`\${{ matrix.${key} }}`, v)));
 	}
 	return results;
@@ -100,7 +120,7 @@ describe.each(files)('%s', (file) => {
 			for (const step of job.steps ?? []) {
 				const own = JSON.stringify(step);
 				for (const match of own.matchAll(/matrix\.(\w+)/g)) {
-					if (!(match[1]! in (job.strategy?.matrix ?? {}))) {
+					if (!matrixDefines(job.strategy?.matrix, match[1]!)) {
 						problems.push(`${name}: matrix.${match[1]} is not defined`);
 					}
 				}

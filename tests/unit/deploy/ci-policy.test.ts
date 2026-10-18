@@ -13,7 +13,7 @@ const workflow = parse(text) as {
 			needs?: string;
 			if?: string;
 			steps: { uses?: string; run?: string; name?: string }[];
-			strategy?: { matrix: { platform: string[] } };
+			strategy?: { matrix: { platform: string } };
 		}
 	>;
 };
@@ -41,13 +41,47 @@ describe('CI workflow', () => {
 		expect(workflow.permissions).toEqual({ contents: 'read' });
 	});
 
-	it('runs the full verify gate, audit, license check, and a server smoke test', () => {
+	it('runs the type check, lint, schema check, unit and integration tests, audit, license check, and a smoke test', () => {
 		expect(commands).toContain('npm ci');
-		expect(commands).toContain('npm run verify');
+		// Everything `npm run verify` runs locally, as separate jobs that run at the same time.
+		for (const command of [
+			'npm run check',
+			'npm run lint',
+			'npm run schema:check',
+			'npm test',
+			'npm run test:integration'
+		]) {
+			expect(commands, command).toContain(command);
+		}
+		const verify = JSON.parse(readFileSync('package.json', 'utf8')).scripts.verify as string;
+		for (const part of verify.split(' && ')) {
+			expect(commands, part).toContain(
+				part.replace('npm run test:integration', 'npm run test:integration')
+			);
+		}
 		expect(commands).toContain('npm run audit:prod');
 		expect(commands).toContain('npm run licenses');
 		expect(commands).toContain('npm run build');
 		expect(commands).toContain('npm run smoke');
+	});
+
+	it('runs the checks as parallel jobs, and keeps one job named Verify that fails if any of them did', () => {
+		const names = ['static', 'unit', 'integration', 'server', 'security'];
+		for (const name of names) {
+			expect(workflow.jobs[name], name).toBeDefined();
+			expect(workflow.jobs[name]!.needs, name).toBeUndefined();
+		}
+		const verify = workflow.jobs['verify']! as unknown as {
+			needs: string[];
+			name: string;
+			steps: { run?: string }[];
+		};
+		expect(verify.name).toBe('Verify');
+		expect([...verify.needs].sort()).toEqual([...names].sort());
+		const run = verify.steps.map((step) => step.run ?? '').join('\n');
+		expect(run).toContain("contains(needs.*.result, 'failure')");
+		expect(run).toContain("contains(needs.*.result, 'cancelled')");
+		expect(run).toContain("contains(needs.*.result, 'skipped')");
 	});
 
 	it('runs every check against the built server', () => {
@@ -60,17 +94,27 @@ describe('CI workflow', () => {
 		expect(commands).toContain('npm run ops:check');
 	});
 
-	it('runs the browser tests in Chromium, Firefox, and WebKit, each browser in four shards on their own runners', () => {
+	it('runs the browser tests in Chromium, Firefox, and WebKit in shards on their own runners, WebKit in eight', () => {
 		const browsers = workflow.jobs['browsers']!;
 		const matrix = (
-			browsers.strategy as unknown as { matrix: { browser: string[]; shard: number[] } }
+			browsers.strategy as unknown as {
+				matrix: {
+					browser: string[];
+					shard: number[];
+					include: { browser: string; shard: number; shards: number }[];
+				};
+			}
 		).matrix;
 		expect(browsers.needs).toBeUndefined();
-		expect(matrix.browser).toEqual(['chromium', 'firefox', 'webkit']);
+		expect(matrix.browser).toEqual(['chromium', 'firefox']);
 		// Four shards of one browser are four jobs with four servers and four empty data folders, so the specs, which
 		// import decks with fixed ids into one shared server, never meet another shard's data.
 		expect(matrix.shard).toEqual([1, 2, 3, 4]);
-		expect(text).toContain('--shard=${{ matrix.shard }}/4');
+		// WebKit is about 2.5 times slower than Chromium, so it has eight.
+		expect(
+			matrix.include.map((entry) => `${entry.browser} ${entry.shard}/${entry.shards}`)
+		).toEqual([1, 2, 3, 4, 5, 6, 7, 8].map((shard) => `webkit ${shard}/8`));
+		expect(text).toContain('--shard=${{ matrix.shard }}/${{ matrix.shards || 4 }}');
 		const run = browsers.steps.map((step) => step.run ?? '').join('\n');
 		expect(run).toContain('npm ci');
 		expect(run).toContain('npm run build');
@@ -81,10 +125,19 @@ describe('CI workflow', () => {
 			string,
 			string
 		>;
-		for (const browser of matrix.browser) {
+		for (const browser of ['chromium', 'firefox', 'webkit']) {
 			expect(scripts[`test:e2e:${browser}`], browser).toBe(`node scripts/run-e2e.ts ${browser}`);
 		}
 		expect(text).toMatch(/browsers:[\s\S]*?timeout-minutes: 15/);
+	});
+
+	it('keeps the downloaded browsers between runs, keyed by the lockfile and the browser', () => {
+		const step = workflow.jobs['browsers']!.steps.find((s) => s.uses?.startsWith('actions/cache@'));
+		expect(step, 'a cache step').toBeDefined();
+		expect(text).toContain('path: ~/.cache/ms-playwright');
+		expect(text).toContain(
+			"playwright-${{ runner.os }}-${{ matrix.browser }}-${{ hashFiles('package-lock.json') }}"
+		);
 	});
 
 	it('does not run the browser tests inside the verify job, so verify and the browsers run at the same time', () => {
@@ -103,13 +156,15 @@ describe('CI workflow', () => {
 		expect(on.pull_request['paths-ignore']).toEqual(['.10x/**']);
 	});
 
-	it('lets the release run only the container checks, and skips verify and the browsers then', () => {
+	it('lets the release run only the container checks, and skips every other job then', () => {
 		const call = (
 			parse(text) as { on: { workflow_call: { inputs: { scope: { default: string } } } } }
 		).on.workflow_call;
 		expect(call.inputs.scope.default).toBe('all');
-		expect(workflow.jobs['verify']!.if).toBe("inputs.scope != 'image'");
-		expect(workflow.jobs['browsers']!.if).toBe("inputs.scope != 'image'");
+		for (const name of Object.keys(workflow.jobs)) {
+			if (name === 'docker') continue;
+			expect(workflow.jobs[name]!.if, name).toContain("inputs.scope != 'image'");
+		}
 		// The container job has no condition: it runs in both modes.
 		expect(workflow.jobs['docker']!.if).toBeUndefined();
 	});
@@ -126,10 +181,14 @@ describe('CI workflow', () => {
 		expect(Object.keys((parse(text) as { on: object }).on)).toContain('workflow_call');
 	});
 
-	it('builds and tests the container on amd64 and arm64, at the same time as verify', () => {
+	it('builds and tests the container at the same time as the other jobs: amd64 on every push, arm64 too for the release', () => {
 		const docker = workflow.jobs['docker']!;
 		expect(docker.needs).toBeUndefined();
-		expect(docker.strategy?.matrix.platform).toEqual(['linux/amd64', 'linux/arm64']);
+		// arm64 is built under emulation (four minutes), so only the release's image checks (scope image) include it.
+		const platform = docker.strategy!.matrix.platform;
+		expect(platform).toContain("inputs.scope == 'image'");
+		expect(platform).toContain('["linux/amd64","linux/arm64"]');
+		expect(platform).toContain('["linux/amd64"]');
 		expect(commands).toContain('docker buildx build');
 	});
 

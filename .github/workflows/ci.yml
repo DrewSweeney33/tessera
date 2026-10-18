@@ -25,8 +25,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
-    name: Verify
+  # The checks that used to be one job called Verify, now five jobs that run at the same time (about a minute
+  # each instead of three and a half in a row). `npm run verify` is still the local command for the first three.
+  static:
+    name: Static checks
     if: inputs.scope != 'image'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -38,8 +40,58 @@ jobs:
           cache: npm
       # A clean install on a runner with no extra build tools. Install scripts are off (ADR-007).
       - run: npm ci
-      # Type check, lint, format check, schema drift check, unit and integration tests.
-      - run: npm run verify
+      - name: Type check (the app and the service worker)
+        run: npm run check
+      - name: Lint and format check
+        run: npm run lint
+      - name: Deck schema drift check
+        run: npm run schema:check
+
+  unit:
+    name: Unit tests
+    if: inputs.scope != 'image'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      # A clean install on a runner with no extra build tools. Install scripts are off (ADR-007).
+      - run: npm ci
+      - name: Unit tests
+        run: npm test
+
+  integration:
+    name: Integration tests
+    if: inputs.scope != 'image'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      # A clean install on a runner with no extra build tools. Install scripts are off (ADR-007).
+      - run: npm ci
+      - name: Integration tests
+        run: npm run test:integration
+
+  server:
+    name: Server checks
+    if: inputs.scope != 'image'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      # A clean install on a runner with no extra build tools. Install scripts are off (ADR-007).
+      - run: npm ci
       - name: Audit production dependencies
         run: npm run audit:prod
       - name: Check production licenses
@@ -52,6 +104,21 @@ jobs:
         run: npm run benchmark
       - name: Statistics benchmark (100,000 reviews, 1 second budget)
         run: npm run benchmark:stats
+
+  security:
+    name: Security and durability
+    if: inputs.scope != 'image'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      # A clean install on a runner with no extra build tools. Install scripts are off (ADR-007).
+      - run: npm ci
+      - run: npm run build
       # Adversarial requests against the real server (headers, CSP, CSRF, limits, injection, log hygiene).
       - name: Security probe
         run: npm run security:probe
@@ -67,21 +134,46 @@ jobs:
       - name: Operations guide check
         run: npm run ops:check
 
+  # One name for "everything that is not a browser or a container passed". It stays called Verify so anything that
+  # waits on that check keeps working, and it fails if any of the five jobs above failed or was cancelled.
+  verify:
+    name: Verify
+    if: always() && inputs.scope != 'image'
+    needs: [static, unit, integration, server, security]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: All five passed
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          echo "results: ${RESULTS}"
+          test "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}" = "false"
+
   # The browser tests (XSS corpus, the import and study flows, layout at phone widths, themes, accessibility) in
-  # Chromium, Firefox, and WebKit (the engine of Safari). Each browser's suite is split into four shards, and every
-  # shard is its own job on its own runner with its own server and an empty data folder, so the specs (which import
-  # decks with fixed ids) never meet each other's data. The suite took 13 minutes in WebKit on one runner; split four
-  # ways each job takes about three, plus the build. QA risk R-1.
+  # Chromium, Firefox, and WebKit (the engine of Safari). Each browser's suite is split into shards, and every shard
+  # is its own job on its own runner with its own server and an empty data folder, so the specs (which import decks
+  # with fixed ids) never meet each other's data. WebKit is about 2.5 times slower than Chromium, so it gets eight
+  # shards and the other two get four. The suite took 13 minutes in WebKit on one runner. QA risk R-1.
   browsers:
-    name: ${{ matrix.browser }} ${{ matrix.shard }}/4
+    name: ${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards || 4 }}
     if: inputs.scope != 'image'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        browser: [chromium, firefox, webkit]
+        browser: [chromium, firefox]
         shard: [1, 2, 3, 4]
+        include:
+          - { browser: webkit, shard: 1, shards: 8 }
+          - { browser: webkit, shard: 2, shards: 8 }
+          - { browser: webkit, shard: 3, shards: 8 }
+          - { browser: webkit, shard: 4, shards: 8 }
+          - { browser: webkit, shard: 5, shards: 8 }
+          - { browser: webkit, shard: 6, shards: 8 }
+          - { browser: webkit, shard: 7, shards: 8 }
+          - { browser: webkit, shard: 8, shards: 8 }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -90,10 +182,17 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      # The browser files Playwright downloads, kept between runs. They are named by Playwright's version, so a new
+      # version downloads fresh ones. The system libraries (apt) are still installed by the next step every time.
+      - name: Keep the downloaded browsers between runs
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ matrix.browser }}-${{ hashFiles('package-lock.json') }}
       - name: Install the test browser and its system libraries
         run: npx playwright install --with-deps ${{ matrix.browser }}
-      - name: End-to-end tests in ${{ matrix.browser }}, shard ${{ matrix.shard }} of 4
-        run: npm run test:e2e:${{ matrix.browser }} -- --shard=${{ matrix.shard }}/4
+      - name: End-to-end tests in ${{ matrix.browser }}, shard ${{ matrix.shard }} of ${{ matrix.shards || 4 }}
+        run: npm run test:e2e:${{ matrix.browser }} -- --shard=${{ matrix.shard }}/${{ matrix.shards || 4 }}
 
   docker:
     name: Docker ${{ matrix.platform }}
@@ -102,7 +201,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [linux/amd64, linux/arm64]
+        # The arm64 image is built under emulation, which takes four minutes, so a push builds and tests only amd64.
+        # The release (scope image) checks both: arm64 is what gets published for the Raspberry Pi class of host.
+        platform: ${{ fromJSON(inputs.scope == 'image' && '["linux/amd64","linux/arm64"]' || '["linux/amd64"]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Node runs the smoke script on the runner against the container.
