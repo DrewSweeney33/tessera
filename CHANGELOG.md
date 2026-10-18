@@ -4,6 +4,12 @@ All notable changes to Tessera are written here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [0.2.0-rc.1] - 2026-10-17
+
+A release candidate for 0.2.0, published so the upgrade from 0.1.1 can be tested on a real Docker host (the live-image harness, with `--expect-migration`) before the final release. A candidate publishes only its exact image tag.
+
+**This release changes the database.** Three migrations are applied on the first start (`0001_deck_resets`, `0002_folders`, `0003_folder_exam_date`), and Tessera writes a `pre-migrate-<time>.db` copy first. Version 0.1.1 cannot open the upgraded database, so going back to 0.1.1 means restoring that copy (see "Roll back" in `docs/operations.md`). A backup made by 0.1.1 restores into 0.2.0 and is upgraded when it is opened.
+
 ### Changed
 
 - The tab bar and the rail have a fifth tab, **Stats**, between Import and Leeches. The button that renamed a folder is now **Edit** because it also sets the exam date.
