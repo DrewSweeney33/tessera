@@ -223,8 +223,26 @@ test.describe('an exam date on a folder', () => {
 		await page.getByRole('button', { name: 'Clear date' }).click();
 		await expect(page.getByLabel('Exam date (optional)')).toHaveValue('');
 		await expect(page.getByRole('button', { name: 'Clear date' })).toHaveCount(0);
+		const saved = page.waitForResponse(
+			(response) =>
+				response.url().includes(`/api/folders/${id}`) && response.request().method() === 'PUT'
+		);
 		await page.getByRole('button', { name: 'Save' }).click();
-		await expect(region.getByText(/Exam in/)).toHaveCount(0);
+		const response = await saved;
+		const sent = response.request().postData();
+		try {
+			await expect(region.getByText(/Exam in/)).toHaveCount(0);
+		} catch (error) {
+			// What the page showed and what was sent, so a failure on another browser can be understood from the log.
+			const alerts = await page.getByRole('alert').allInnerTexts();
+			throw new Error(
+				`${(error as Error).message}
+PUT ${response.status()} sent ${sent} got ${await response.text()}
+alerts: ${JSON.stringify(alerts)}
+region: ${JSON.stringify(await region.innerText())}`,
+				{ cause: error }
+			);
+		}
 		await expect(folderRegion(page, 'E2E Clear')).toBeVisible();
 		const kept = (await folders(request)).find((folder) => folder.id === id);
 		expect(kept?.name).toBe('E2E Clear');
