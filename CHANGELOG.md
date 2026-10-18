@@ -4,6 +4,10 @@ All notable changes to Tessera are written here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [0.2.0-rc.2] - 2026-10-18
+
+The second release candidate for 0.2.0. It adds the installable app and the new docs to what 0.2.0-rc.1 had, so the upgrade from 0.1.1 can be tested on a real Docker host (the live-image harness, with `--expect-migration`) against exactly what 0.2.0 will ship. The database changes are the same as in 0.2.0-rc.1: three migrations on the first start, a `pre-migrate-<time>.db` copy first, and 0.1.1 cannot open the upgraded database (see "Roll back" in `docs/operations.md`). A candidate publishes only its exact image tag.
+
 ### Added
 
 - **Install Tessera as an app.** Open it at an `https://` address (or `localhost`) and your browser offers to install it: a home screen icon and a window of its own. There is a manifest, icons (including a maskable one and an Apple touch icon), and a small service worker. When the server cannot be reached, the installed app shows a plain "Tessera needs your server" page with a Try again button instead of a browser error. The worker only takes over page navigations: it never answers an API call, a download, or an asset, never stores a page or any study data (it keeps just that one page and two icons, under a cache named for the build, and removes the caches of older builds), and a reachable server always shows its live page, whatever its status. There is no offline study; the schedule stays on the server. At a plain `http://192.168...` address the browser does not allow a service worker, so there is no Install and no offline page there, and everything else works as before. No change to your data or to the API.
