@@ -211,9 +211,9 @@ M4-01 to M4-08 below replace the original outline. Spec `.10x/specs/2026-10-17-m
 
 Spec `.10x/specs/2026-10-18-milestone-5-pwa-and-close-out-design.md`, ADR-018 accepted. 0.2.0 is released first; the installable app and docs ship as 0.3.0; v1.0.0 follows a real-phone pass.
 
-- [ ] M5-01 manifest, icons, `app.html` links (S)
-- [ ] M5-02 service worker, offline page, pure logic in core, unit tests (M)
-- [ ] M5-03 e2e, accessibility, probe entries (M)
-- [ ] M5-04 CONTRIBUTING, troubleshooting, install docs, phone checklist (M)
-- [ ] M5-05 QA report and security review, harness run (M)
-- [ ] M5-06 `.10x` close-out, releases (S)
+- [x] M5-01 manifest, icons (`scripts/make-icons.ts`), `app.html` links (S), done 2026-10-18
+- [x] M5-02 service worker, offline page, pure logic in core, unit tests (M), done 2026-10-18: `src/service-worker/`, `static/offline.html`, `core/service-worker.ts`, 32 unit tests
+- [x] M5-03 e2e, accessibility, probe entries (M), done 2026-10-18: `pwa.spec.ts` (11, Chromium and WebKit), 61 probe checks (793), six planted bugs
+- [x] M5-04 CONTRIBUTING, troubleshooting, install docs, phone checklist (M), done 2026-10-18
+- [x] M5-05 QA report and security review, harness run (M), done 2026-10-18: `.10x/reviews/2026-10-18-qa-and-security-m4-m5.md`; the harness passes against rc.2 (106 passed, 0 failed)
+- [ ] M5-06 `.10x` close-out, releases (S): the 0.2.0 commit is prepared; the tag is the owner's call. The phone pass (`docs/phone-checklist.md`) and v1.0.0 remain

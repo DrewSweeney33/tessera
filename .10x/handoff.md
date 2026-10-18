@@ -2,28 +2,25 @@
 
 ## Current handoff
 
-**From:** The team (SDE, QA, Security, DevOps), Milestone 4 slice A
+**From:** The team (SDE, QA, Security, DevOps), Milestone 5 and the 0.2.0 release
 **To:** The owner
-**Date:** 2026-10-17 (updated after slice A)
-**Per-feature files:** `.10x/specs/2026-10-17-milestone-4-practice-and-stats-design.md`, `.10x/adrs/017-practice-again-statistics-and-exam-dates.md`, `.10x/decisions/engineering-manager/tessera-v1.md` ("M4 re-plan"), `.10x/decisions/architect/tessera-v1.md` ("Milestone 4 design")
+**Date:** 2026-10-18
+**Per-feature files:** `.10x/reviews/2026-10-18-qa-and-security-m4-m5.md`, `.10x/specs/2026-10-18-milestone-5-pwa-and-close-out-design.md`, `.10x/adrs/018-installable-app-shell-and-offline-notice.md`, `CHANGELOG.md`
 
 ### What was done
 
-**Milestone 4 is built and running on CT123.** Slice A (Practice again) was committed as `a66a4d5`. Slice B is built on top of it and **not committed**: a **Stats** tab with a scope picker (all decks, a folder, a deck) showing today, 7 and 30 days, recall, streak, a 14-day bar chart, a 30-day forecast of what falls due (with the overdue count), a 26-week calendar, recall by tag, and a "Practiced today" line that is never added to anything; and an **exam date** on folders (Edit on a folder), shown as a countdown with a Practice the folder link in the last two weeks. Migration `0003_folder_exam_date` is a plain add-column. CT123 runs `tessera:library-a66a4d5-stats`, built from the working tree after a manual backup (`manual-before-stats-update.db`); the first start wrote `pre-migrate-2026-10-18T02-47-19-615Z.db` and applied the migration, the 31 CCNA decks, 1,100 cards, and your CCNA folder are intact.
-
-Checks: unit 1,266, integration 903, full Chromium e2e 301, WebKit 42 for the stats, folders, and practice specs, security probe 731 with no failure. The Statistics request takes 376 ms (median) with 100,000 review records and needs no new index.
+Milestone 4 (Practice again, statistics, exam dates) and Milestone 5 (the installable app, CONTRIBUTING, troubleshooting, the phone checklist) are built, tested, reviewed, and running on CT123. Two release candidates are published (`v0.2.0-rc.1`, `v0.2.0-rc.2`). The live-image harness passes against rc.2 with `--expect-migration` on the real host: the upgrade from 0.1.1 across three migrations, the backup before it, 0.1.1 refusing the upgraded database, and the rollback (106 passed, 0 failed, 2 skipped). The release commit for **0.2.0** is prepared on `main`; **the tag is not pushed**. CI now runs in about 6 minutes (browser tests in parallel shards), and the release no longer reruns it.
 
 ### What needs you
 
-1. Open Stats on the live site and set an exam date on your CCNA folder (Edit). Tell me what feels wrong.
-2. Say when to commit and push slice B; then I redeploy so the image tag matches a commit and move the docs sync marker.
-3. Next: the 0.2.0 release candidate (the harness `--expect-migration` run needs a published candidate), Milestone 5, or the leftovers (accepted risks S-11 and S-12, Firefox, a phone and screen reader pass, host-side items).
+1. **Approve the tag `v0.2.0`** once CI is green on the release commit. It publishes `ghcr.io/drewsweeney33/tessera:0.2.0` plus `:0.2` and `:latest` (this is the first stable image since 0.1.1, so `latest` moves), and a GitHub release. It applies three migrations on first start; 0.1.1 cannot open the upgraded database.
+2. **The phone pass** (`docs/phone-checklist.md`, ten minutes, at `https://tessera.sweentech.com`): install, study, the offline page with the server stopped or airplane mode, dark mode, a screen reader if you can. v1.0.0 follows it.
+3. Still open from before: the accepted risks S-11, S-12, S-14, S-15, S-16, Firefox on your machine, and the host-side items (OPNsense rule, off-box backup copy, Uptime Kuma, clearing the build cache).
 
 ### Things to know
 
-- Practice rows are `review_log` rows with `mode='cram'`; every study number already filters `mode='review'`.
-- The unused `decks.exam_date` column stays unused; the exam date lives on `folders`.
-- Folder statistics are generalized, not replaced: `GET /api/folders/:id/stats` stays.
+- CI changes already pushed: sharded browsers and a lighter release. Four more speed-ups (arm64 only in the release, WebKit in eight shards, Verify split into parallel jobs, a browser cache) are prepared and will be pushed after 0.2.0 is out.
+- Install and the offline page work only at the HTTPS address; the plain-HTTP LAN address has no service worker and behaves as before.
 
 ## Handoff history
 

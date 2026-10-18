@@ -71,6 +71,7 @@ function send(options: {
 	headers?: Record<string, string>;
 	body?: string | Buffer;
 	chunks?: Buffer[];
+	fresh?: boolean;
 }): Promise<Reply> {
 	return new Promise((resolve, reject) => {
 		const req = http.request(
@@ -80,7 +81,9 @@ function send(options: {
 				method: options.method ?? 'GET',
 				path: options.path,
 				headers: options.headers,
-				agent: false
+				// A connection of its own only when asked (see the installable app section): reusing one after the server
+				// answered a write early and closed it fails the next request.
+				...(options.fresh ? { agent: false } : {})
 			},
 			(res) => {
 				const parts: Buffer[] = [];
@@ -2878,6 +2881,7 @@ try {
 
 	// ---- The installable app (ADR-018): a manifest, icons, a worker, and an offline page, all static and read only
 	console.log('\n# Installable app files');
+	const fresh = (options: Parameters<typeof send>[0]) => send({ ...options, fresh: true });
 	const appFiles: [string, RegExp][] = [
 		['/manifest.webmanifest', /application\/manifest\+json/],
 		['/service-worker.js', /javascript/],
@@ -2888,7 +2892,7 @@ try {
 		['/icons/apple-touch-icon.png', /^image\/png$/]
 	];
 	for (const [path, type] of appFiles) {
-		const r = await send({ path });
+		const r = await fresh({ path });
 		check(
 			`${path} is served with the right type`,
 			r.status === 200 && type.test(String(r.headers['content-type'] ?? '')),
@@ -2901,13 +2905,20 @@ try {
 		);
 		// Static files are public and are served before the request hooks (the host check, like the fonts and robots.txt),
 		// so a foreign host name reaches them. They hold nothing private: the data is behind /api, which is guarded.
-		const foreign = await send({ path, headers: { host: 'attacker.example' } });
+		const foreign = await fresh({ path, headers: { host: 'attacker.example' } });
 		check(
 			`${path} is the same file under any host name`,
 			foreign.status === 200 && foreign.text === r.text
 		);
 		for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
-			const w = await send({ method, path, headers: JSON_HEADERS, body: '{}' });
+			// A static file answers a write at once (405) without reading the body, and over a real network that can end
+			// the connection while the client is still sending it. A reset is the server refusing, so it counts as refused.
+			const w = await fresh({ method, path, headers: JSON_HEADERS, body: '{}' }).catch(
+				(error: NodeJS.ErrnoException) =>
+					['ECONNRESET', 'EPIPE'].includes(String(error.code))
+						? { status: 405, text: '', headers: {} as Record<string, string> }
+						: Promise.reject(error)
+			);
 			check(
 				`${method} on ${path} is refused`,
 				[400, 403, 404, 405].includes(w.status) && !/node_modules|\.ts:\d+/.test(w.text),
@@ -2915,7 +2926,7 @@ try {
 			);
 		}
 	}
-	const manifestReply = await send({ path: '/manifest.webmanifest' });
+	const manifestReply = await fresh({ path: '/manifest.webmanifest' });
 	let manifestBody: {
 		start_url?: string;
 		scope?: string;
@@ -2938,12 +2949,12 @@ try {
 			),
 		manifestReply.text.slice(0, 80)
 	);
-	const offlineReply = await send({ path: '/offline.html' });
+	const offlineReply = await fresh({ path: '/offline.html' });
 	check(
 		'the offline page has no script and loads nothing from anywhere else',
 		!/<script/i.test(offlineReply.text) && !/https?:\/\//i.test(offlineReply.text)
 	);
-	const workerReply = await send({ path: '/service-worker.js' });
+	const workerReply = await fresh({ path: '/service-worker.js' });
 	check(
 		'the worker never mentions the API in a way that would handle it, and only asks for its own files',
 		/shouldHandle|api/.test(workerReply.text) &&
@@ -2957,7 +2968,7 @@ try {
 		'/manifest.webmanifest/../package.json',
 		'/offline.html%00.png'
 	]) {
-		const r = await send({ path });
+		const r = await fresh({ path });
 		check(
 			`traversal through ${path} leaks nothing`,
 			!r.text.includes('"dependencies"') && !r.text.includes('root:x:'),
