@@ -19,5 +19,14 @@ export {
 	type SerializedState,
 	type SubmitContext
 } from './submit.ts';
-export { ReviewInputSchema, type ReviewInput } from './schema.ts';
-export { buildNext, type NextContext, type NextResponse, type StudyItemDto } from './dto.ts';
+export { ReviewInputSchema, UndoInputSchema, type ReviewInput } from './schema.ts';
+export {
+	buildItemDto,
+	buildItemFor,
+	buildNext,
+	categoryOf,
+	type NextContext,
+	type NextResponse,
+	type StudyItemDto
+} from './dto.ts';
+export { undoReview, type UndoFailure, type UndoFailureCode, type UndoResult } from './undo.ts';

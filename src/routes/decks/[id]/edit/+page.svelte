@@ -19,6 +19,7 @@
 		cardProblems,
 		changeSummary,
 		deckProblems,
+		moveCard as moveCardBy,
 		newCardId,
 		tidyDeck,
 		type EditProblem,
@@ -80,6 +81,8 @@
 	let plan = $state<ImportPlanSummary | undefined>();
 	let planFor = $state('');
 	let saved = $state<ImportCommitDto | undefined>();
+	// A save that only changed the order of the cards: the import counts nothing as changed, so this says so.
+	let savedOrder = $state(false);
 	let confirmingDiscard = $state(false);
 	let announcement = $state('');
 
@@ -87,7 +90,7 @@
 	const summary = $derived(
 		original && draft
 			? changeSummary(original, draft)
-			: { changed: 0, added: 0, removed: 0, detailsChanged: false, any: false }
+			: { changed: 0, added: 0, removed: 0, detailsChanged: false, reordered: false, any: false }
 	);
 	// Cards taken out count as removed even though they are no longer in the draft.
 	const dirty = $derived(summary.any);
@@ -227,6 +230,23 @@
 		field?.focus();
 	}
 
+	// Moves a card up or down one place (backlog B-4). The buttons work from the keyboard, focus stays on the button that
+	// was used (or the other one, when the card reaches an end), and a polite message says where the card is now.
+	async function moveCard(index: number, delta: -1 | 1) {
+		if (!draft) return;
+		const next = moveCardBy(draft.cards, index, delta);
+		const card = draft.cards[index];
+		if (!next || !card) return;
+		draft.cards = next;
+		const place = index + delta;
+		limit = Math.max(limit, place + 1);
+		announcement = `Card moved to number ${place + 1} of ${draft.cards.length}.`;
+		await tick();
+		const last = draft.cards.length - 1;
+		const keep = delta < 0 ? (place === 0 ? 'down' : 'up') : place === last ? 'up' : 'down';
+		document.getElementById(`move-${keep}-${card.id}`)?.focus();
+	}
+
 	function removeCard(index: number) {
 		if (!draft) return;
 		const [card] = draft.cards.splice(index, 1);
@@ -256,6 +276,7 @@
 
 	function clearOutcome() {
 		saved = undefined;
+		savedOrder = false;
 	}
 
 	async function focusFirstProblem() {
@@ -334,6 +355,7 @@
 		if (!draft || busy || !plan || stale) return;
 		busy = 'save';
 		failure = undefined;
+		const orderWasChanged = summary.reordered;
 		try {
 			const response = await api.importDeck(JSON.stringify(tidyDeck(draft)), {
 				dryRun: false,
@@ -344,7 +366,8 @@
 				const result = response.result;
 				await load();
 				saved = result;
-				announcement = result.changed ? 'Saved.' : 'Nothing needed saving.';
+				savedOrder = orderWasChanged && !result.changed;
+				announcement = result.changed || savedOrder ? 'Saved.' : 'Nothing needed saving.';
 			}
 		} catch (error) {
 			onSaveFailure(error);
@@ -436,6 +459,7 @@
 		if (summary.added > 0) parts.push(`${summary.added} new`);
 		if (summary.removed > 0) parts.push(`${summary.removed} removed`);
 		if (summary.detailsChanged) parts.push('deck details changed');
+		if (summary.reordered) parts.push('card order changed');
 		return parts.join(', ');
 	});
 </script>
@@ -605,7 +629,9 @@
 		{#if saved}
 			<div class="callout callout--ok" role="status">
 				<p>
-					{#if saved.changed}
+					{#if savedOrder}
+						<strong>Saved.</strong> The new card order is kept. Nothing you studied was touched.
+					{:else if saved.changed}
 						<strong>Saved.</strong>
 						{saved.counts.updated + saved.counts.typeChanged + saved.counts.restored} changed, {saved
 							.counts.new} new, {saved.counts.archivedMissing} removed. Everything you studied on the
@@ -764,6 +790,26 @@
 									</p>
 								</div>
 								<div class="card__actions">
+									<button
+										type="button"
+										class="btn btn--quiet card__move"
+										id="move-up-{card.id}"
+										aria-label="Move card {index + 1} up"
+										disabled={index === 0 || filter.trim() !== ''}
+										onclick={() => moveCard(index, -1)}
+									>
+										<Icon name="arrowUp" />
+									</button>
+									<button
+										type="button"
+										class="btn btn--quiet card__move"
+										id="move-down-{card.id}"
+										aria-label="Move card {index + 1} down"
+										disabled={index === draft.cards.length - 1 || filter.trim() !== ''}
+										onclick={() => moveCard(index, 1)}
+									>
+										<Icon name="arrowDown" />
+									</button>
 									<button
 										type="button"
 										class="btn"
@@ -996,6 +1042,12 @@
 
 	.card__text {
 		overflow-wrap: anywhere;
+	}
+
+	/* The move buttons are icon-only squares, so they fit beside Edit and Remove on a phone. */
+	.card__move {
+		min-width: var(--hit);
+		padding-inline: 0;
 	}
 
 	.card__actions {

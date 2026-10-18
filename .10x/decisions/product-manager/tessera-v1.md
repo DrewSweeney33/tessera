@@ -132,3 +132,12 @@ Owner's answers in the design conversation. They refine US-7 (practice) and US-8
 - US-8 as built: a **/stats page with a scope picker** (all decks, a folder, a deck): today, retention, streak, 26-week heatmap, 30-day forecast, items by stage, per-tag retention, practiced today.
 - New: a folder can carry an **exam date**, shown as a countdown, with a Practice folder suggestion in the last 14 days. Not on decks.
 - Success criteria: practice leaves every schedule byte-identical; study numbers are unchanged by practice rows; the stats page loads in under a second on a 100,000-row log.
+
+## M6 decisions (2026-10-18, with the owner)
+
+- The owner's next four directions, in the order they confirmed: study quality, safe on the network, the Claude authoring loop, close out toward 1.0.
+- **US-23 Undo the last answer.** One step only: the last answer on the study or practice screen. It restores the card's schedule exactly and removes the grade from the statistics and the daily limits. Several steps and a history list are out of scope.
+- **US-24 Move cards in the editor** (backlog B-4): Move up and Move down, keyboard friendly.
+- **US-25 Practice a tag**: a third practice scope, reached from the weakest-tags lists on Statistics and Leeches.
+- **US-26 Quiz me** (was "auto-generated choice distractors", deferred): Practice only. Basic and typed cards shown as multiple choice with wrong options taken from other cards' answers. Never in study, because recognition graded into the schedule would make intervals too long. No change to the deck format.
+- Success criteria: undo leaves every card state, log, and count byte-identical to before the answer; a quiz question always has its right answer once and never changes on a reload; practice by tag changes no schedule.

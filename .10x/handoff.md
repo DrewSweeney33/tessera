@@ -2,25 +2,26 @@
 
 ## Current handoff
 
-**From:** The team (SDE, QA, Security, DevOps), Milestone 5 and the 0.2.0 release
+**From:** The team (Architect, PM, EM, QA, Security), Milestone 6 design
 **To:** The owner
 **Date:** 2026-10-18
-**Per-feature files:** `.10x/reviews/2026-10-18-qa-and-security-m4-m5.md`, `.10x/specs/2026-10-18-milestone-5-pwa-and-close-out-design.md`, `.10x/adrs/018-installable-app-shell-and-offline-notice.md`, `CHANGELOG.md`
+**Per-feature files:** `.10x/specs/2026-10-18-milestone-6-study-quality-design.md`, `.10x/adrs/019-undo-the-last-answer.md`, `.10x/adrs/020-practice-by-tag-and-quiz-me.md`, `.10x/decisions/engineering-manager/tessera-v1.md` (M6 re-plan)
 
 ### What was done
 
-Milestone 4 (Practice again, statistics, exam dates) and Milestone 5 (the installable app, CONTRIBUTING, troubleshooting, the phone checklist) are built, tested, reviewed, and running on CT123. Two release candidates are published (`v0.2.0-rc.1`, `v0.2.0-rc.2`). The live-image harness passes against rc.2 with `--expect-migration` on the real host: the upgrade from 0.1.1 across three migrations, the backup before it, 0.1.1 refusing the upgraded database, and the rollback (106 passed, 0 failed, 2 skipped). The release commit for **0.2.0** is prepared on `main`; **the tag is not pushed**. CI now runs in about 6 minutes (browser tests in parallel shards), and the release no longer reruns it.
+The owner chose four directions after 0.2.1 (study quality, safe on the network, the Claude authoring loop, close out toward 1.0) and confirmed this order. Milestone 6, study quality, is designed and approved: undo of the last answer (one step), Move up and Move down for cards in the editor, practice by tag, and Quiz me in Practice only. Spec, ADR-019, ADR-020, and tasks M6-01 to M6-09 are written. About 20 hours in three slices, no migration. The 0.2.1 fix-up release (the small-phone review) is tagged and published.
 
 ### What needs you
 
-1. **Approve the tag `v0.2.0`** once CI is green on the release commit. It publishes `ghcr.io/drewsweeney33/tessera:0.2.0` plus `:0.2` and `:latest` (this is the first stable image since 0.1.1, so `latest` moves), and a GitHub release. It applies three migrations on first start; 0.1.1 cannot open the upgraded database.
-2. **The phone pass** (`docs/phone-checklist.md`, ten minutes, at `https://tessera.sweentech.com`): install, study, the offline page with the server stopped or airplane mode, dark mode, a screen reader if you can. v1.0.0 follows it.
-3. Still open from before: the accepted risks S-11, S-12, S-14, S-15, S-16, Firefox on your machine, and the host-side items (OPNsense rule, off-box backup copy, Uptime Kuma, clearing the build cache).
+1. **Say go** to start slice A (undo). Nothing is built yet.
+2. **The phone pass** (`docs/phone-checklist.md`, at `https://tessera.sweentech.com`), now including large text, a mistyped address, and the Statistics taps. v1.0.0 follows it, after Milestone 9.
+3. Still open: the accepted risks S-11, S-12, S-14, S-15, S-16 (Milestone 7 closes them), Firefox on your machine, and the host-side items (OPNsense rule, off-box backup copy, Uptime Kuma, clearing the build cache).
 
 ### Things to know
 
-- CI changes already pushed: sharded browsers and a lighter release. Four more speed-ups (arm64 only in the release, WebKit in eight shards, Verify split into parallel jobs, a browser cache) are prepared and will be pushed after 0.2.0 is out.
-- Install and the offline page work only at the HTTPS address; the plain-HTTP LAN address has no service worker and behaves as before.
+- Undo **deletes** the answer's log row rather than marking it, so statistics and limits recompute with no query changes; the only copy of a mistaken grade is then in the backups.
+- Quiz me never applies to study: choosing from a list is easier than remembering, and would make the schedule's intervals too long.
+- Milestone 7 (about 24 h) is the largest because a page password touches every route. Milestone 8 is designed with you when it starts.
 
 ## Handoff history
 

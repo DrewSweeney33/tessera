@@ -20,3 +20,13 @@ export const ReviewInputSchema = z.strictObject({
 });
 
 export type ReviewInput = z.infer<typeof ReviewInputSchema>;
+
+// The body of an undo (ADR-019): the answer to take back, named by the id the browser sent when it answered. The deck
+// or folder being studied is optional, so the response can carry the counts of the session.
+export const UndoInputSchema = z.strictObject({
+	reviewId: ReviewInputSchema.shape.reviewId,
+	deckId: z.string().max(64).optional(),
+	folderId: z.number().int().positive().max(999_999_999).optional()
+});
+
+export type UndoInput = z.infer<typeof UndoInputSchema>;

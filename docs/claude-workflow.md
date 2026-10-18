@@ -103,6 +103,7 @@ Nothing is saved until you press **Review changes**. That shows the same preview
 A few things to know:
 
 - **A card keeps its type.** Changing a card from basic to cloze would erase what you studied on it, so the editor does not offer it. Remove the card and add a new one.
+- **Move a card up or down** with the arrow buttons on its row (each says which card, such as "Move card 3 up", and works from the keyboard; focus stays on the button so you can press it again). The new order is a change like any other: the bar says "card order changed", Review changes and Save changes apply it, and it is the order the cards are studied in (new cards come in deck order). Nothing you studied is touched, and a save made from an out-of-date copy is still refused. The buttons wait while a search narrows the list, because moving a card past hidden ones would be a guess.
 - **A deck needs at least one card** to be saved. To get rid of a deck you are done with, move it to the Trash (see below).
 - **If the deck changed somewhere else** (another tab, or Claude re-importing it) after you opened the editor, saving is refused and nothing is lost. The page tells you, keeps your edits on screen so you can copy any text, and offers to reload the deck.
 - **Studying in another tab does not get in the way.** Only changes to the deck itself count.
@@ -152,17 +153,27 @@ Press **Move to Trash** at the top of a deck's editor. The deck leaves your deck
 
 For scripts: `GET /api/trash`, `POST /api/decks/:id/trash`, `POST /api/decks/:id/restore`, and `POST /api/decks/:id/delete-forever` with `{"confirmTitle": "..."}`. They need the API token when one is set, like every other write.
 
+## Take back the last answer
+
+Pressed Easy instead of Good? On the front of the next card there is an **Undo** button (keys `U`, or Ctrl or Cmd with `Z`). It takes your last answer back: the card comes back with its schedule exactly as it was, and the answer is removed from your statistics, your daily limits, and your streak, as if you had never given it. If that answer had made the card a leech, the flag is taken off again, and cloze cards that the answer had set aside for the day are available again.
+
+It reaches one step: your most recent answer, and only while nothing else has changed that card. If you answered something in another tab since, Tessera says the answer can no longer be taken back. After a reload there is nothing to take back until your next answer. The finished screen has the same button, for the answer that ended the session. **Practice again** has its own Undo, which removes the practice answer (and, as always, never touches a schedule). Typing `u` in an answer box types a letter; it is not a command there.
+
+The answer is deleted from the history, not marked, so the only copy of a mistaken grade is in your backups. For scripts: `POST /api/study/undo` with `{"reviewId": "..."}` (the id you sent with the answer; add `"deckId"` or `"folderId"` to get that session's counts back with the card to show again) and `POST /api/practice/undo` with `{"reviewId": "..."}`. A study undo answers 409 when a newer answer exists or the card changed since, and 404 when the id is not a study answer. They need the API token when one is set, like every other write.
+
 ## Practice again
 
 Normal study follows the schedule, so a card is shown when it is due. Before an exam you may want to go through everything again. **Practice again** on a deck, or **Practice folder** on a folder, does that without touching the schedule.
 
 - Pick how many cards (20, 50, 100, or all) and the order: **Shuffled**, or **Weakest first** (the cards you are least likely to remember come first, and cards you have never studied come last).
 - Every card that is not removed, set aside, or in the Trash is included, whether or not it is due.
+- **Practice a tag.** On Statistics, each tag in "Recall by tag" has a **Practice** link, and so does each tag in "Weakest tags" on Leeches. It practices every card that carries that tag, in any deck (the address is `/practice?tag=<tag>`; the tag must match exactly as the cards have it). The weakest tag is the one to start with.
+- **Quiz me.** Tick **Quiz me: show cards as multiple choice** on the setup screen and every basic and typed card that can be made into a question is shown as one: the right answer and three wrong ones, which are other answers from your decks (the same deck first, then the rest). Pick an option (keys `1` to `4`) and Practice suggests Got it or Missed it, as it does for a choice card. A card that cannot be made into a question is shown as usual: a cloze or a choice card, a card whose answer is longer than one short line, or a library with fewer than three other answers to choose from. The questions stay the same if you reload and resume. Quiz me is only in Practice. Studying keeps you recalling (flip or type), because picking from a list is easier than remembering and would make the schedule's intervals too long.
 - Show the answer, then press **Got it** or **Missed it** (keys `3` and `1`). A card you miss comes back a few cards later, and the session ends when you have answered every card right once.
 - The summary shows how many cards were right the first time and lets you practice just the misses again. A session in progress is kept in the browser tab, so a reload offers to resume it.
 - Practice never changes when a card is next due, and its answers are not counted in your study numbers (daily limits, retention, streaks, leeches, weak tags, folder statistics).
 
-For scripts: `GET /api/practice/pool?deckId=` (or `?folderId=`), `POST /api/practice/start` with `{"deckId": "...", "count": "all", "order": "shuffle"}`, `GET /api/practice/item?cardPk=&ordinal=`, and `POST /api/practice/grade` with `{"reviewId": "...", "cardPk": 1, "ordinal": 0, "right": true}`. They need the API token when one is set, like every other write.
+For scripts: `GET /api/practice/pool?deckId=` (or `?folderId=`, or `?tag=`), `POST /api/practice/start` with `{"deckId": "...", "count": "all", "order": "shuffle"}` (name exactly one of `deckId`, `folderId`, and `tag`; add `"quiz": true` to get a `quizSeed` back, and send it as `&quizSeed=` with each `GET /api/practice/item`, which then answers a quizzable card as a choice card with `"quiz": true`), `GET /api/practice/item?cardPk=&ordinal=`, and `POST /api/practice/grade` with `{"reviewId": "...", "cardPk": 1, "ordinal": 0, "right": true}`. They need the API token when one is set, like every other write.
 
 ## Statistics
 
@@ -205,4 +216,4 @@ The skill asks Claude for these. You can ask for them too.
 
 ## What is not here yet
 
-Practising a deck again without changing its schedule, and backups from the web page, are planned for the next version. Statistics and a settings page are planned for a later version.
+Planned next: an optional page password and a limit on backups.

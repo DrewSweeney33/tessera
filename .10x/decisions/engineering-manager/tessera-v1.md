@@ -320,3 +320,21 @@ Replaces the outline in section 8 (9 tasks, 36 hours). Reason: the visual polish
 | M5-04 | CONTRIBUTING, troubleshooting, install docs, phone checklist | M |
 | M5-05 | QA report and security review (M4 and the installable app), harness run with `--expect-migration` | M |
 | M5-06 | `.10x` close-out, vault notes, releases (0.2.0, then 0.3.0; v1.0.0 after the phone pass) | S |
+
+## M6 re-plan (2026-10-18)
+
+Done after the owner's "next milestone" and the design conversation. Milestone 6 is the first of four (6 study quality, 7 safe on the network, 8 the Claude authoring loop, 9 close out toward 1.0; the owner confirmed the order). About 20 hours in three slices, no migration. Spec `.10x/specs/2026-10-18-milestone-6-study-quality-design.md`.
+
+| ID | Task | Size |
+|---|---|---|
+| M6-01 | Undo of the last study answer: restore from `pre_*`, delete the row, leech flag, cloze siblings; byte-for-byte invariance test over grades 1 to 4 and every phase; planted bugs | M |
+| M6-02 | `POST /api/study/undo`, `POST /api/practice/undo`, strict schemas, newest-only and unchanged-since guards, probe entries | S |
+| M6-03 | Undo in the study and practice screens (button, keys, thumb reach), e2e, accessibility | M |
+| M6-04 | Slice A docs, vault notes, QA pass, deploy | S |
+| M6-05 | Card order in the editor (buttons, keyboard, live region); prove the import rewrites positions of unchanged cards, fix if not | M |
+| M6-06 | Practice by tag (schema, pool, API, entry points on Statistics and Leeches); extend the invariance test | M |
+| M6-07 | Slice B e2e, docs, deploy | S |
+| M6-08 | Quiz me: `core/quiz.ts` (pure), server item, setup checkbox, display, determinism across reload and resume | L |
+| M6-09 | Slice C e2e, accessibility, probe, QA and security review, docs, deploy; release decision | M |
+
+**Order:** slice A (M6-01 to M6-04), deploy; slice B (M6-05 to M6-07), deploy; slice C (M6-08 and M6-09), deploy. The owner's standing rules apply: backup before each deploy, commit and push only on request, the tag is the owner's call.

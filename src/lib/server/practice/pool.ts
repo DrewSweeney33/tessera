@@ -33,14 +33,24 @@ export function poolCounts(
 	};
 }
 
+const SEED_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
+
 export function startPracticeSession(
 	x: Executor,
-	args: { scope: QueueScope; count: number | 'all'; order: PracticeOrder },
+	args: { scope: QueueScope; count: number | 'all'; order: PracticeOrder; quiz?: boolean },
 	context: { now: Date; rng: Rng }
 ): PracticeStartResponse {
 	const pool = practicePool(x, args.scope, context.now);
-	return {
+	const started: PracticeStartResponse = {
 		items: orderPool(pool, { order: args.order, count: args.count, random: context.rng }),
 		poolSize: pool.length
 	};
+	// A quiz session gets a seed of its own, so its questions are fixed for the session and differ between sessions.
+	if (args.quiz === true) {
+		started.quizSeed = Array.from(
+			{ length: 16 },
+			() => SEED_ALPHABET[Math.floor(context.rng() * SEED_ALPHABET.length)]
+		).join('');
+	}
+	return started;
 }

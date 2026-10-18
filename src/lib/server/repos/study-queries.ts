@@ -1,4 +1,4 @@
-import { and, asc, count, eq, gte, inArray, isNull, lte, min, or } from 'drizzle-orm';
+import { and, asc, count, eq, gte, inArray, isNull, lte, min, ne, or, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import type { Executor } from '../db/client.ts';
 import {
@@ -24,6 +24,9 @@ export interface QueueScope {
 	deckId?: string | undefined;
 	// Limits the queue to the decks in one folder. Undefined means no folder limit.
 	folderId?: number | undefined;
+	// Limits it to the cards that carry this tag, in any deck (card tags, matched exactly as stored). Only Practice
+	// uses it (ADR-020); the study queue never sets it.
+	tag?: string | undefined;
 }
 
 // Items that are not removed or set aside: archived or suspended cards, archived decks, archived review items,
@@ -37,12 +40,43 @@ function active(scope: QueueScope): SQL[] {
 	];
 	if (scope.deckId !== undefined) conditions.push(eq(cards.deckId, scope.deckId));
 	if (scope.folderId !== undefined) conditions.push(eq(decks.folderId, scope.folderId));
+	if (scope.tag !== undefined) {
+		conditions.push(
+			sql`exists (select 1 from json_each(${cards.tags}) where json_each.value = ${scope.tag})`
+		);
+	}
 	return conditions;
 }
 
 // Items that may never be shown right now: the active items without the ones buried until later.
 function eligible(nowIso: string, scope: QueueScope): SQL[] {
 	return [...active(scope), or(isNull(cardState.buriedUntil), lte(cardState.buriedUntil, nowIso))!];
+}
+
+// The basic and typed cards that can supply wrong options for a quiz question (ADR-020): active cards only, in a deck
+// (`deckId`) or in every other deck (`excludeDeckId`), without the card being asked about. A bounded, ordered read.
+export function listQuizSources(
+	x: Executor,
+	args: { deckId?: string; excludeDeckId?: string; excludeCardPk?: number; limit: number }
+): CardRow[] {
+	const conditions: SQL[] = [
+		inArray(cards.type, ['basic', 'typed']),
+		eq(cards.archived, false),
+		eq(cards.suspended, false),
+		eq(decks.archived, false)
+	];
+	if (args.deckId !== undefined) conditions.push(eq(cards.deckId, args.deckId));
+	if (args.excludeDeckId !== undefined) conditions.push(ne(cards.deckId, args.excludeDeckId));
+	if (args.excludeCardPk !== undefined) conditions.push(ne(cards.pk, args.excludeCardPk));
+	return x
+		.select({ card: cards })
+		.from(cards)
+		.innerJoin(decks, eq(decks.id, cards.deckId))
+		.where(and(...conditions))
+		.orderBy(asc(cards.pk))
+		.limit(args.limit)
+		.all()
+		.map((row) => row.card);
 }
 
 // Everything in the scope that practice may show: whatever its due date and whether or not it is buried.

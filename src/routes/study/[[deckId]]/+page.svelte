@@ -48,6 +48,9 @@
 	let notice = $state<string | undefined>();
 	let showHint = $state(false);
 	let answered = $state<Record<Grade, number>>({ 1: 0, 2: 0, 3: 0, 4: 0 });
+	// The answer that can still be taken back (ADR-019): the last one this screen saved. Only one step.
+	let lastAnswer = $state<{ reviewId: string; grade: Grade } | undefined>();
+	let undoing = $state(false);
 
 	// A new id for every card shown. Retrying a failed submission reuses it, so a grade is never
 	// recorded twice (the server replays the stored result).
@@ -144,12 +147,14 @@
 		try {
 			const response = await api.review(request);
 			answered[request.grade] += 1;
+			lastAnswer = { reviewId: request.reviewId, grade: request.grade };
 			pending = undefined;
 			notice = undefined;
 			await apply(response.next);
 		} catch (error) {
 			if (error instanceof ApiError && error.code === 'stale_review') {
 				pending = undefined;
+				lastAnswer = undefined;
 				notice = 'That card was already answered somewhere else. Here is the next one.';
 				await load();
 				return;
@@ -174,17 +179,69 @@
 		});
 	}
 
+	// Takes the last answer back and shows that card again, as it was (ADR-019). Allowed on the front of a card and on
+	// the finished screen, never while a card is being graded.
+	async function undo() {
+		if (!lastAnswer || undoing || (phase !== 'front' && phase !== 'done')) return;
+		undoing = true;
+		const taken = lastAnswer;
+		try {
+			const response = await api.undo({
+				reviewId: taken.reviewId,
+				...(deckId ? { deckId } : {}),
+				...(folderId !== undefined ? { folderId } : {})
+			});
+			answered[response.undone.grade] -= 1;
+			lastAnswer = undefined;
+			const name = GRADE_INFO.find((info) => info.grade === response.undone.grade)!.name;
+			notice = `Took back your ${name}. Here is the card again.`;
+			await apply(response.next);
+		} catch (error) {
+			lastAnswer = undefined;
+			if (error instanceof ApiError && (error.status === 409 || error.status === 404)) {
+				notice = 'That answer can no longer be taken back.';
+			} else {
+				errorMessage = failureMessage(error, 'The answer could not be taken back.');
+				phase = 'error';
+			}
+		} finally {
+			undoing = false;
+		}
+	}
+
 	function retry() {
 		if (pending) void submit(pending);
 		else void load();
 	}
 
 	function onKey(event: KeyboardEvent) {
+		// Ctrl or Cmd with Z takes the last answer back, but not inside a text box, where it undoes typing.
+		if (
+			(event.metaKey || event.ctrlKey) &&
+			!event.shiftKey &&
+			!event.altKey &&
+			event.key.toLowerCase() === 'z'
+		) {
+			const inField = (event.target as HTMLElement | null)?.closest(
+				'input, textarea, select, [contenteditable="true"]'
+			);
+			if (!inField && lastAnswer) {
+				event.preventDefault();
+				void undo();
+			}
+			return;
+		}
 		if (event.defaultPrevented || event.repeat || event.metaKey || event.ctrlKey || event.altKey)
 			return;
 		const target = event.target as HTMLElement | null;
 		if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
 		const onControl = Boolean(target?.closest('button, a'));
+
+		if (event.key.toLowerCase() === 'u' && lastAnswer && (phase === 'front' || phase === 'done')) {
+			event.preventDefault();
+			void undo();
+			return;
+		}
 
 		if (phase === 'front') {
 			const choiceKey = choices && /^[1-9]$/.test(event.key) ? Number(event.key) - 1 : -1;
@@ -309,6 +366,11 @@
 				<p class="muted">{waitText(waitingUntil)}</p>
 			{/if}
 			<p class="done__actions">
+				{#if lastAnswer}
+					<button type="button" class="btn" onclick={undo} disabled={undoing}>
+						<Icon name="undo" /> Take back the last answer <kbd>U</kbd>
+					</button>
+				{/if}
 				{#if waitingUntil}
 					<button type="button" class="btn btn--primary" onclick={load}>Check again</button>
 				{/if}
@@ -418,6 +480,17 @@
 		</section>
 
 		<div class="dock">
+			{#if phase === 'front' && lastAnswer}
+				<button
+					type="button"
+					class="btn btn--quiet undo"
+					onclick={undo}
+					disabled={undoing}
+					aria-label="Take back your last answer"
+				>
+					<Icon name="undo" /> Undo <kbd>U</kbd>
+				</button>
+			{/if}
 			{#if phase === 'front'}
 				{#if !typed && !choices}
 					<div class="reveal">
@@ -471,6 +544,10 @@
 </div>
 
 <style>
+	.undo {
+		align-self: center;
+	}
+
 	.study {
 		display: flex;
 		flex-direction: column;

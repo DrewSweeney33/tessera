@@ -185,6 +185,121 @@ describe('the pool', () => {
 	});
 });
 
+describe('a tag as the scope (ADR-020)', () => {
+	function tagCards(tag: string, ...cards: [string, string][]) {
+		for (const [deckId, key] of cards) {
+			const row = sqlite().prepare('select tags from cards where pk = ?').get(pk(deckId, key)) as {
+				tags: string;
+			};
+			const tags = [...(JSON.parse(row.tags) as string[]), tag];
+			sqlite()
+				.prepare('update cards set tags = ? where pk = ?')
+				.run(JSON.stringify(tags), pk(deckId, key));
+		}
+	}
+	const poolFor = (tag: string) => practicePool(app.db, { tag }, clock.now());
+
+	beforeEach(() => {
+		tagCards('net', ['alpha', 'a1'], ['alpha', 'a2'], ['beta', 'b1']);
+		tagCards('sec', ['alpha', 'a3'], ['beta', 'b1']);
+		tagCards('cloze tag', ['alpha', 'a4']);
+	});
+
+	it('is every active item that carries the tag, in any deck', () => {
+		expect(refKeys(poolFor('net'))).toEqual(
+			[pk('alpha', 'a1'), pk('alpha', 'a2'), pk('beta', 'b1')].map((cardPk) => `${cardPk}:0`)
+		);
+		expect(refKeys(poolFor('sec'))).toEqual(
+			[pk('alpha', 'a3'), pk('beta', 'b1')].map((cardPk) => `${cardPk}:0`)
+		);
+	});
+
+	it('counts a cloze card as one item per blank, like a deck does', () => {
+		expect(poolFor('cloze tag')).toHaveLength(2);
+	});
+
+	it('matches the tag exactly as stored: not a part of it, not another case, not an empty one', () => {
+		for (const tag of ['ne', 'nett', 'Net', 'NET', 'cloze', ' net', 'net ', '']) {
+			expect(poolFor(tag), JSON.stringify(tag)).toEqual([]);
+		}
+	});
+
+	it('finds nothing for a tag no card has, and treats a hostile tag as plain text', () => {
+		expect(poolFor('no-such-tag')).toEqual([]);
+		for (const tag of ["net' or '1'='1", 'net") or 1=1 --', '%', '_', 'net\\', "a'b", '<script>']) {
+			expect(poolFor(tag), tag).toEqual([]);
+		}
+		// A tag with quotes in it is still found when a card really has it.
+		tagCards("it's (v2)", ['gamma', 'c1']);
+		expect(refKeys(poolFor("it's (v2)"))).toEqual([`${pk('gamma', 'c1')}:0`]);
+	});
+
+	it('leaves out suspended and removed cards and decks in the Trash, like every other scope', () => {
+		setSuspended(app.db, pk('alpha', 'a1'), true);
+		sqlite().prepare('update cards set archived = 1 where pk = ?').run(pk('alpha', 'a2'));
+		expect(refKeys(poolFor('net'))).toEqual([`${pk('beta', 'b1')}:0`]);
+		setDeckArchived(app.db, 'beta', true, clock.now().toISOString());
+		expect(poolFor('net')).toEqual([]);
+	});
+
+	it('starts a session, counts the pool, and orders it like the other scopes', () => {
+		const started = startPracticeSession(
+			app.db,
+			{ scope: { tag: 'net' }, count: 2, order: 'shuffle' },
+			{ now: clock.now(), rng: () => 0.2 }
+		);
+		expect(started.poolSize).toBe(3);
+		expect(started.items).toHaveLength(2);
+		expect(poolCounts(app.db, { tag: 'net' }, clock.now())).toEqual({ total: 3, unstudied: 3 });
+	});
+
+	it('changes nothing in the database, answers included (the schedule promise holds for a tag)', () => {
+		study('alpha', 'a1', 3);
+		clock.advance(DAY);
+		const before = {
+			cardState: rows('card_state'),
+			cards: rows('cards'),
+			decks: rows('decks'),
+			settings: getSettings(app.db),
+			reviews: sqlite().prepare("select * from review_log where mode = 'review'").all(),
+			queue: countQueue(app.db, { scope: {}, now: clock.now(), timeZone: TZ })
+		};
+		const pool = startPracticeSession(
+			app.db,
+			{ scope: { tag: 'net' }, count: 'all', order: 'weakest' },
+			{ now: clock.now(), rng: () => 0.3 }
+		).items;
+		let session = startPractice(pool);
+		let turn = 0;
+		while (currentItem(session) && turn < 100) {
+			const item = currentItem(session)!;
+			const right = ++turn % 2 === 0;
+			expect(
+				recordPractice(
+					app.db,
+					{
+						reviewId: `practice-tag-${String(turn).padStart(6, '0')}`,
+						cardPk: item.cardPk,
+						ordinal: item.ordinal,
+						right
+					},
+					{ clock }
+				).ok
+			).toBe(true);
+			session = answerPractice(session, right);
+		}
+		expect(turn).toBeGreaterThanOrEqual(3);
+		expect(rows('card_state')).toEqual(before.cardState);
+		expect(rows('cards')).toEqual(before.cards);
+		expect(rows('decks')).toEqual(before.decks);
+		expect(getSettings(app.db)).toEqual(before.settings);
+		expect(sqlite().prepare("select * from review_log where mode = 'review'").all()).toEqual(
+			before.reviews
+		);
+		expect(countQueue(app.db, { scope: {}, now: clock.now(), timeZone: TZ })).toEqual(before.queue);
+	});
+});
+
 describe('starting a session', () => {
 	const context = () => ({ now: clock.now(), rng: () => 0.5 });
 

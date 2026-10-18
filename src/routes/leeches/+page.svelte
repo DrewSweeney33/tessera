@@ -291,7 +291,14 @@
 					<tbody>
 						{#each data.weakTags as row (row.tag)}
 							<tr>
-								<th scope="row">{row.tag}</th>
+								<th scope="row">
+									{row.tag}
+									<a
+										class="tag-practice"
+										href="{resolve('/practice')}?tag={encodeURIComponent(row.tag)}"
+										aria-label="Practice the tag {row.tag}">Practice</a
+									>
+								</th>
 								<td>{row.reviews}</td>
 								<td>{percent(row.retention)}</td>
 								<td>{percent(row.lapseRate)}</td>
@@ -414,6 +421,14 @@
 		text-align: start;
 		border-block-end: 1px solid var(--color-rule);
 		overflow-wrap: anywhere;
+	}
+
+	/* Under the tag name, with a touch area of its own, so the table keeps its five columns on a phone. */
+	.tag-practice {
+		display: flex;
+		align-items: center;
+		min-height: var(--hit);
+		font-weight: 400;
 	}
 
 	.tags thead th {

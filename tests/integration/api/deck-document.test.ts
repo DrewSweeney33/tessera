@@ -170,3 +170,52 @@ describe('GET /api/decks/:id', () => {
 		expect(logged.join('\n')).not.toContain(SECRET);
 	});
 });
+
+describe('reordering the cards through a save (backlog B-4)', () => {
+	const order = (document: { cards: { id: string }[] }) => document.cards.map((card) => card.id);
+
+	it('keeps the new order, changes the revision, and touches no card, id, or history', async () => {
+		await importDeck(body(cards()));
+		const first = await (await get('ccna')).json();
+		expect(order(first.document)).toEqual(['a', 'b', 'c', 'd']);
+
+		const stateBefore = app.database.sqlite
+			.prepare(
+				'select c.key, s.ordinal, s.due, s.stability, s.reps, s.phase from cards c join card_state s on s.card_pk = c.pk order by c.key, s.ordinal'
+			)
+			.all();
+
+		const reordered = [cards()[3]!, cards()[0]!, cards()[2]!, cards()[1]!];
+		const saved = await importDeck(body(reordered), `?expected_revision=${first.revision}`);
+		expect(saved.status).toBe(200);
+		// A reorder alone is not counted as a content change, but it is applied.
+		const result = await saved.json();
+		expect(result.result.changed).toBe(false);
+
+		const second = await (await get('ccna')).json();
+		expect(order(second.document)).toEqual(['d', 'a', 'c', 'b']);
+		expect(second.revision).not.toBe(first.revision);
+
+		const stateAfter = app.database.sqlite
+			.prepare(
+				'select c.key, s.ordinal, s.due, s.stability, s.reps, s.phase from cards c join card_state s on s.card_pk = c.pk order by c.key, s.ordinal'
+			)
+			.all();
+		expect(stateAfter).toEqual(stateBefore);
+		expect(app.database.sqlite.prepare('select count(*) as n from cards').get()).toEqual({ n: 4 });
+	});
+
+	it('refuses a second save made from the copy that was loaded before the reorder', async () => {
+		await importDeck(body(cards()));
+		const first = await (await get('ccna')).json();
+		const reordered = [cards()[1]!, cards()[0]!, cards()[2]!, cards()[3]!];
+		expect((await importDeck(body(reordered), `?expected_revision=${first.revision}`)).status).toBe(
+			200
+		);
+		// Another tab still holds the first revision and saves its own order.
+		const stale = await importDeck(body(cards()), `?expected_revision=${first.revision}`);
+		expect(stale.status).toBe(409);
+		const now = await (await get('ccna')).json();
+		expect(order(now.document)).toEqual(['b', 'a', 'c', 'd']);
+	});
+});

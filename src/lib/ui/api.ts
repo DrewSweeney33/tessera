@@ -25,6 +25,8 @@ import type {
 	PracticePoolResponse,
 	PracticeStartRequest,
 	PracticeStartResponse,
+	PracticeUndoRequest,
+	PracticeUndoResponse,
 	RestoreDeckResponse,
 	SettingsDto,
 	SettingsResponse,
@@ -32,6 +34,8 @@ import type {
 	RestoreResponse,
 	ReviewRequest,
 	ReviewResponse,
+	UndoRequest,
+	UndoResponse,
 	StartOverResponse,
 	TrashDeckResponse,
 	TrashResponse
@@ -88,9 +92,12 @@ function scopeQuery(scope: StudyScope): string {
 
 // What a practice session covers: exactly one deck or one folder.
 export type PracticeScope =
-	{ deckId: string; folderId?: undefined } | { folderId: number; deckId?: undefined };
+	| { deckId: string; folderId?: undefined; tag?: undefined }
+	| { folderId: number; deckId?: undefined; tag?: undefined }
+	| { tag: string; deckId?: undefined; folderId?: undefined };
 
 function practiceQuery(scope: PracticeScope): string {
+	if (scope.tag !== undefined) return `?tag=${encodeURIComponent(scope.tag)}`;
 	return scope.folderId !== undefined
 		? `?folderId=${scope.folderId}`
 		: `?deckId=${encodeURIComponent(scope.deckId)}`;
@@ -266,6 +273,10 @@ export const api = {
 	review: (request: ReviewRequest) =>
 		call<ReviewResponse>('/api/study/review', jsonRequest('POST', request)),
 
+	// Takes back the most recent answer and returns the card to show again (ADR-019).
+	undo: (request: UndoRequest) =>
+		call<UndoResponse>('/api/study/undo', jsonRequest('POST', request)),
+
 	// The Statistics page's numbers for every deck (no scope), one deck, or the decks in one folder.
 	stats: (scope: StudyScope = {}) => call<StatsDto>(`/api/stats${scopeQuery(scope)}`),
 
@@ -275,11 +286,16 @@ export const api = {
 	practiceStart: (request: PracticeStartRequest) =>
 		call<PracticeStartResponse>('/api/practice/start', jsonRequest('POST', request)),
 
-	practiceItem: (cardPk: number, ordinal: number) =>
-		call<PracticeItemResponse>(`/api/practice/item?cardPk=${cardPk}&ordinal=${ordinal}`),
+	practiceItem: (cardPk: number, ordinal: number, quizSeed?: string) =>
+		call<PracticeItemResponse>(
+			`/api/practice/item?cardPk=${cardPk}&ordinal=${ordinal}${quizSeed ? `&quizSeed=${quizSeed}` : ''}`
+		),
 
 	practiceGrade: (request: PracticeGradeRequest) =>
 		call<PracticeGradeResponse>('/api/practice/grade', jsonRequest('POST', request)),
+
+	practiceUndo: (request: PracticeUndoRequest) =>
+		call<PracticeUndoResponse>('/api/practice/undo', jsonRequest('POST', request)),
 
 	importDeck: (text: string, options: ImportOptions) => {
 		const query = new URLSearchParams();

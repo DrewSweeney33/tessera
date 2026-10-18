@@ -33,3 +33,7 @@ Chromium only (no Firefox or Safari). Docker image never built and CI never run.
 ## Release readiness
 
 M1 exit gate: ready with three conditions (owner confirmation, first green CI run, security items scheduled first in M2). Not releasable as v0.1.0; that gate is M2.
+
+## M6 test strategy (2026-10-18)
+
+Undo is the dangerous one: byte-for-byte invariance over grades 1 to 4 and every starting phase (new, learning, review, relearning), leech crossing, cloze siblings, stale tab (not newest, changed since), double undo, counts returning (reviews today, daily limit, streak), planted bugs. Practice undo deletes exactly one `cram` row and the existing whole-database invariance test still passes. Tag scope: Trash and archived excluded, no cards, invalid tag, exactly-one-scope. Quiz: pure builder unit tests (too few candidates, duplicates, long or multi-line, determinism, same-deck preference), API test, planted bug (right answer missing). Editor order: keyboard reorder, save, reload, ids and histories unchanged, stale save refused. E2E in Chromium and WebKit per slice, accessibility in both themes, phone layout at 320 px.

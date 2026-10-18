@@ -9,10 +9,14 @@ import { getDeck, getFolder, type QueueScope } from '../repos/index.ts';
 import { parseFolderId } from './folders.ts';
 import {
 	ReviewInputSchema,
+	UndoInputSchema,
+	buildItemFor,
 	buildNext,
 	submitReview,
+	undoReview,
 	type NextResponse,
-	type ReviewFailureCode
+	type ReviewFailureCode,
+	type UndoFailureCode
 } from '../study/index.ts';
 
 // A review plus the deck being studied (optional), so the response can include the next item.
@@ -99,6 +103,12 @@ export function handleStudyNext(app: AppContext, url: URL, requestId: string): R
 	return jsonResponse(nextFor(app, scope));
 }
 
+const UNDO_FAILURE_STATUS: Record<UndoFailureCode, ApiErrorCode> = {
+	not_found: 'not_found',
+	not_latest: 'conflict',
+	changed_since: 'conflict'
+};
+
 const FAILURE_STATUS: Record<ReviewFailureCode, ApiErrorCode> = {
 	not_found: 'not_found',
 	stale_review: 'stale_review',
@@ -138,4 +148,46 @@ export async function handleStudyReview(
 		);
 	}
 	return jsonResponse({ result: result.value, next: nextFor(app, scope) });
+}
+
+// POST /api/study/undo (ADR-019). Takes back the most recent study answer and returns the card to show again, in
+// the state it had before the answer, with the session's counts as they are now.
+export async function handleStudyUndo(
+	app: AppContext,
+	request: Request,
+	requestId: string
+): Promise<Response> {
+	const body = await readJsonBody(request, requestId);
+	if (body instanceof Response) return body;
+
+	const parsed = UndoInputSchema.safeParse(body.value);
+	if (!parsed.success) {
+		return errorResponse(
+			'validation_failed',
+			'The undo is not valid.',
+			{ errors: fieldErrors(parsed.error) },
+			requestId
+		);
+	}
+	const { deckId: requestedDeck, folderId: requestedFolder, reviewId } = parsed.data;
+	const scope = sessionScope(app, requestedDeck, requestedFolder, requestId);
+	if (scope instanceof Response) return scope;
+
+	const result = undoReview(app.db, { reviewId }, { timeZone: app.config.timeZone });
+	if (!result.ok) {
+		return errorResponse(
+			UNDO_FAILURE_STATUS[result.error.code],
+			result.error.message,
+			{ reason: result.error.code },
+			requestId
+		);
+	}
+	const next =
+		buildItemFor(
+			app.db,
+			{ scope, now: app.clock.now(), timeZone: app.config.timeZone },
+			result.value.cardPk,
+			result.value.ordinal
+		) ?? nextFor(app, scope);
+	return jsonResponse({ undone: result.value, next });
 }

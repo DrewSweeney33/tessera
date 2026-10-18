@@ -202,3 +202,7 @@ Spec: `.10x/specs/2026-10-18-milestone-5-pwa-and-close-out-design.md`. ADR: `.10
 - **Pure rules in core** (`src/lib/core/service-worker.ts`) so they are tested without a browser.
 - **Secure context only:** works at the HTTPS address, absent (and harmless) at the plain-HTTP LAN address.
 - **Failure modes covered:** a stale shell after an upgrade, the worker interfering with the API or token flow, a server error mistaken for being offline, a cache name collision, icons that look wrong on a launcher.
+
+## M6 design (2026-10-18)
+
+ADR-019 and ADR-020. Undo deletes the log row and restores state from the `pre_*` columns in one transaction, guarded by newest-`review`-row-overall and unchanged-since; no migration, no tombstone (accepted edge: a delayed duplicate of the original answer request, because the client does not retry). Practice undo deletes the newest `cram` row only. A tag is a third practice scope (`json_each(cards.tags)`). Quiz me is built on the server in a pure module `core/quiz.ts` with a seeded shuffle, only when the practice session started with `quiz: true`, and the picked option is not stored as a typed answer. Layering: the new practice code stays inside the existing ESLint confinement (no scheduler writes); undo is the only new writer of `card_state` and lives in `server/study/`.

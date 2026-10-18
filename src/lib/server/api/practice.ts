@@ -1,5 +1,6 @@
 import type {
 	PracticeGradeResponse,
+	PracticeUndoResponse,
 	PracticeItemResponse,
 	PracticePoolResponse,
 	PracticeStartResponse
@@ -12,10 +13,14 @@ import { fieldErrors } from '../http/validation.ts';
 import {
 	PracticeGradeSchema,
 	PracticeStartSchema,
+	PracticeTagSchema,
+	PracticeUndoSchema,
+	QuizSeedSchema,
 	getPracticeItem,
 	poolCounts,
 	recordPractice,
-	startPracticeSession
+	startPracticeSession,
+	undoPractice
 } from '../practice/index.ts';
 import { getDeck, getFolder, type QueueScope } from '../repos/index.ts';
 import { sessionScope } from './study.ts';
@@ -23,19 +28,38 @@ import { sessionScope } from './study.ts';
 // Practice again over HTTP (ADR-017). None of these routes can change a schedule: pool and item only read, start
 // only reads and orders, and grade adds one row to the review log.
 
-// A practice scope is exactly one deck or one folder (unlike study, "everything" is not offered).
+// A practice scope is exactly one deck, one folder, or one tag (unlike study, "everything" is not offered).
 function practiceScope(
 	app: AppContext,
 	deckParam: string | null | undefined,
 	folderParam: string | number | null | undefined,
+	tagParam: string | null | undefined,
 	requestId: string
 ): QueueScope | Response {
+	const tagged = tagParam !== null && tagParam !== undefined;
+	if (tagged) {
+		const named = [deckParam, folderParam].some(
+			(value) => value !== null && value !== undefined && value !== ''
+		);
+		if (named) {
+			return errorResponse(
+				'bad_request',
+				'Practice one deck, one folder, or one tag, not more than one.',
+				undefined,
+				requestId
+			);
+		}
+		if (!PracticeTagSchema.safeParse(tagParam).success) {
+			return errorResponse('bad_request', 'The tag is not valid.', undefined, requestId);
+		}
+		return { tag: tagParam };
+	}
 	const scope = sessionScope(app, deckParam, folderParam, requestId);
 	if (scope instanceof Response) return scope;
 	if (scope.deckId === undefined && scope.folderId === undefined) {
 		return errorResponse(
 			'bad_request',
-			'Name a deck or a folder to practice.',
+			'Name a deck, a folder, or a tag to practice.',
 			undefined,
 			requestId
 		);
@@ -44,18 +68,20 @@ function practiceScope(
 }
 
 function scopeLabel(app: AppContext, scope: QueueScope): string {
+	if (scope.tag !== undefined) return `Tag: ${scope.tag}`;
 	if (scope.folderId !== undefined) return getFolder(app.db, scope.folderId)?.name ?? 'Folder';
 	return scope.deckId === undefined
 		? 'All decks'
 		: (getDeck(app.db, scope.deckId)?.title ?? scope.deckId);
 }
 
-// GET /api/practice/pool?deckId= or ?folderId=
+// GET /api/practice/pool?deckId=, ?folderId=, or ?tag=
 export function handlePracticePool(app: AppContext, url: URL, requestId: string): Response {
 	const scope = practiceScope(
 		app,
 		url.searchParams.get('deckId'),
 		url.searchParams.get('folderId'),
+		url.searchParams.get('tag'),
 		requestId
 	);
 	if (scope instanceof Response) return scope;
@@ -81,12 +107,12 @@ export async function handlePracticeStart(
 			requestId
 		);
 	}
-	const { deckId, folderId, count, order } = parsed.data;
-	const scope = practiceScope(app, deckId, folderId, requestId);
+	const { deckId, folderId, tag, quiz, count, order } = parsed.data;
+	const scope = practiceScope(app, deckId, folderId, tag, requestId);
 	if (scope instanceof Response) return scope;
 	const started: PracticeStartResponse = startPracticeSession(
 		app.db,
-		{ scope, count, order },
+		{ scope, count, order, ...(quiz === true ? { quiz: true } : {}) },
 		{ now: app.clock.now(), rng: app.rng }
 	);
 	return jsonResponse(started);
@@ -104,7 +130,17 @@ export function handlePracticeItem(app: AppContext, url: URL, requestId: string)
 			requestId
 		);
 	}
-	const item = getPracticeItem(app.db, Number(cardText), Number(ordinalText));
+	// A quiz session sends its seed with every item, so the options are the same after a reload (ADR-020).
+	const seedText = url.searchParams.get('quizSeed');
+	if (seedText !== null && !QuizSeedSchema.safeParse(seedText).success) {
+		return errorResponse('bad_request', 'quizSeed is not valid.', undefined, requestId);
+	}
+	const item = getPracticeItem(
+		app.db,
+		Number(cardText),
+		Number(ordinalText),
+		seedText === null ? {} : { quizSeed: seedText }
+	);
 	if (!item) {
 		return errorResponse('not_found', 'That card cannot be practiced.', undefined, requestId);
 	}
@@ -139,5 +175,35 @@ export async function handlePracticeGrade(
 		);
 	}
 	const response: PracticeGradeResponse = { replayed: result.value.replayed };
+	return jsonResponse(response);
+}
+
+// POST /api/practice/undo (ADR-019). Deletes the most recent practice answer, and nothing else.
+export async function handlePracticeUndo(
+	app: AppContext,
+	request: Request,
+	requestId: string
+): Promise<Response> {
+	const body = await readJsonBody(request, requestId);
+	if (body instanceof Response) return body;
+	const parsed = PracticeUndoSchema.safeParse(body.value);
+	if (!parsed.success) {
+		return errorResponse(
+			'validation_failed',
+			'The undo is not valid.',
+			{ errors: fieldErrors(parsed.error) },
+			requestId
+		);
+	}
+	const result = undoPractice(app.db, parsed.data);
+	if (!result.ok) {
+		return errorResponse(
+			result.error.code === 'not_found' ? 'not_found' : 'conflict',
+			result.error.message,
+			{ reason: result.error.code },
+			requestId
+		);
+	}
+	const response: PracticeUndoResponse = { undone: result.value };
 	return jsonResponse(response);
 }

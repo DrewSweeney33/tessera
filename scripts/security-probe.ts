@@ -746,6 +746,14 @@ try {
 				(await status('/api/practice/grade', JSON_HEADERS, 'POST')) === 401
 			);
 			check(
+				'taking back a study answer is refused without the token',
+				(await status('/api/study/undo', JSON_HEADERS, 'POST')) === 401
+			);
+			check(
+				'taking back a practice answer is refused without the token',
+				(await status('/api/practice/undo', JSON_HEADERS, 'POST')) === 401
+			);
+			check(
 				'and a path variant of a practice route is refused too',
 				(await status('/api/%70ractice/pool?deckId=probe')) === 401
 			);
@@ -2521,6 +2529,200 @@ try {
 			`got ${r.status}`
 		);
 	}
+	// A tag is a third practice scope (ADR-020): it is bound as a parameter, never put into SQL.
+	await post(
+		'/api/import',
+		deck('probe-tagscope', [
+			{ ...basic('t1'), tags: ['probe-net'] },
+			{ ...basic('t2'), tags: ['probe-net', 'probe-sec'] }
+		])
+	);
+	const tagPool = await send({ path: '/api/practice/pool?tag=probe-net' });
+	check(
+		'the practice pool counts the cards that carry a tag',
+		tagPool.status === 200 &&
+			JSON.parse(tagPool.text).total >= 2 &&
+			JSON.parse(tagPool.text).label === 'Tag: probe-net',
+		tagPool.text.slice(0, 80)
+	);
+	const noTag = await send({ path: '/api/practice/pool?tag=probe-no-card-has-this' });
+	check(
+		'a tag no card has is an empty pool, not an error',
+		noTag.status === 200 && JSON.parse(noTag.text).total === 0,
+		noTag.text.slice(0, 80)
+	);
+	for (const tag of [
+		"x' or '1'='1",
+		'x") or 1=1 --',
+		"x'); drop table cards; --",
+		'%',
+		'_',
+		'x\\',
+		'<script>alert(1)</script>',
+		'../../etc/passwd',
+		'${7*7}',
+		'{{7*7}}'
+	]) {
+		const r = await send({ path: `/api/practice/pool?tag=${encodeURIComponent(tag)}` });
+		check(
+			`the hostile tag ${JSON.stringify(tag).slice(0, 36)} is plain text: an empty pool, nothing leaked`,
+			r.status === 200 &&
+				JSON.parse(r.text).total === 0 &&
+				!/node_modules|\.ts:\d+|root:x:|syntax error|sqlite/i.test(r.text),
+			`${r.status} ${r.text.slice(0, 80)}`
+		);
+	}
+	check(
+		'the cards table is still there after the hostile tags',
+		JSON.parse((await send({ path: '/api/practice/pool?deckId=probe-practice' })).text).total === 3
+	);
+	for (const query of [
+		'?tag=',
+		'?tag=%20lead',
+		'?tag=trail%20',
+		'?tag=a%2Cb',
+		'?tag=line%0Abreak',
+		`?tag=${'x'.repeat(41)}`,
+		'?tag=probe-net&deckId=probe-practice',
+		'?tag=probe-net&folderId=1',
+		'?tag[]=a&tag[]=b'
+	]) {
+		const r = await send({ path: `/api/practice/pool${query}` });
+		check(
+			`the practice pool for "${query.slice(0, 40)}" is a 400 that leaks nothing`,
+			r.status === 400 && !/node_modules|\.ts:\d+/.test(r.text),
+			`${r.status} ${r.text.slice(0, 80)}`
+		);
+	}
+	for (const body of [
+		'{"tag":"probe-net","deckId":"probe-practice","count":"all","order":"shuffle"}',
+		'{"tag":"probe-net","folderId":1,"count":"all","order":"shuffle"}',
+		'{"tag":"","count":"all","order":"shuffle"}',
+		'{"tag":" lead","count":"all","order":"shuffle"}',
+		'{"tag":"a,b","count":"all","order":"shuffle"}',
+		'{"tag":5,"count":"all","order":"shuffle"}',
+		'{"tag":["probe-net"],"count":"all","order":"shuffle"}',
+		'{"tag":null,"count":"all","order":"shuffle"}',
+		`{"tag":"${'x'.repeat(41)}","count":"all","order":"shuffle"}`
+	]) {
+		const r = await post('/api/practice/start', body);
+		check(
+			`practice start refuses ${body.slice(0, 60)}`,
+			[400, 422].includes(r.status) && !/node_modules|\.ts:\d+/.test(r.text),
+			`got ${r.status}`
+		);
+	}
+	const tagStart = await post('/api/practice/start', {
+		tag: 'probe-net',
+		count: 'all',
+		order: 'shuffle'
+	});
+	check(
+		'a practice session starts over a tag',
+		tagStart.status === 200 && (JSON.parse(tagStart.text).items?.length ?? 0) >= 2,
+		tagStart.text.slice(0, 80)
+	);
+
+	// Quiz me (ADR-020): a practice-only view of a card. The seed is letters and digits, and nothing is written.
+	for (const body of [
+		'{"deckId":"probe-practice","count":"all","order":"shuffle","quiz":"yes"}',
+		'{"deckId":"probe-practice","count":"all","order":"shuffle","quiz":1}',
+		'{"deckId":"probe-practice","count":"all","order":"shuffle","quiz":null}',
+		'{"deckId":"probe-practice","count":"all","order":"shuffle","quiz":[true]}',
+		'{"deckId":"probe-practice","count":"all","order":"shuffle","quiz":{"a":1}}',
+		'{"deckId":"probe-practice","count":"all","order":"shuffle","quizSeed":"abcd1234efgh5678"}'
+	]) {
+		const r = await post('/api/practice/start', body);
+		check(
+			`practice start refuses ${body.slice(70, 130)}`,
+			[400, 422].includes(r.status) && !/node_modules|\.ts:\d+/.test(r.text),
+			`got ${r.status}`
+		);
+	}
+	const quizStart = await post('/api/practice/start', {
+		deckId: 'probe-practice',
+		count: 'all',
+		order: 'shuffle',
+		quiz: true
+	});
+	const quizStarted: { items?: { cardPk: number; ordinal: number }[]; quizSeed?: string } =
+		JSON.parse(quizStart.text);
+	check(
+		'a quiz session gets a seed of letters and digits',
+		quizStart.status === 200 && /^[A-Za-z0-9]{8,32}$/.test(quizStarted.quizSeed ?? ''),
+		quizStart.text.slice(0, 80)
+	);
+	check(
+		'and a session without the flag gets none',
+		JSON.parse(
+			(
+				await post('/api/practice/start', {
+					deckId: 'probe-practice',
+					count: 'all',
+					order: 'shuffle'
+				})
+			).text
+		).quizSeed === undefined
+	);
+	const quizFirst = quizStarted.items?.[0];
+	if (quizFirst && quizStarted.quizSeed) {
+		const itemPath = `/api/practice/item?cardPk=${quizFirst.cardPk}&ordinal=${quizFirst.ordinal}`;
+		const asked = await send({ path: `${itemPath}&quizSeed=${quizStarted.quizSeed}` });
+		const askedItem = JSON.parse(asked.text).item;
+		check(
+			'a quiz item is a question or the card as it is, with no schedule parts',
+			asked.status === 200 &&
+				(askedItem?.quiz === true ? askedItem.type === 'choice' : askedItem?.type === 'basic') &&
+				askedItem.previews === undefined &&
+				askedItem.servedAt === undefined,
+			asked.text.slice(0, 100)
+		);
+		if (askedItem?.quiz === true) {
+			const content = askedItem.content as { choices: string[]; correct: number; front: string };
+			check(
+				'a quiz question has four distinct options and says which one is right',
+				content.choices.length === 4 &&
+					new Set(content.choices).size === 4 &&
+					Number.isInteger(content.correct) &&
+					content.correct >= 0 &&
+					content.correct < 4,
+				asked.text.slice(0, 120)
+			);
+		}
+		const again = await send({ path: `${itemPath}&quizSeed=${quizStarted.quizSeed}` });
+		check('the same seed gives the same question again', again.text === asked.text);
+		const plain = await send({ path: itemPath });
+		check(
+			'without a seed the card is as it is',
+			plain.status === 200 && JSON.parse(plain.text).item?.quiz === undefined,
+			plain.text.slice(0, 80)
+		);
+		for (const seed of [
+			'',
+			'short',
+			'x'.repeat(33),
+			'has space 12345',
+			'bad-char-12345',
+			"abcd1234'; drop table cards; --",
+			'<script>alert(1)</script>',
+			'%00%00%00%00%00%00%00%00',
+			'../../etc/passwd',
+			'\u0000nul12345678'
+		]) {
+			const r = await send({ path: `${itemPath}&quizSeed=${encodeURIComponent(seed)}` });
+			check(
+				`the quiz seed ${JSON.stringify(seed).slice(0, 34)} is refused with a 400 that leaks nothing`,
+				r.status === 400 && !/node_modules|\.ts:\d+|root:x:/.test(r.text),
+				`got ${r.status}`
+			);
+		}
+		check(
+			'asking for questions left the study queue as it was',
+			(await practiceServed()).item?.cardPk === practiceBefore.item?.cardPk &&
+				JSON.stringify((await practiceServed()).counts) === JSON.stringify(practiceBefore.counts)
+		);
+	}
+
 	// A body over the small limit, sent with its length so the answer is a 413 (a chunked one is backlog B-3).
 	const bigPractice = `{"deckId":"probe-practice","count":"all","order":"shuffle","pad":"${'x'.repeat(20_000)}"}`;
 	const oversized = await send({
@@ -2736,6 +2938,195 @@ try {
 			`got ${r.status}`
 		);
 	}
+
+	// ---- Undo the last answer (ADR-019): it takes back one answer and nothing else
+	console.log('\n# Undo the last answer');
+	await post('/api/import', deck('probe-undo', [basic('un1'), basic('un2')]));
+	const undoServed = async () =>
+		JSON.parse((await send({ path: '/api/study/next?deckId=probe-undo' })).text);
+	const undoAnswer = (
+		served: { item: { cardPk: number; ordinal: number; servedAt: string } },
+		id: string
+	) =>
+		post('/api/study/review', {
+			reviewId: id,
+			cardPk: served.item.cardPk,
+			ordinal: served.item.ordinal,
+			grade: 3,
+			servedAt: served.item.servedAt,
+			deckId: 'probe-undo'
+		});
+	const undoFirst = await undoServed();
+	const undoFirstId = `probe-${runId}-undo1`;
+	const undoSecondId = `probe-${runId}-undo2`;
+	check(
+		'a study answer is recorded for the undo checks',
+		(await undoAnswer(undoFirst, undoFirstId)).status === 200
+	);
+	const undoSecond = await undoServed();
+	check(
+		'and the next card is a different one',
+		undoSecond.item?.cardPk !== undoFirst.item?.cardPk,
+		JSON.stringify(undoSecond.item?.cardPk)
+	);
+	await undoAnswer(undoSecond, undoSecondId);
+
+	for (const body of [
+		'{}',
+		'[]',
+		'null',
+		'"text"',
+		'{"reviewId":"short"}',
+		'{"reviewId":"has spaces and <b>markup</b>"}',
+		`{"reviewId":"${'x'.repeat(65)}"}`,
+		`{"reviewId":"${undoSecondId}","extra":1}`,
+		`{"reviewId":"${undoSecondId}","deckId":["probe-undo"]}`,
+		`{"reviewId":"${undoSecondId}","folderId":-1}`,
+		`{"reviewId":"${undoSecondId}","folderId":1.5}`,
+		`{"reviewId":"${undoSecondId}","grade":3}`,
+		`{"__proto__":{"polluted":true},"reviewId":"${undoSecondId}"}`,
+		'{not json'
+	]) {
+		const r = await post('/api/study/undo', body);
+		check(
+			`a study undo of ${body.slice(0, 50)} is refused`,
+			[400, 422].includes(r.status) && !/node_modules|\.ts:\d+/.test(r.text),
+			`got ${r.status}`
+		);
+		const pr = await post('/api/practice/undo', body);
+		check(
+			`a practice undo of ${body.slice(0, 50)} is refused`,
+			[400, 422].includes(pr.status) && !/node_modules|\.ts:\d+/.test(pr.text),
+			`got ${pr.status}`
+		);
+	}
+	const bigUndo = `{"reviewId":"${undoSecondId}","pad":"${'x'.repeat(20_000)}"}`;
+	for (const path of ['/api/study/undo', '/api/practice/undo']) {
+		const r = await send({
+			method: 'POST',
+			path,
+			headers: { ...JSON_HEADERS, 'content-length': String(Buffer.byteLength(bigUndo)) },
+			body: bigUndo
+		});
+		check(`an oversized body to ${path} is refused with 413`, r.status === 413, `got ${r.status}`);
+	}
+	for (const [method, path] of [
+		['GET', '/api/study/undo'],
+		['GET', '/api/practice/undo'],
+		['PUT', '/api/study/undo'],
+		['DELETE', '/api/study/undo'],
+		['PATCH', '/api/practice/undo']
+	] as [string, string][]) {
+		const r = await send({
+			method,
+			path,
+			headers: method === 'GET' ? {} : JSON_HEADERS,
+			...(method === 'GET' ? {} : { body: '{}' })
+		});
+		check(
+			`${method} on ${path} is refused`,
+			[400, 403, 404, 405].includes(r.status),
+			`got ${r.status}`
+		);
+	}
+	for (const path of ['/api/study/undo', '/api/practice/undo']) {
+		const r = await send({
+			method: 'POST',
+			path,
+			headers: { 'content-type': 'text/plain', origin: 'https://evil.example' },
+			body: '{}'
+		});
+		check(
+			`a cross-site POST to ${path} is refused`,
+			[400, 403, 415].includes(r.status),
+			`got ${r.status}`
+		);
+	}
+
+	// The refused requests changed nothing, and the right rules hold.
+	check(
+		'a practice undo cannot remove a study answer',
+		(await post('/api/practice/undo', { reviewId: undoSecondId })).status === 404
+	);
+	const refusedOld = await post('/api/study/undo', { reviewId: undoFirstId, deckId: 'probe-undo' });
+	check(
+		'an answer that is not the newest cannot be undone (409)',
+		refusedOld.status === 409,
+		`got ${refusedOld.status}`
+	);
+	check(
+		'an unknown answer id is a 404',
+		(await post('/api/study/undo', { reviewId: 'probe-no-such-answer' })).status === 404
+	);
+	check(
+		'a deck that does not exist is a 404 and undoes nothing',
+		(await post('/api/study/undo', { reviewId: undoSecondId, deckId: 'no-such-deck' })).status ===
+			404
+	);
+	const undone = await post('/api/study/undo', { reviewId: undoSecondId, deckId: 'probe-undo' });
+	const undoneBody: {
+		undone?: { cardPk: number; restored?: { reps: number } };
+		next?: { done: boolean; item?: { cardPk: number; state: { reps: number } } };
+	} = JSON.parse(undone.text);
+	check(
+		'the newest answer is taken back and its card is served again, as it was',
+		undone.status === 200 &&
+			undoneBody.undone?.cardPk === undoSecond.item.cardPk &&
+			undoneBody.undone?.restored?.reps === 0 &&
+			undoneBody.next?.done === false &&
+			undoneBody.next?.item?.cardPk === undoSecond.item.cardPk &&
+			undoneBody.next?.item?.state?.reps === 0,
+		undone.text.slice(0, 100)
+	);
+	check(
+		'taking the same answer back again is a 404',
+		(await post('/api/study/undo', { reviewId: undoSecondId })).status === 404
+	);
+	check(
+		'and now the earlier answer is the newest and can be undone',
+		(await post('/api/study/undo', { reviewId: undoFirstId, deckId: 'probe-undo' })).status === 200
+	);
+	check(
+		'both cards are new again',
+		(await undoServed()).counts?.new === 2,
+		JSON.stringify((await undoServed()).counts)
+	);
+
+	// A practice answer can be taken back, and only the newest one.
+	const undoPractice = await post('/api/practice/start', {
+		deckId: 'probe-undo',
+		count: 'all',
+		order: 'shuffle'
+	});
+	const undoItems: { cardPk: number; ordinal: number }[] =
+		JSON.parse(undoPractice.text).items ?? [];
+	if (undoItems.length >= 2) {
+		const ids = [`probe-${runId}-pun1`, `probe-${runId}-pun2`];
+		for (const [i, id] of ids.entries()) {
+			await post('/api/practice/grade', {
+				reviewId: id,
+				cardPk: undoItems[i]!.cardPk,
+				ordinal: undoItems[i]!.ordinal,
+				right: false
+			});
+		}
+		check(
+			'a practice answer that is not the newest cannot be undone (409)',
+			(await post('/api/practice/undo', { reviewId: ids[0]! })).status === 409
+		);
+		check(
+			'the newest practice answer is taken back',
+			(await post('/api/practice/undo', { reviewId: ids[1]! })).status === 200
+		);
+		check(
+			'and then the earlier one is the newest',
+			(await post('/api/practice/undo', { reviewId: ids[0]! })).status === 200
+		);
+	}
+	check(
+		'the undo checks left the study queue as it was',
+		(await undoServed()).item?.cardPk === undoFirst.item?.cardPk
+	);
 
 	// ---- Statistics and folder exam dates (ADR-017): read only, and a date field that takes one exact form
 	console.log('\n# Statistics and exam dates');

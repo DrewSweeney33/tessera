@@ -303,6 +303,11 @@
 							<span class="tags__text"
 								>{formatPercent(tag.retention)} in {plural(tag.reviews, 'review', 'reviews')}</span
 							>
+							<a
+								class="tags__practice"
+								href="{resolve('/practice')}?tag={encodeURIComponent(tag.tag)}"
+								aria-label="Practice the tag {tag.tag}">Practice</a
+							>
 						</li>
 					{/each}
 				</ul>
@@ -426,12 +431,22 @@
 		font-size: var(--text-sm);
 	}
 
+	/* A touch area of its own, on a line of its own on a phone. */
+	.tags__practice {
+		display: inline-flex;
+		grid-column: 1 / -1;
+		justify-self: start;
+		align-items: center;
+		min-height: var(--hit);
+	}
+
 	@media (min-width: 40rem) {
 		.tags li {
-			grid-template-columns: minmax(6rem, 10rem) minmax(6rem, 1fr) 11rem;
+			grid-template-columns: minmax(6rem, 10rem) minmax(6rem, 1fr) 11rem auto;
 		}
 
-		.tags__text {
+		.tags__text,
+		.tags__practice {
 			grid-column: auto;
 		}
 	}

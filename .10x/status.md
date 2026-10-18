@@ -1,6 +1,6 @@
 # Tessera Status
 
-**Last updated:** 2026-10-17 (Milestone 4 designed, see "M4 re-plan and design")
+**Last updated:** 2026-10-18 (Milestone 6 built and verified, see "M6 re-plan and design")
 **Current phase:** Phase 4 Implementation, Milestone 2 in progress (started 2026-10-11). The repository is live on GitHub (public) with CI green on Linux. M2-00 to M2-15 are done and pushed (CI fully green on ad454a0, including the first image scan). No release exists; `v0.1.0` is the M2 exit.
 **Feature slug:** `tessera-v1`
 
@@ -217,3 +217,17 @@ Spec `.10x/specs/2026-10-18-milestone-5-pwa-and-close-out-design.md`, ADR-018 ac
 - [x] M5-04 CONTRIBUTING, troubleshooting, install docs, phone checklist (M), done 2026-10-18
 - [x] M5-05 QA report and security review, harness run (M), done 2026-10-18: `.10x/reviews/2026-10-18-qa-and-security-m4-m5.md`; the harness passes against rc.2 (106 passed, 0 failed)
 - [ ] M5-06 `.10x` close-out, releases (S): the 0.2.0 commit is prepared; the tag is the owner's call. The phone pass (`docs/phone-checklist.md`) and v1.0.0 remain
+
+### M6 re-plan and design (2026-10-18)
+
+Spec `.10x/specs/2026-10-18-milestone-6-study-quality-design.md`, ADR-019 (undo the last answer) and ADR-020 (practice by tag and Quiz me) accepted by the owner on 2026-10-18. The owner listed four directions after 0.2.1 and confirmed this order: **M6 study quality (about 20 h)**, M7 safe on the network (about 24 h: optional page password, backup limit, B-3), M8 the Claude authoring loop (about 16 h, designed when it starts), M9 close out toward 1.0 (about 8 h). No migration in Milestone 6. Three slices, each deployed to CT123 after a backup. Built the same day after the owner said to go on with the whole milestone. QA and security review: `.10x/reviews/2026-10-18-qa-and-security-m6.md`.
+
+- [x] M6-01 undo of the last study answer (M), done 2026-10-18: `server/study/undo.ts`, `deleteStudyLog` and `newestReviewLogId` in the repo, `buildItemFor`; 27 integration tests (byte-for-byte over grades 1 to 4 and every phase, leech, cloze siblings, guards, counts) and six planted bugs, all caught
+- [x] M6-02 `POST /api/study/undo` and `POST /api/practice/undo` (S), done 2026-10-18: strict schemas, 409 for not newest or changed since, 404 otherwise, 10 API tests, 53 probe checks (846)
+- [x] M6-03 Undo on the study and practice screens (M), done 2026-10-18: button in the dock, `U`, Ctrl or Cmd+Z, the finished screen, `undo.spec.ts` (10 tests, Chromium and WebKit, accessibility in both themes, 320 px)
+- [x] M6-04 slice A docs, QA, deploy (S), done 2026-10-18: `docs/claude-workflow.md`, CHANGELOG, design.md, phone checklist; deployed to CT123 as `tessera:library-d25d32e-undo` from the working tree after `manual-before-m6a-undo-update.db` (not committed)
+- [x] M6-05 card order in the editor (M), done 2026-10-18: Move up and Move down, keyboard, live message, `changeSummary.reordered`, `moveCard`; the import already rewrote positions (silent housekeeping), so no engine change; 5 unit, 2 integration, 5 e2e
+- [x] M6-06 practice by tag (M), done 2026-10-18: `QueueScope.tag` via `json_each`, schema with exactly one of deck, folder, tag, `?tag=`, links on Statistics and Leeches; 13 integration tests, 6 e2e, 32 probe checks
+- [x] M6-07 slice B e2e, docs (S), done 2026-10-18; deployed together with slice C
+- [x] M6-08 Quiz me (L), done 2026-10-18: `core/quiz.ts` (pure, seeded), `listQuizSources`, `getPracticeItem` with a seed, `quiz` and `quizSeed` on the routes, setup checkbox, seed kept in sessionStorage; 19 unit, 18 integration tests, ten planted bugs (nine caught, one equivalent)
+- [x] M6-09 slice C e2e, accessibility, probe, QA and security review, docs (M), done 2026-10-18: `practice-quiz.spec.ts` (9), 107 new probe checks (900), review written; deploy of slices B and C together (one backup) recorded in the runbook

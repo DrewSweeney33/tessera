@@ -46,6 +46,8 @@
 			'm15 5 4 4'
 		),
 		back: path('m12 19-7-7 7-7', 'M19 12H5'),
+		arrowUp: path('m5 12 7-7 7 7', 'M12 19V5'),
+		arrowDown: path('M12 5v14', 'm19 12-7 7-7-7'),
 		check: path('M20 6 9 17l-5-5'),
 		x: path('M18 6 6 18', 'm6 6 12 12'),
 		sun: [

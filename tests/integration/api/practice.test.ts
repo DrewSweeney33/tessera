@@ -125,6 +125,190 @@ describe('GET /api/practice/pool', () => {
 	});
 });
 
+describe('a tag as the scope (ADR-020)', () => {
+	const tagCards = (tag: string, ...keys: [string, string][]) => {
+		for (const [deckId, key] of keys) {
+			app.database.sqlite
+				.prepare('update cards set tags = ? where pk = ?')
+				.run(JSON.stringify([tag]), pk(deckId, key));
+		}
+	};
+
+	it('counts the items that carry the tag, across decks, and names the scope', async () => {
+		tagCards('net', ['alpha', 'a1'], ['alpha', 'a2'], ['beta', 'b1']);
+		const response = handlePracticePool(app, url('/api/practice/pool?tag=net'), 'req');
+		expect(response.status).toBe(200);
+		expect((await response.json()) as PracticePoolResponse).toEqual({
+			label: 'Tag: net',
+			total: 3,
+			unstudied: 3
+		});
+	});
+
+	it('answers an empty pool, not an error, for a tag no card has', async () => {
+		const response = handlePracticePool(app, url('/api/practice/pool?tag=nothing'), 'req');
+		expect(response.status).toBe(200);
+		expect(((await response.json()) as PracticePoolResponse).total).toBe(0);
+	});
+
+	it('starts a session over a tag', async () => {
+		tagCards('net', ['alpha', 'a1'], ['beta', 'b1']);
+		const response = await handlePracticeStart(
+			app,
+			post({ tag: 'net', count: 'all', order: 'weakest' }),
+			'req'
+		);
+		expect(response.status).toBe(200);
+		const started = (await response.json()) as PracticeStartResponse;
+		expect(started.poolSize).toBe(2);
+		expect(started.items).toHaveLength(2);
+	});
+
+	it('accepts a tag with spaces and punctuation, and encodes it in the address', async () => {
+		tagCards('chapter 3: routing (v2)', ['alpha', 'a1']);
+		const response = handlePracticePool(
+			app,
+			url(`/api/practice/pool?tag=${encodeURIComponent('chapter 3: routing (v2)')}`),
+			'req'
+		);
+		expect(((await response.json()) as PracticePoolResponse).total).toBe(1);
+	});
+
+	it('needs exactly one of deck, folder, and tag', async () => {
+		expect(
+			handlePracticePool(app, url('/api/practice/pool?tag=net&deckId=alpha'), 'req').status
+		).toBe(400);
+		expect(
+			handlePracticePool(app, url('/api/practice/pool?tag=net&folderId=1'), 'req').status
+		).toBe(400);
+		for (const bad of [
+			{ tag: 'net', deckId: 'alpha', count: 'all', order: 'shuffle' },
+			{ tag: 'net', folderId: 1, count: 'all', order: 'shuffle' },
+			{ count: 'all', order: 'shuffle' }
+		]) {
+			const response = await handlePracticeStart(app, post(bad), 'req');
+			expect(response.status, JSON.stringify(bad)).toBe(422);
+		}
+	});
+
+	it('refuses a tag a card could not carry', async () => {
+		for (const tag of ['', ' lead', 'trail ', 'a,b', 'line\nbreak', 'x'.repeat(41)]) {
+			expect(
+				handlePracticePool(app, url(`/api/practice/pool?tag=${encodeURIComponent(tag)}`), 'req')
+					.status,
+				JSON.stringify(tag)
+			).toBe(400);
+			const response = await handlePracticeStart(
+				app,
+				post({ tag, count: 'all', order: 'shuffle' }),
+				'req'
+			);
+			expect(response.status, JSON.stringify(tag)).toBe(422);
+		}
+		expect(
+			(await handlePracticeStart(app, post({ tag: 5, count: 'all', order: 'shuffle' }), 'req'))
+				.status
+		).toBe(422);
+	});
+});
+
+describe('Quiz me over HTTP (ADR-020)', () => {
+	beforeEach(() => {
+		importForSetup(
+			app.db,
+			makeDeck(
+				[
+					basic('q1', 'Which is Cisco only?', 'EIGRP'),
+					basic('q2', 'Which uses Dijkstra?', 'OSPF'),
+					basic('q3', 'Which is a distance vector?', 'RIP'),
+					basic('q4', 'Which is path vector?', 'BGP'),
+					basic('q5', 'Which is link state and from ISO?', 'IS-IS')
+				],
+				{ id: 'quizdeck', title: 'Quiz deck' }
+			),
+			app.clock
+		);
+	});
+
+	const quizPk = (key: string) => getCardByKey(app.db, 'quizdeck', key)!.pk;
+
+	it('gives a seed only when a quiz is asked for', async () => {
+		const quiz = await handlePracticeStart(
+			app,
+			post({ deckId: 'quizdeck', count: 'all', order: 'shuffle', quiz: true }),
+			'req'
+		);
+		expect(quiz.status).toBe(200);
+		expect(((await quiz.json()) as PracticeStartResponse).quizSeed).toMatch(/^[a-z0-9]{16}$/);
+		for (const body of [
+			{ deckId: 'quizdeck', count: 'all', order: 'shuffle' },
+			{ deckId: 'quizdeck', count: 'all', order: 'shuffle', quiz: false }
+		]) {
+			const response = await handlePracticeStart(app, post(body), 'req');
+			expect(((await response.json()) as PracticeStartResponse).quizSeed).toBeUndefined();
+		}
+	});
+
+	it('refuses a quiz flag that is not a boolean', async () => {
+		for (const quiz of ['yes', 1, null, [], {}]) {
+			const response = await handlePracticeStart(
+				app,
+				post({ deckId: 'quizdeck', count: 'all', order: 'shuffle', quiz }),
+				'req'
+			);
+			expect(response.status, JSON.stringify(quiz)).toBe(422);
+		}
+	});
+
+	it('answers a basic card as a choice card when the seed is sent, the same every time', async () => {
+		const path = `/api/practice/item?cardPk=${quizPk('q1')}&ordinal=0&quizSeed=abcd1234efgh5678`;
+		const first = (await (
+			await handlePracticeItem(app, url(path), 'req')
+		).json()) as PracticeItemResponse;
+		expect(first.item.type).toBe('choice');
+		expect(first.item.quiz).toBe(true);
+		const content = first.item.content as { front: string; choices: string[]; correct: number };
+		expect(content.front).toBe('Which is Cisco only?');
+		expect(content.choices[content.correct]).toBe('EIGRP');
+		expect(content.choices).toHaveLength(4);
+		const again = (await (
+			await handlePracticeItem(app, url(path), 'req')
+		).json()) as PracticeItemResponse;
+		expect(again).toEqual(first);
+	});
+
+	it('answers the card as it is without a seed', async () => {
+		const response = await handlePracticeItem(
+			app,
+			url(`/api/practice/item?cardPk=${quizPk('q1')}&ordinal=0`),
+			'req'
+		);
+		const body = (await response.json()) as PracticeItemResponse;
+		expect(body.item.type).toBe('basic');
+		expect(body.item.quiz).toBeUndefined();
+	});
+
+	it('refuses a seed that is not letters and digits of a sensible length', async () => {
+		for (const seed of [
+			'',
+			'short',
+			'x'.repeat(33),
+			'has space 12345',
+			'bad-char-12345',
+			'<script>x1'
+		]) {
+			const response = await handlePracticeItem(
+				app,
+				url(
+					`/api/practice/item?cardPk=${quizPk('q1')}&ordinal=0&quizSeed=${encodeURIComponent(seed)}`
+				),
+				'req'
+			);
+			expect(response.status, JSON.stringify(seed)).toBe(400);
+		}
+	});
+});
+
 describe('POST /api/practice/start', () => {
 	it('returns the ordered references and the pool size', async () => {
 		const response = await handlePracticeStart(

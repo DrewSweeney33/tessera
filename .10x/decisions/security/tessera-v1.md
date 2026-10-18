@@ -35,3 +35,7 @@ Everything ADR-005 promises that exists today was tested against the built serve
 ## Handoff
 
 SDE: S-01 first, S-02 after the owner decides, `docs/security.md`. DevOps: GitHub remote, first CI run on Linux, image scan.
+
+## M6 security notes (2026-10-18)
+
+New routes: `POST /api/study/undo`, `POST /api/practice/undo`; changed: `POST /api/practice/start` (`tag`, `quiz`), `GET /api/practice/item`. All behind the host check, JSON content-type rule, cross-site guard, and API token (ADR-009), strict Zod bodies, review id regex, probe checks for wrong methods, bad bodies, `__proto__`, unknown fields, and the token rule. No new accepted risk beyond S-11 (anyone who can reach the page can already grade, so they can undo); Milestone 7 closes that class. The quiz builder reads only the owner's own cards and sends nothing anywhere. The one accepted edge is in ADR-019 (a delayed duplicate answer after an undo).

@@ -14,12 +14,20 @@
 		type PracticeOrder,
 		type PracticeState
 	} from '#lib/core/practice.ts';
+	import { TAG_PATTERN } from '#lib/core/schema/limits.ts';
 	import { ApiError, api, failureMessage, type PracticeScope } from '#lib/ui/api.ts';
 	import { cardSides } from '#lib/ui/card-sides.ts';
 	import Icon from '#lib/ui/Icon.svelte';
 	import { newId } from '#lib/ui/id.ts';
 	import Markdown from '#lib/ui/Markdown.svelte';
-	import { clearSession, loadSession, saveSession, scopeKey } from '#lib/ui/practice-session.ts';
+	import {
+		clearSession,
+		loadQuizSeed,
+		loadSession,
+		saveQuizSeed,
+		saveSession,
+		scopeKey
+	} from '#lib/ui/practice-session.ts';
 	import {
 		checkChoice,
 		checkTyped,
@@ -37,16 +45,16 @@
 
 	const COUNT_CHOICES = [20, 50, 100];
 
-	// The scope comes from the address: /practice?deck=<id> or /practice?folder=<id>.
+	// The scope comes from the address: /practice?deck=<id>, /practice?folder=<id>, or /practice?tag=<tag>. Exactly one.
 	const scope = $derived.by((): PracticeScope | undefined => {
 		const deck = page.url.searchParams.get('deck');
 		const folder = page.url.searchParams.get('folder');
-		if (deck !== null && folder === null && /^[a-z0-9][a-z0-9-]{0,63}$/.test(deck)) {
-			return { deckId: deck };
-		}
-		if (folder !== null && deck === null && /^[1-9][0-9]{0,8}$/.test(folder)) {
-			return { folderId: Number(folder) };
-		}
+		const tag = page.url.searchParams.get('tag');
+		const named = [deck, folder, tag].filter((value) => value !== null).length;
+		if (named !== 1) return undefined;
+		if (deck !== null && /^[a-z0-9][a-z0-9-]{0,63}$/.test(deck)) return { deckId: deck };
+		if (folder !== null && /^[1-9][0-9]{0,8}$/.test(folder)) return { folderId: Number(folder) };
+		if (tag !== null && tag.length <= 40 && TAG_PATTERN.test(tag)) return { tag };
 		return undefined;
 	});
 	const key = $derived(scope ? scopeKey(scope) : '');
@@ -57,12 +65,18 @@
 	let unstudied = $state(0);
 	let countChoice = $state<number | 'all'>('all');
 	let orderChoice = $state<PracticeOrder>('shuffle');
+	// Quiz me (ADR-020): show basic and typed cards as multiple choice. The seed fixes the session's questions.
+	let quizOn = $state(false);
+	let quizSeed = $state<string | undefined>();
 	let resumable = $state<PracticeState | undefined>();
 	let session = $state<PracticeState | undefined>();
 	let item = $state<PracticeItemDto | undefined>();
 	let errorMessage = $state<string | undefined>();
 	let notice = $state<string | undefined>();
 	let showHint = $state(false);
+	// The answer that can still be taken back (ADR-019): the last one saved, with the session as it was before it.
+	let lastAnswer = $state<{ reviewId: string; before: PracticeState } | undefined>();
+	let undoing = $state(false);
 
 	// A new id for every card shown. Retrying a failed save reuses it, so an answer is never recorded twice.
 	let reviewId = '';
@@ -94,7 +108,8 @@
 		phase = 'loading';
 		errorMessage = undefined;
 		if (!scope) {
-			errorMessage = 'Choose a deck or a folder to practice from the decks screen.';
+			errorMessage =
+				'Choose a deck, a folder, or a tag to practice. Decks and folders are on the decks screen, and tags are on Statistics and Leeches.';
 			phase = 'error';
 			return;
 		}
@@ -120,10 +135,16 @@
 		errorMessage = undefined;
 		try {
 			const started = await api.practiceStart({
-				...(scope.folderId !== undefined ? { folderId: scope.folderId } : { deckId: scope.deckId }),
+				...(scope.tag !== undefined
+					? { tag: scope.tag }
+					: scope.folderId !== undefined
+						? { folderId: scope.folderId }
+						: { deckId: scope.deckId }),
 				count: countChoice,
-				order: orderChoice
+				order: orderChoice,
+				...(quizOn ? { quiz: true } : {})
 			});
+			quizSeed = started.quizSeed;
 			poolTotal = started.poolSize;
 			if (started.items.length === 0) {
 				phase = 'setup';
@@ -142,10 +163,12 @@
 		session = state;
 		notice = undefined;
 		saveSession(key, state);
+		saveQuizSeed(key, quizSeed);
 		await showCurrent();
 	}
 
 	function resume() {
+		quizSeed = loadQuizSeed(key);
 		if (resumable) void begin(resumable);
 	}
 
@@ -165,7 +188,7 @@
 		}
 		phase = 'loading';
 		try {
-			const response = await api.practiceItem(current.cardPk, current.ordinal);
+			const response = await api.practiceItem(current.cardPk, current.ordinal, quizSeed);
 			item = response.item;
 			reviewId = newId();
 			shownAt = performance.now();
@@ -191,6 +214,7 @@
 		if (!session) return;
 		session = skipPractice(session);
 		saveSession(key, session);
+		lastAnswer = undefined;
 		pending = undefined;
 		notice = 'A card was removed since this session began, so it was skipped.';
 		await showCurrent();
@@ -228,6 +252,7 @@
 			await api.practiceGrade(request);
 			pending = undefined;
 			notice = undefined;
+			lastAnswer = { reviewId: request.reviewId, before: session };
 			session = answerPractice(session, right);
 			saveSession(key, session);
 			await showCurrent();
@@ -253,6 +278,32 @@
 		});
 	}
 
+	// Takes the last practice answer back and shows that card again (ADR-019). Practice never changed a schedule, so
+	// the server only removes the answer; the session goes back to how it was before it.
+	async function undo() {
+		if (!lastAnswer || undoing || (phase !== 'front' && phase !== 'done')) return;
+		undoing = true;
+		const taken = lastAnswer;
+		try {
+			await api.practiceUndo({ reviewId: taken.reviewId });
+			lastAnswer = undefined;
+			notice = 'Took back your last answer. Here is the card again.';
+			session = taken.before;
+			saveSession(key, session);
+			await showCurrent();
+		} catch (error) {
+			lastAnswer = undefined;
+			if (error instanceof ApiError && (error.status === 409 || error.status === 404)) {
+				notice = 'That answer can no longer be taken back.';
+			} else {
+				errorMessage = failureMessage(error, 'The answer could not be taken back.');
+				phase = 'error';
+			}
+		} finally {
+			undoing = false;
+		}
+	}
+
 	function retry() {
 		if (pending) void submit(pending.right, pending.request);
 		else if (session) void showCurrent();
@@ -264,11 +315,33 @@
 	}
 
 	function onKey(event: KeyboardEvent) {
+		// Ctrl or Cmd with Z takes the last answer back, but not inside a text box, where it undoes typing.
+		if (
+			(event.metaKey || event.ctrlKey) &&
+			!event.shiftKey &&
+			!event.altKey &&
+			event.key.toLowerCase() === 'z'
+		) {
+			const inField = (event.target as HTMLElement | null)?.closest(
+				'input, textarea, select, [contenteditable="true"]'
+			);
+			if (!inField && lastAnswer) {
+				event.preventDefault();
+				void undo();
+			}
+			return;
+		}
 		if (event.defaultPrevented || event.repeat || event.metaKey || event.ctrlKey || event.altKey)
 			return;
 		const target = event.target as HTMLElement | null;
 		if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
 		const onControl = Boolean(target?.closest('button, a'));
+
+		if (event.key.toLowerCase() === 'u' && lastAnswer && (phase === 'front' || phase === 'done')) {
+			event.preventDefault();
+			void undo();
+			return;
+		}
 
 		if (phase === 'front') {
 			const choiceKey = choices && /^[1-9]$/.test(event.key) ? Number(event.key) - 1 : -1;
@@ -422,6 +495,21 @@
 						{/if}
 					</fieldset>
 
+					<fieldset class="options">
+						<legend>How should cards be shown?</legend>
+						<label class="option">
+							<input type="checkbox" bind:checked={quizOn} />
+							<span>Quiz me: show cards as multiple choice</span>
+						</label>
+						{#if quizOn}
+							<p class="muted option__note">
+								Basic and typed cards become a question with four options; the three wrong ones are
+								other answers from your decks. A card that cannot be made into a question is shown
+								as usual. Your schedule still does not change.
+							</p>
+						{/if}
+					</fieldset>
+
 					<p class="setup__actions">
 						<button type="submit" class="btn btn--primary btn--lg" bind:this={startEl}>
 							<Icon name="repeat" /> Start practice
@@ -459,6 +547,11 @@
 				time. Your schedule did not change.
 			</p>
 			<p class="done__actions">
+				{#if lastAnswer}
+					<button type="button" class="btn" onclick={undo} disabled={undoing}>
+						<Icon name="undo" /> Take back the last answer <kbd>U</kbd>
+					</button>
+				{/if}
 				{#if session && session.missed.length > 0}
 					<button
 						type="button"
@@ -571,6 +664,17 @@
 		</section>
 
 		<div class="dock">
+			{#if phase === 'front' && lastAnswer}
+				<button
+					type="button"
+					class="btn btn--quiet undo"
+					onclick={undo}
+					disabled={undoing}
+					aria-label="Take back your last answer"
+				>
+					<Icon name="undo" /> Undo <kbd>U</kbd>
+				</button>
+			{/if}
 			{#if phase === 'front'}
 				{#if !typed && !choices}
 					<div class="reveal">
@@ -629,6 +733,10 @@
 </div>
 
 <style>
+	.undo {
+		align-self: center;
+	}
+
 	.practice {
 		display: flex;
 		flex-direction: column;

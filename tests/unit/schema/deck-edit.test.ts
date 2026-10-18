@@ -10,6 +10,7 @@ import {
 	cardProblems,
 	changeSummary,
 	deckProblems,
+	moveCard,
 	newCardId,
 	tidyCard,
 	tidyDeck
@@ -293,6 +294,7 @@ describe('tidyDeck and changeSummary: an untouched deck is untouched', () => {
 			added: 0,
 			removed: 0,
 			detailsChanged: false,
+			reordered: false,
 			any: false
 		});
 		expect(saved.cards).toHaveLength(original.cards.length);
@@ -318,6 +320,7 @@ describe('tidyDeck and changeSummary: an untouched deck is untouched', () => {
 			added: 1,
 			removed: 1,
 			detailsChanged: true,
+			reordered: false,
 			any: true
 		});
 	});
@@ -328,6 +331,39 @@ describe('tidyDeck and changeSummary: an untouched deck is untouched', () => {
 			valid({ id: 'a', type: 'basic', front: 'Q', back: 'A', hint: '', tags: [] })
 		]);
 		expect(changeSummary(original, draft).any).toBe(false);
+	});
+
+	it('counts a change of order, and only that, as a change', () => {
+		const original = asDeck([
+			valid({ id: 'a', type: 'basic', front: 'Q a', back: 'A a' }),
+			valid({ id: 'b', type: 'basic', front: 'Q b', back: 'A b' }),
+			valid({ id: 'c', type: 'basic', front: 'Q c', back: 'A c' })
+		]);
+		const [a, b, c] = original.cards as [DeckCardDto, DeckCardDto, DeckCardDto];
+		expect(changeSummary(original, { ...original, cards: [b, a, c] })).toEqual({
+			changed: 0,
+			added: 0,
+			removed: 0,
+			detailsChanged: false,
+			reordered: true,
+			any: true
+		});
+		// Moving a card and putting it back is no change.
+		expect(changeSummary(original, { ...original, cards: [a, b, c] }).any).toBe(false);
+	});
+
+	it('does not count an added or a removed card as a change of order', () => {
+		const original = asDeck([
+			valid({ id: 'a', type: 'basic', front: 'Q a', back: 'A a' }),
+			valid({ id: 'b', type: 'basic', front: 'Q b', back: 'A b' })
+		]);
+		const [a, b] = original.cards as [DeckCardDto, DeckCardDto];
+		const added = valid({ id: 'n', type: 'basic', front: 'Q n', back: 'A n' });
+		expect(changeSummary(original, { ...original, cards: [added, a, b] }).reordered).toBe(false);
+		expect(changeSummary(original, { ...original, cards: [a, b, added] }).reordered).toBe(false);
+		expect(changeSummary(original, { ...original, cards: [b] }).reordered).toBe(false);
+		// But moving an existing card is one, even next to an added card.
+		expect(changeSummary(original, { ...original, cards: [b, added, a] }).reordered).toBe(true);
 	});
 
 	it('does not count tags in another order as a change', () => {
@@ -391,5 +427,27 @@ describe('cardPreviewText', () => {
 		expect(shown.length).toBeLessThanOrEqual(100);
 		expect(shown).not.toContain('\n');
 		expect(shown.endsWith('…')).toBe(true);
+	});
+});
+
+describe('moveCard', () => {
+	it('moves a card one place up or down without changing the original list', () => {
+		const list = ['a', 'b', 'c'];
+		expect(moveCard(list, 1, -1)).toEqual(['b', 'a', 'c']);
+		expect(moveCard(list, 1, 1)).toEqual(['a', 'c', 'b']);
+		expect(list).toEqual(['a', 'b', 'c']);
+	});
+
+	it('refuses to move past either end, and refuses an index that is not in the list', () => {
+		const list = ['a', 'b', 'c'];
+		expect(moveCard(list, 0, -1)).toBeUndefined();
+		expect(moveCard(list, 2, 1)).toBeUndefined();
+		expect(moveCard(list, -1, 1)).toBeUndefined();
+		expect(moveCard(list, 3, -1)).toBeUndefined();
+		expect(moveCard([], 0, 1)).toBeUndefined();
+	});
+
+	it('moves by more than one place', () => {
+		expect(moveCard(['a', 'b', 'c', 'd'], 0, 3)).toEqual(['b', 'c', 'd', 'a']);
 	});
 });

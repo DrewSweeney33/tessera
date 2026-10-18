@@ -75,6 +75,9 @@ export interface PracticePoolResponse {
 export interface PracticeStartRequest {
 	deckId?: string;
 	folderId?: number;
+	tag?: string;
+	// Show basic and typed cards as multiple choice where a question can be made (ADR-020).
+	quiz?: boolean;
 	count: number | 'all';
 	order: 'shuffle' | 'weakest';
 }
@@ -84,10 +87,16 @@ export interface PracticeStartResponse {
 	items: { cardPk: number; ordinal: number }[];
 	// Items that could have been practiced before the count cut.
 	poolSize: number;
+	// Present when the session was started with `quiz: true`: the seed that fixes every question of the session, sent
+	// back with each item request so a reload shows the same options in the same order (ADR-020).
+	quizSeed?: string;
 }
 
-// An item to practice: a study item without the schedule parts (no category, previews, or served time).
-export type PracticeItemDto = Omit<StudyItemDto, 'category' | 'previews' | 'servedAt'>;
+// An item to practice: a study item without the schedule parts (no category, previews, or served time). `quiz` is true
+// when a basic or typed card was turned into a multiple choice question (its type is then `choice`).
+export type PracticeItemDto = Omit<StudyItemDto, 'category' | 'previews' | 'servedAt'> & {
+	quiz?: true;
+};
 
 export interface PracticeItemResponse {
 	item: PracticeItemDto;
@@ -116,6 +125,35 @@ export interface ReviewResultDto {
 	grade: Grade;
 	next: SerializedState;
 	becameLeech: boolean;
+}
+
+// Undo of the last study answer (ADR-019). `next` is the card to show again, in the state it had before the answer.
+export interface UndoRequest {
+	reviewId: string;
+	// The deck or folder being studied, so the counts in `next` are the session's. Not both.
+	deckId?: string;
+	folderId?: number;
+}
+
+export interface UndoResponse {
+	undone: {
+		reviewId: string;
+		cardPk: number;
+		ordinal: number;
+		grade: Grade;
+		restored: SerializedState;
+		leechCleared: boolean;
+		siblingsUnburied: number;
+	};
+	next: NextResponse;
+}
+
+export interface PracticeUndoRequest {
+	reviewId: string;
+}
+
+export interface PracticeUndoResponse {
+	undone: { reviewId: string; cardPk: number; ordinal: number; right: boolean };
 }
 
 export interface ReviewResponse {

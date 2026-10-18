@@ -59,11 +59,14 @@ const practiceRepos = {
 		'getReviewLog',
 		'getState',
 		'insertReviewLog',
+		'deletePracticeLog',
+		'newestReviewLogId',
 		'listPracticePool',
+		'listQuizSources',
 		'QueueScope'
 	],
 	message:
-		'Practice code may use only read functions and insertReviewLog from the repositories (ADR-017).'
+		'Practice code may use only read functions, insertReviewLog, and deletePracticeLog (undo) from the repositories (ADR-017, ADR-019).'
 };
 
 const restrict = ({ paths = [], patterns = [] }) => [

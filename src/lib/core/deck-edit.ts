@@ -294,7 +294,20 @@ export interface ChangeSummary {
 	added: number;
 	removed: number;
 	detailsChanged: boolean;
+	// True when the cards that are in both the loaded deck and the draft are in a different order.
+	reordered: boolean;
 	any: boolean;
+}
+
+// The cards with the one at `index` moved by `delta` places, or undefined when that would leave the list (the first
+// card cannot move up, the last cannot move down). The original list is not changed.
+export function moveCard<T>(cards: readonly T[], index: number, delta: number): T[] | undefined {
+	const target = index + delta;
+	if (index < 0 || index >= cards.length || target < 0 || target >= cards.length) return undefined;
+	const next = [...cards];
+	const [card] = next.splice(index, 1);
+	next.splice(target, 0, card as T);
+	return next;
 }
 
 function canonical(value: unknown): string {
@@ -343,6 +356,14 @@ export function changeSummary(original: DeckDocumentDto, draft: DeckDocumentDto)
 	}
 	for (const key of was.keys()) if (!now.has(key)) removed++;
 
+	// Order is compared among the cards both lists have, so adding or removing a card is not also an order change.
+	const idsOf = (cards: DeckCardDto[], among: Map<string, string>) =>
+		cards
+			.map((card, index) => (typeof card.id === 'string' ? card.id : `#${index}`))
+			.filter((id) => among.has(id))
+			.join('\u0000');
+	const reordered = idsOf(before.cards, now) !== idsOf(after.cards, was);
+
 	const deckBefore = withoutId(before.deck);
 	const deckAfter = withoutId(after.deck);
 	const detailsChanged =
@@ -352,7 +373,8 @@ export function changeSummary(original: DeckDocumentDto, draft: DeckDocumentDto)
 		added,
 		removed,
 		detailsChanged,
-		any: changed + added + removed > 0 || detailsChanged
+		reordered,
+		any: changed + added + removed > 0 || detailsChanged || reordered
 	};
 }
 
