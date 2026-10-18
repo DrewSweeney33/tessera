@@ -57,7 +57,11 @@ export default defineConfig({
 	projects: [{ name: browser, use: browsers[browser as keyof typeof browsers] }],
 	use: {
 		baseURL,
-		trace: 'retain-on-failure'
+		trace: 'retain-on-failure',
+		// The page registers Tessera's service worker (ADR-018). With one active, WebKit sends the page's requests past
+		// Playwright's page.route(), so a test that stubs an API answer would reach the real server (a stubbed restore
+		// really stopped it). Only the installable app spec turns service workers on.
+		serviceWorkers: 'block'
 	},
 	webServer: [
 		e2eServer(port, { HOST: '127.0.0.1', DATA_DIR: '.e2e-data' }),

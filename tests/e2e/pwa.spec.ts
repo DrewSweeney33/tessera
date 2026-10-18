@@ -12,6 +12,9 @@ import { scrollsHorizontally } from './helpers.ts';
 // server cannot be reached. It must never answer or store an API call or a study page. The offline tests start their own
 // server, so they can stop it.
 
+// Every other spec blocks service workers (playwright.config.ts); this one is about the worker.
+test.use({ serviceWorkers: 'allow' });
+
 const OFFLINE_HEADING = 'Tessera needs your server';
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice'];
 
